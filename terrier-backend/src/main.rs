@@ -46,6 +46,7 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
 
     let oidc_login_service = ServiceBuilder::new()
         .layer(HandleErrorLayer::new(|e: MiddlewareError| async {
+            tracing::error!("OIDC Login error: {:?}", e);
             e.into_response()
         }))
         .layer(OidcLoginLayer::<EmptyAdditionalClaims>::new());
@@ -66,6 +67,7 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
 
     let oidc_auth_service = ServiceBuilder::new()
         .layer(HandleErrorLayer::new(|e: MiddlewareError| async {
+            tracing::error!("OIDC Auth error: {:?}", e);
             e.into_response()
         }))
         .layer(OidcAuthLayer::new(oidc_client));
