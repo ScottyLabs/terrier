@@ -48,7 +48,9 @@ pub async fn sync_user_middleware(
             ..Default::default()
         };
 
-        new_user.insert(&state.db).await.ok();
+        if let Err(e) = new_user.insert(&state.db).await {
+            tracing::error!("Failed to create user: {:?}", e);
+        }
     }
 
     next.run(request).await
