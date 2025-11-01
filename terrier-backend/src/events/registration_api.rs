@@ -1,6 +1,8 @@
 use actix_web::{web, HttpResponse, Responder};
 use sea_orm::DatabaseConnection;
 use crate::entities::{user_registered_events, mini_events};
+use crate::entities::hackathon_roles::HackathonRole;
+use crate::entities::user_hackathon_roles;
 
 pub async fn register_for_event(
     db: web::Data<DatabaseConnection>,
@@ -8,6 +10,21 @@ pub async fn register_for_event(
     user: web::ReqData<User>,
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
+
+    // Derive user_role dynamically
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .filter(user_hackathon_roles::Column::HackathonId.eq(event_id.into_inner()))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_participant() {
+            return HttpResponse::Forbidden().json("Only participants can register for events");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
+    }
 
     // Validate user ID
     let user_exists = crate::entities::users::Entity::find_by_id(user.id)
@@ -51,6 +68,21 @@ pub async fn unregister_from_event(
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
 
+    // Derive user_role dynamically
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .filter(user_hackathon_roles::Column::HackathonId.eq(event_id.into_inner()))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_participant() {
+            return HttpResponse::Forbidden().json("Only participants can unregister from events");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
+    }
+
     // Validate user ID
     let user_exists = crate::entities::users::Entity::find_by_id(user.id)
         .one(db.get_ref())
@@ -81,6 +113,7 @@ pub async fn unregister_from_event(
 pub async fn list_registered_events(
     db: web::Data<DatabaseConnection>,
     user: web::ReqData<User>,
+    user_role: HackathonRole,
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
 
@@ -101,6 +134,7 @@ pub async fn toggle_favorite_status(
     db: web::Data<DatabaseConnection>,
     event_id: web::Path<i32>,
     user: web::ReqData<User>,
+    user_role: HackathonRole,
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
 
@@ -140,6 +174,7 @@ pub async fn toggle_favorite_status(
 pub async fn get_registered_events(
     db: web::Data<DatabaseConnection>,
     user: web::ReqData<User>,
+    user_role: HackathonRole,
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
 
@@ -168,6 +203,7 @@ pub async fn get_registered_events(
 pub async fn get_favorited_events(
     db: web::Data<DatabaseConnection>,
     user: web::ReqData<User>,
+    user_role: HackathonRole,
 ) -> impl Responder {
     use sea_orm::{entity::*, query::*};
 

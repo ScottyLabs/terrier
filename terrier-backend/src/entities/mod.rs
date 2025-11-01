@@ -6,3 +6,4 @@ pub mod hackathons;
 pub mod user_hackathon_roles;
 pub mod users;
 pub mod messages;
+pub mod mini_events;

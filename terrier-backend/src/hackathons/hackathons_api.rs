@@ -18,7 +18,6 @@ pub async fn update_hackathon_metadata(
     metadata: web::Json<UpdateHackathonMetadata>,
     user: web::ReqData<User>, // User would be stored in some cookie in frontend
 ) -> impl Responder {
-    use hackathons::Entity as Hackathon;
     use sea_orm::{entity::*, query::*};
 
     let hackathon_id = hackathon_id.into_inner();
@@ -31,6 +30,21 @@ pub async fn update_hackathon_metadata(
 
     if hackathon_exists.is_err() || hackathon_exists.unwrap().is_none() {
         return HttpResponse::NotFound().json("Hackathon not found");
+    }
+
+    // Derive user_role dynamically
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .filter(user_hackathon_roles::Column::HackathonId.eq(hackathon_id))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_organizer() {
+            return HttpResponse::Forbidden().json("You do not have permission to modify this hackathon");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
     }
 
     // Input validation
@@ -49,58 +63,44 @@ pub async fn update_hackathon_metadata(
     //     }
     // }
 
-    // Check if the user is an organizer or lead organizer for the hackathon
-    let is_authorized = user_hackathon_roles::Entity::find()
-        .filter(user_hackathon_roles::Column::HackathonId.eq(hackathon_id))
-        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
-        .filter(user_hackathon_roles::Column::Role.is_in(vec!["organizer", "lead_organizer"]))
+    // Logging
+    log::info!(
+        "User {} is updating hackathon {} with metadata: {:?}",
+        user.id, hackathon_id, metadata
+    );
+
+    // User is authorized, proceed with the update
+    let hackathon = Hackathon::find_by_id(hackathon_id)
         .one(db.get_ref())
         .await;
 
-    match is_authorized {
-        Ok(Some(_)) => {
-            // Logging
-            log::info!(
-                "User {} is updating hackathon {} with metadata: {:?}",
-                user.id, hackathon_id, metadata
-            );
+    match hackathon {
+        Ok(Some(mut hackathon)) => {
+            // Update fields if provided
+            if let Some(name) = metadata.name {
+                hackathon.name = name;
+            }
+            if let Some(description) = metadata.description {
+                hackathon.description = description;
+            }
+            if let Some(start_date) = metadata.start_date {
+                hackathon.start_date = start_date;
+            }
+            if let Some(end_date) = metadata.end_date {
+                hackathon.end_date = end_date;
+            }
+            if let Some(is_active) = metadata.is_active {
+                hackathon.is_active = is_active;
+            }
 
-            // User is authorized, proceed with the update
-            let hackathon = Hackathon::find_by_id(hackathon_id)
-                .one(db.get_ref())
-                .await;
-
-            match hackathon {
-                Ok(Some(mut hackathon)) => {
-                    // Update fields if provided
-                    if let Some(name) = metadata.name {
-                        hackathon.name = name;
-                    }
-                    if let Some(description) = metadata.description {
-                        hackathon.description = description;
-                    }
-                    if let Some(start_date) = metadata.start_date {
-                        hackathon.start_date = start_date;
-                    }
-                    if let Some(end_date) = metadata.end_date {
-                        hackathon.end_date = end_date;
-                    }
-                    if let Some(is_active) = metadata.is_active {
-                        hackathon.is_active = is_active;
-                    }
-
-                    // Save changes
-                    match hackathon.update(db.get_ref()).await {
-                        Ok(_) => HttpResponse::Ok().json("Hackathon updated successfully"),
-                        Err(err) => HttpResponse::InternalServerError().json(format!("Failed to update hackathon: {}", err)),
-                    }
-                }
-                Ok(None) => HttpResponse::NotFound().json("Hackathon not found"),
-                Err(err) => HttpResponse::InternalServerError().json(format!("Database error: {}", err)),
+            // Save changes
+            match hackathon.update(db.get_ref()).await {
+                Ok(_) => HttpResponse::Ok().json("Hackathon updated successfully"),
+                Err(err) => HttpResponse::InternalServerError().json(format!("Failed to update hackathon: {}", err)),
             }
         }
-        Ok(None) => HttpResponse::Forbidden().json("You do not have permission to modify this hackathon"),
-        Err(err) => HttpResponse::InternalServerError().json(format!("Authorization check failed: {}", err)),
+        Ok(None) => HttpResponse::NotFound().json("Hackathon not found"),
+        Err(err) => HttpResponse::InternalServerError().json(format!("Database error: {}", err)),
     }
 }
 

@@ -20,15 +20,25 @@ pub struct Model {
     pub tags: Vec<String>, // New field for storing tags as a list of strings
     pub created_at: DateTime,
     pub updated_at: DateTime,
+    #[sea_orm(column_name = "hackathon_id")]
+    pub hackathon_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::user_event_roles::Entity")]
+    #[sea_orm(belongs_to = "super::hackathons::Entity", from = "Column::HackathonId", to = "super::hackathons::Column::Id")]
+    Hackathons,
+    #[sea_orm(has_many = "super::user_hackathon_roles::Entity")]
     UserEventRoles,
 }
 
-impl Related<super::user_event_roles::Entity> for Entity {
+impl Related<super::hackathons::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Hackathons.def()
+    }
+}
+
+impl Related<super::user_hackathon_roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserEventRoles.def()
     }

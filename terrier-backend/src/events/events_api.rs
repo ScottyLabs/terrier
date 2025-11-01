@@ -19,7 +19,6 @@ pub async fn update_event_metadata(
     metadata: web::Json<UpdateEventMetadata>,
     user: web::ReqData<User>,
 ) -> impl Responder {
-    use mini_events::Entity as Event;
     use sea_orm::{entity::*, query::*};
 
     let event_id = event_id.into_inner();
@@ -34,13 +33,6 @@ pub async fn update_event_metadata(
         }
     }
 
-    // // not really necessary but may be idk
-    // if let Some(name) = &metadata.name {
-    //     if name.len() > 100 {
-    //         return HttpResponse::BadRequest().json("Name must be 100 characters or fewer");
-    //     }
-    // }
-
     // Validate event ID
     let event_exists = mini_events::Entity::find_by_id(event_id)
         .one(db.get_ref())
@@ -48,6 +40,21 @@ pub async fn update_event_metadata(
 
     if event_exists.is_err() || event_exists.unwrap().is_none() {
         return HttpResponse::NotFound().json("Event not found");
+    }
+
+    // Derive user_role dynamically
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .filter(user_hackathon_roles::Column::HackathonId.eq(event_id))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_organizer() {
+            return HttpResponse::Forbidden().json("You do not have permission to modify this event");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
     }
 
     // Check if the user is an organizer or lead organizer for the event's hackathon
@@ -63,7 +70,7 @@ pub async fn update_event_metadata(
     match is_authorized {
         Ok(Some(_)) => {
             // User is authorized, proceed with the update
-            let event = Event::find_by_id(event_id)
+            let event = mini_events::Entity::find_by_id(event_id)
                 .one(db.get_ref())
                 .await;
 
