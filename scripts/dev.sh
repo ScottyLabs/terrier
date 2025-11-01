@@ -20,6 +20,18 @@ if [ ! -f ".env" ]; then
     exit 0
 fi
 
+if [ ! -d "terrier-client/node_modules" ]; then
+    echo "terrier-client/node_modules not found, checking for bun..."
+
+    if ! command -v bun &> /dev/null; then
+        echo "Bun is not installed. Please install it from: https://bun.sh/"
+        exit 0
+    fi
+
+    echo "Installing dependencies with bun..."
+    cd terrier-client && bun i && cd ..
+fi
+
 # Start Docker services
 docker-compose up -d postgres minio pgadmin nginx-dev
 
