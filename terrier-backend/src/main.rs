@@ -26,6 +26,7 @@ mod config;
 mod docs;
 mod entities;
 mod hackathons;
+mod messages;
 
 use config::Config;
 use docs::ApiDoc;
@@ -93,6 +94,9 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
             "/api/hackathons/public",
             get(hackathons::handlers::list_public_hackathons),
         )
+        .route("/api/messages", axum::routing::post(messages::handlers::create_message))
+        .route("/api/messages", axum::routing::get(messages::handlers::list_messages))
+    .route("/api/messages/{id}", axum::routing::get(messages::handlers::get_message))
         .route("/api/auth/status", get(auth::handlers::status))
         .route(
             "/api/auth/callback",
