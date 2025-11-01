@@ -1,12 +1,13 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "user_favorite_events")]
+#[sea_orm(table_name = "user_registered_events")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub user_id: i32,
     #[sea_orm(primary_key)]
     pub event_id: i32,
+    pub is_favorite: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
