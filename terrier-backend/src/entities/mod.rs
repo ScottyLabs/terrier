@@ -5,3 +5,4 @@ pub mod prelude;
 pub mod hackathons;
 pub mod user_hackathon_roles;
 pub mod users;
+pub mod messages;
