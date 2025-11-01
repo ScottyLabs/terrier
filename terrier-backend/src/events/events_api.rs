@@ -13,6 +13,17 @@ pub struct UpdateEventMetadata {
     pub is_active: Option<bool>,
 }
 
+#[derive(Deserialize)]
+pub struct NewEvent {
+    pub name: String,
+    pub description: Option<String>,
+    pub start_date: chrono::NaiveDateTime,
+    pub end_date: chrono::NaiveDateTime,
+    pub location: Option<String>,
+    pub is_active: bool,
+    pub hackathon_id: i32,
+}
+
 pub async fn update_event_metadata(
     db: web::Data<DatabaseConnection>,
     event_id: web::Path<i32>,
@@ -111,9 +122,54 @@ pub async fn update_event_metadata(
     }
 }
 
+pub async fn create_event(
+    db: web::Data<DatabaseConnection>,
+    new_event: web::Json<NewEvent>,
+    user: web::ReqData<User>,
+) -> impl Responder {
+    use sea_orm::{entity::*, query::*};
+
+    // Check if the user is an organizer for the hackathon
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .filter(user_hackathon_roles::Column::HackathonId.eq(new_event.hackathon_id))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_organizer() {
+            return HttpResponse::Forbidden().json("Only organizers can create events");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
+    }
+
+    // Create the new event
+    let new_event = new_event.into_inner();
+    let event = mini_events::ActiveModel {
+        name: Set(new_event.name),
+        description: Set(new_event.description),
+        start_date: Set(new_event.start_date),
+        end_date: Set(new_event.end_date),
+        location: Set(new_event.location),
+        is_active: Set(new_event.is_active),
+        hackathon_id: Set(new_event.hackathon_id),
+        ..Default::default()
+    };
+
+    match event.insert(db.get_ref()).await {
+        Ok(_) => HttpResponse::Created().json("Event created successfully"),
+        Err(err) => HttpResponse::InternalServerError().json(format!("Failed to create event: {}", err)),
+    }
+}
+
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/events/{id}")
             .route(web::put().to(update_event_metadata)),
+    );
+    cfg.service(
+        web::resource("/events")
+            .route(web::post().to(create_event)),
     );
 }

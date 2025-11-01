@@ -12,6 +12,15 @@ pub struct UpdateHackathonMetadata {
     pub is_active: Option<bool>,
 }
 
+#[derive(Deserialize)]
+pub struct NewHackathon {
+    pub name: String,
+    pub description: Option<String>,
+    pub start_date: chrono::NaiveDateTime,
+    pub end_date: chrono::NaiveDateTime,
+    pub is_active: bool,
+}
+
 pub async fn update_hackathon_metadata(
     db: web::Data<DatabaseConnection>,
     hackathon_id: web::Path<i32>,
@@ -104,6 +113,44 @@ pub async fn update_hackathon_metadata(
     }
 }
 
+pub async fn create_hackathon(
+    db: web::Data<DatabaseConnection>,
+    new_hackathon: web::Json<NewHackathon>,
+    user: web::ReqData<User>,
+) -> impl Responder {
+    use sea_orm::{entity::*, query::*};
+
+    // Check if the user is an admin
+    let user_role = user_hackathon_roles::Entity::find()
+        .filter(user_hackathon_roles::Column::UserId.eq(user.id))
+        .one(db.get_ref())
+        .await;
+
+    if let Ok(Some(role)) = user_role {
+        if !role.is_admin() {
+            return HttpResponse::Forbidden().json("Only admins can create hackathons");
+        }
+    } else {
+        return HttpResponse::Forbidden().json("User role not found or unauthorized");
+    }
+
+    // Create the new hackathon
+    let new_hackathon = new_hackathon.into_inner();
+    let hackathon = hackathons::ActiveModel {
+        name: Set(new_hackathon.name),
+        description: Set(new_hackathon.description),
+        start_date: Set(new_hackathon.start_date),
+        end_date: Set(new_hackathon.end_date),
+        is_active: Set(new_hackathon.is_active),
+        ..Default::default()
+    };
+
+    match hackathon.insert(db.get_ref()).await {
+        Ok(_) => HttpResponse::Created().json("Hackathon created successfully"),
+        Err(err) => HttpResponse::InternalServerError().json(format!("Failed to create hackathon: {}", err)),
+    }
+}
+
 pub async fn get_hackathon_metadata(
     db: web::Data<DatabaseConnection>,
     hackathon_id: web::Path<i32>,
@@ -126,5 +173,9 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
         web::resource("/hackathons/{id}")
             .route(web::put().to(update_hackathon_metadata))
             .route(web::get().to(get_hackathon_metadata)),
+    );
+    cfg.service(
+        web::resource("/hackathons")
+            .route(web::post().to(create_hackathon)),
     );
 }
