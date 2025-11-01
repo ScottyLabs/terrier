@@ -93,8 +93,23 @@ pub async fn get_message(
     State(_state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<i32>,
 ) -> Result<Json<MessageResponse>, StatusCode> {
-    // TODO: Fetch from DB
-    Err(StatusCode::NOT_FOUND)
+
+    let message = Messages::find_by_id(id)
+        .one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    match message {
+        Some(msg) => Ok(Json(MessageResponse {
+            id: msg.id,
+            sender_user_id: msg.sender_user_id,
+            recipient_user_ids: msg.recipient_user_ids,
+            subject: msg.subject,
+            content: msg.content,
+            created_at: msg.created_at,
+            parent_message_id: msg.parent_message_id,
+        })),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
 
 #[derive(Deserialize, ToSchema)]
