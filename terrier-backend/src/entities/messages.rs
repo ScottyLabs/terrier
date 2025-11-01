@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub sender_user_id: i32,
-    pub hackathon_id: i32,
+    pub sender_user_id: i32
     #[sea_orm(column_type = "Text")]
     pub recipient_user_ids: Vec<i32>,
     pub subject: String,
@@ -28,6 +27,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(belongs_to = "super::users::Entity", from = "Column::SenderUserId", to = "super::users::Column::Id")]
     SenderUser,
+    #[sea_orm(has_many = "super::message_recipients::Entity")]
+    Recipients,
     #[sea_orm(belongs_to = "super::hackathons::Entity", from = "Column::HackathonId", to = "super::hackathons::Column::Id")]
     Hackathon,
     #[sea_orm(belongs_to = "Entity", from = "Column::ParentMessageId", to = "Column::Id")]
@@ -39,6 +40,12 @@ pub enum Relation {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::SenderUser.def()
+    }
+}
+
+impl Related<super::message_recipients::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Recipients.def()
     }
 }
 

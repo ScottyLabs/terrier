@@ -3,5 +3,3 @@
 pub use super::hackathons::Entity as Hackathons;
 pub use super::user_hackathon_roles::Entity as UserHackathonRoles;
 pub use super::users::Entity as Users;
-pub use super::messages::Entity as Messages;
-pub use super::mini_events::Entity as MiniEvents;
