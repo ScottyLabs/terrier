@@ -24,6 +24,15 @@ pub async fn update_hackathon_metadata(
     let hackathon_id = hackathon_id.into_inner();
     let metadata = metadata.into_inner();
 
+    // Validate hackathon ID
+    let hackathon_exists = hackathons::Entity::find_by_id(hackathon_id)
+        .one(db.get_ref())
+        .await;
+
+    if hackathon_exists.is_err() || hackathon_exists.unwrap().is_none() {
+        return HttpResponse::NotFound().json("Hackathon not found");
+    }
+
     // Input validation
     if let Some(start_date) = metadata.start_date {
         if let Some(end_date) = metadata.end_date {

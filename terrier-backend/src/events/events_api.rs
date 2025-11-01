@@ -41,6 +41,15 @@ pub async fn update_event_metadata(
     //     }
     // }
 
+    // Validate event ID
+    let event_exists = mini_events::Entity::find_by_id(event_id)
+        .one(db.get_ref())
+        .await;
+
+    if event_exists.is_err() || event_exists.unwrap().is_none() {
+        return HttpResponse::NotFound().json("Event not found");
+    }
+
     // Check if the user is an organizer or lead organizer for the event's hackathon
     let is_authorized = user_hackathon_roles::Entity::find()
         .filter(user_hackathon_roles::Column::UserId.eq(user.id))
