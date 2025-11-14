@@ -4,7 +4,7 @@
     import TimeRangeField from "@/components/time-range-field.svelte";
     import { client } from "@/lib/api";
     import { getAuthContext } from "@/lib/auth.svelte";
-    import { createForm } from "@tanstack/svelte-form";
+    import { createForm, Field } from "@tanstack/svelte-form";
     import { PlusIcon, XCloseIcon } from "@untitled-theme/icons-svelte";
     import { Dialog } from "bits-ui";
     import { onMount } from "svelte";
@@ -27,7 +27,13 @@
     const form = createForm(() => ({
         defaultValues: {
             name: "",
+            slug: "",
+            description: "",
+            start_date: Date.now().toString(),
+            end_date: Date.now().toString(),
         },
+        onSubmit: async ({ value }) =>
+            await client.POST("/hackathons", { body: value }),
     }));
 </script>
 
@@ -61,44 +67,77 @@
 
                         <div class="my-7 flex flex-col gap-5">
                             <div class="flex flex-col gap-2">
-                                <label
-                                    for="name"
-                                    class="text-label text-sm font-medium"
-                                    >Name</label
-                                >
-                                <input
-                                    id="name"
-                                    type="text"
-                                    placeholder="Name"
-                                    class="text-input h-10 bg-primary rounded-lg px-4 py-2"
-                                />
+                                <form.Field name="name">
+                                    {#snippet children(field)}
+                                        <label
+                                            for="name"
+                                            class="text-label text-sm font-medium"
+                                            >Name</label
+                                        >
+                                        <input
+                                            id="name"
+                                            name={field.name}
+                                            value={field.state.value}
+                                            onblur={field.handleBlur}
+                                            oninput={(e) =>
+                                                field.handleChange(
+                                                    e.currentTarget.value,
+                                                )}
+                                            type="text"
+                                            placeholder="Name"
+                                            class="text-input h-10 bg-primary rounded-lg px-4 py-2"
+                                        />
+                                    {/snippet}
+                                </form.Field>
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label
-                                    for="slug"
-                                    class="text-label text-sm font-medium"
-                                    >Slug</label
-                                >
-                                <input
-                                    id="slug"
-                                    type="text"
-                                    placeholder="hackathon-slug"
-                                    class="text-input h-10 bg-primary rounded-lg px-4 py-2"
-                                />
+                                <form.Field name="slug">
+                                    {#snippet children(field)}
+                                        <label
+                                            for="slug"
+                                            class="text-label text-sm font-medium"
+                                            >Slug</label
+                                        >
+                                        <input
+                                            id="slug"
+                                            name={field.name}
+                                            value={field.state.value}
+                                            onblur={field.handleBlur}
+                                            oninput={(e) =>
+                                                field.handleChange(
+                                                    e.currentTarget.value,
+                                                )}
+                                            type="text"
+                                            placeholder="hackathon-slug"
+                                            class="text-input h-10 bg-primary rounded-lg px-4 py-2"
+                                        />
+                                    {/snippet}
+                                </form.Field>
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label
-                                    for="description"
-                                    class="text-label text-sm font-medium"
-                                    >Description</label
-                                >
-                                <textarea
-                                    id="description"
-                                    placeholder="Description"
-                                    class="text-input h-20 bg-primary rounded-lg px-4 py-2 resize-none"
-                                ></textarea>
+                                <form.Field name="description">
+                                    {#snippet children(field)}
+                                        <label
+                                            for="description"
+                                            class="text-label text-sm font-medium"
+                                            >Description</label
+                                        >
+                                        <textarea
+                                            id="description"
+                                            name={field.name}
+                                            value={field.state.value}
+                                            onblur={field.handleBlur}
+                                            oninput={(e) =>
+                                                field.handleChange(
+                                                    e.currentTarget.value,
+                                                )}
+                                            placeholder="Description"
+                                            class="text-input h-20 bg-primary rounded-lg px-4 py-2 resize-none"
+                                        ></textarea>
+                                    {/snippet}
+                                </form.Field>
                             </div>
 
                             <DateRangePicker />
@@ -114,6 +153,11 @@
 
                             <Dialog.Close
                                 class="bg-selected text-primary cursor-pointer font-semibold px-5 py-3.5 rounded-4xl"
+                                onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    form.handleSubmit();
+                                }}
                             >
                                 Create
                             </Dialog.Close>
