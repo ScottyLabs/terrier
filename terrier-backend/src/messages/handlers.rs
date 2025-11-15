@@ -14,7 +14,7 @@ use crate::{
 pub struct MessageResponse {
     pub id: i32,
     pub sender_user_id: i32,
-    pub recipient_user_ids: Vec<i32>,
+    pub recipient: MessageGroup,
     pub subject: String,
     pub content: String,
     pub created_at: DateTime,
@@ -24,7 +24,7 @@ pub struct MessageResponse {
 #[derive(Deserialize, ToSchema)]
 pub struct CreateMessageRequest {
     pub sender_user_id: i32,
-    pub recipient_user_ids: Vec<i32>,
+    pub recipient: MessageGroup,
     pub subject: Option<String>,
     pub content: String,
     pub parent_message_id: Option<i32>,
@@ -50,7 +50,7 @@ pub async fn create_message(
     // Create message
     let message = messages::ActiveModel {
         sender_user_id: Set(req.sender_user_id),
-        recipient_user_ids: Set(req.recipient_user_ids),
+        recipient: Set(req.recipient),
         subject: Set(req.subject),
         content: Set(req.content),
         created_at: Set(chrono::Utc::now().naive_utc()),
@@ -68,7 +68,7 @@ pub async fn create_message(
         Json(MessageResponse {
             id: result.id,
             sender_user_id: result.sender_user_id,
-            recipient_user_ids: result.recipient_user_ids,
+            recipient: result.recipient,
             subject: result.subject,
             content: result.content,
             created_at: result.created_at,
@@ -102,7 +102,7 @@ pub async fn get_message(
         Some(msg) => Ok(Json(MessageResponse {
             id: msg.id,
             sender_user_id: msg.sender_user_id,
-            recipient_user_ids: msg.recipient_user_ids,
+            recipient: msg.recipient,
             subject: msg.subject,
             content: msg.content,
             created_at: msg.created_at,

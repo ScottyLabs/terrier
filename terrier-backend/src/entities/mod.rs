@@ -7,3 +7,5 @@ pub mod user_hackathon_roles;
 pub mod users;
 pub mod messages;
 pub mod mini_events;
+pub mod message_groups;
+pub mod message_group_users;

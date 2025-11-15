@@ -12,8 +12,7 @@ pub struct Model {
     pub id: i32,
     pub sender_user_id: i32,
     pub hackathon_id: i32,
-    #[sea_orm(column_type = "Text")]
-    pub recipient_user_ids: Vec<i32>,
+    pub receiving_message_group_id: i32,
     pub subject: String,
     #[sea_orm(column_type = "Text")] // Message content can be large
     pub content: String,
@@ -30,10 +29,18 @@ pub enum Relation {
     SenderUser,
     #[sea_orm(belongs_to = "super::hackathons::Entity", from = "Column::HackathonId", to = "super::hackathons::Column::Id")]
     Hackathon,
+    #[sea_orm(belongs_to = "super::message_groups::Entity", from = "Column::ReceivingMessageGroupId", to = "super::message_groups::Column::Id")]
+    MessageGroups,
     #[sea_orm(belongs_to = "Entity", from = "Column::ParentMessageId", to = "Column::Id")]
     ParentMessage, // Self-referential relationship
     #[sea_orm(has_many = "Entity")]
     Replies, // Messages that are replies to this message
+}
+
+impl Related<super::message_groups::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MessageGroups.def()
+    }
 }
 
 impl Related<super::users::Entity> for Entity {
