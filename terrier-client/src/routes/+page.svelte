@@ -8,6 +8,11 @@
     import { PlusIcon, XCloseIcon } from "@untitled-theme/icons-svelte";
     import { Dialog } from "bits-ui";
     import { onMount } from "svelte";
+    import {
+        CalendarDateTime,
+        parseDateTime,
+        parseTime,
+    } from "@internationalized/date";
 
     const auth = getAuthContext();
 
@@ -24,16 +29,27 @@
         isLoading = false;
     });
 
+    let date = $state({
+        start: parseDateTime(new Date().toISOString().slice(0, 16)),
+        end: parseDateTime(new Date().toISOString().slice(0, 16)),
+    });
+
+    let time = $state({
+        start: parseTime(new Date().toISOString().slice(11, 16)),
+        end: parseTime(new Date().toISOString().slice(11, 16)),
+    });
+
     const form = createForm(() => ({
         defaultValues: {
             name: "",
             slug: "",
             description: "",
-            start_date: Date.now().toString(),
-            end_date: Date.now().toString(),
+            start_date: new Date().toJSON(),
+            end_date: new Date().toJSON(),
         },
-        onSubmit: async ({ value }) =>
-            await client.POST("/hackathons", { body: value }),
+        onSubmit: async ({ value }) => {
+            await client.POST("/hackathons", { body: value });
+        },
     }));
 </script>
 
@@ -140,8 +156,8 @@
                                 </form.Field>
                             </div>
 
-                            <DateRangePicker />
-                            <TimeRangeField />
+                            <DateRangePicker value={date} />
+                            <TimeRangeField value={time} />
                         </div>
 
                         <div class="flex justify-end gap-3">

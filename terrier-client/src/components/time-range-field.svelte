@@ -1,8 +1,13 @@
 <script lang="ts">
     import { TimeRangeField } from "bits-ui";
+    import { Time } from "@internationalized/date";
+    export let value: { start: Time; end: Time };
 </script>
 
-<TimeRangeField.Root class="group flex w-full max-w-[320px] flex-col gap-2">
+<TimeRangeField.Root
+    class="group flex w-full max-w-[320px] flex-col gap-2"
+    bind:value
+>
     <TimeRangeField.Label class="text-label text-sm font-medium">
         Hours
     </TimeRangeField.Label>

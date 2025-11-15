@@ -33,7 +33,7 @@ pub async fn list_public_hackathons(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<HackathonInfo>>, StatusCode> {
     let hackathons = Hackathons::find()
-        .filter(hackathons::Column::IsActive.eq(true))
+        // .filter(hackathons::Column::IsActive.eq(true))
         .all(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -82,8 +82,8 @@ pub struct CreateHackathonRequest {
     pub name: String,
     pub slug: String,
     pub description: Option<String>,
-    pub start_date: NaiveDateTime,
-    pub end_date: NaiveDateTime,
+    pub start_date: String,
+    pub end_date: String,
 }
 
 /// Create a new hackathon
@@ -111,6 +111,8 @@ pub async fn create_hackathon(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    println!("{:?}", existing);
+
     if existing.is_some() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -120,8 +122,12 @@ pub async fn create_hackathon(
         name: Set(req.name),
         slug: Set(req.slug),
         description: Set(req.description),
-        start_date: Set(req.start_date),
-        end_date: Set(req.end_date),
+        start_date: Set(
+            NaiveDateTime::parse_from_str(&req.start_date, "%Y-%m-%dT%H:%M:%S%.3fZ").unwrap(),
+        ),
+        end_date: Set(
+            NaiveDateTime::parse_from_str(&req.end_date, "%Y-%m-%dT%H:%M:%S%.3fZ").unwrap(),
+        ),
         is_active: Set(false),
         ..Default::default()
     };
