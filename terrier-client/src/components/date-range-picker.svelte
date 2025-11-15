@@ -5,12 +5,15 @@
         ChevronRightIcon,
     } from "@untitled-theme/icons-svelte";
     import { DateRangePicker } from "bits-ui";
+    import { CalendarDateTime } from "@internationalized/date";
+    export let value: { start: CalendarDateTime; end: CalendarDateTime };
 </script>
 
 <DateRangePicker.Root
     weekdayFormat="short"
     fixedWeeks={true}
     class="flex w-full max-w-[340px] flex-col gap-2"
+    bind:value
 >
     <DateRangePicker.Label class="text-label text-sm font-medium"
         >Days</DateRangePicker.Label
