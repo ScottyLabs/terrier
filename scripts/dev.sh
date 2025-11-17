@@ -47,7 +47,6 @@ echo "Waiting for backend to be ready..."
 until curl -s http://localhost:3000/api/openapi.json > /dev/null; do
     sleep 1
 done
-echo "Backend is ready"
 
 # Sync OpenAPI spec
 cd "$ROOT_DIR/terrier-client"
@@ -55,7 +54,6 @@ bun run generate-types
 
 # Start frontend in background
 bun run dev &
-echo "Visit http://localhost:8080 in your browser"
 
 # Wait for all background jobs
 wait
