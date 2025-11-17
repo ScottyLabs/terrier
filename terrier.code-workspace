@@ -40,7 +40,7 @@
             "**/src/entities/*": true,
             "**/src/lib/schema.d.ts": true
         },
-        "biome.enabled": false, // Agrees with biome.jsonc, but needed for some reason
+        "biome.enabled": true, // Agrees with biome.jsonc, but needed for some reason
         "biome.lsp.bin": "terrier-client/node_modules/.bin/biome",
         "rust-analyzer.linkedProjects": [
             "terrier-backend/Cargo.toml",
@@ -50,7 +50,7 @@
         "svelte.enable-ts-plugin": true,
         "typescript.experimental.useTsgo": true,
         "typescript.preferences.importModuleSpecifier": "non-relative",
-        "oxc.enable": true,
+        "oxc.enable": false,
         "[javascript]": {
             "editor.defaultFormatter": "biomejs.biome"
         },

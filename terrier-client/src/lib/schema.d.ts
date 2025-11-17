@@ -112,11 +112,9 @@ export interface components {
 	schemas: {
 		CreateHackathonRequest: {
 			description?: string | null;
-			/** Format: date-time */
 			end_date: string;
 			name: string;
 			slug: string;
-			/** Format: date-time */
 			start_date: string;
 		};
 		HackathonInfo: {

@@ -150,13 +150,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env()?;
     let app_state = AppState {
         db: sea_orm::Database::connect(&config.database_url).await?,
-        config,
+        config: config.clone(),
     };
 
     let app = create_app(app_state).await.unwrap();
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
 
-    println!("Listening on http://0.0.0.0:3000");
+    println!("Backend listening at {}", &config.api_url);
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

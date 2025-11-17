@@ -9,7 +9,7 @@
         "preview": "vite preview",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
         "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-        "generate-types": "openapi-typescript http://localhost:3000/api/openapi.json -o ./src/lib/schema.d.ts",
+        "generate-types": "openapi-typescript http://localhost:8080/api/openapi.json -o ./src/lib/schema.d.ts",
         "format": "biome format --write",
         "lint": "oxlint --type-aware",
         "tauri": "tauri",
