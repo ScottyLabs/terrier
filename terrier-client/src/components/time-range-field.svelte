@@ -5,7 +5,7 @@
 </script>
 
 <TimeRangeField.Root
-    class="group flex w-full max-w-[320px] flex-col gap-2"
+    class="group flex w-full max-w-[340px] flex-col gap-2"
     bind:value
 >
     <TimeRangeField.Label class="text-label text-sm font-medium">

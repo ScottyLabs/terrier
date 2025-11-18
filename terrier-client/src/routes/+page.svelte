@@ -4,15 +4,25 @@
     import TimeRangeField from "@/components/time-range-field.svelte";
     import { client } from "@/lib/api";
     import { getAuthContext } from "@/lib/auth.svelte";
-    import { createForm, Field } from "@tanstack/svelte-form";
-    import { PlusIcon, XCloseIcon } from "@untitled-theme/icons-svelte";
+    import {
+        getLocalTimeZone,
+        now,
+        parseDate,
+        toTime,
+    } from "@internationalized/date";
+    import { createForm } from "@tanstack/svelte-form";
+    import {
+        PlusIcon,
+        RefreshCcw05Icon,
+        XCloseIcon,
+    } from "@untitled-theme/icons-svelte";
     import { Dialog } from "bits-ui";
     import { onMount } from "svelte";
     import {
-        CalendarDateTime,
-        parseDateTime,
-        parseTime,
-    } from "@internationalized/date";
+        adjectives,
+        animals,
+        uniqueNamesGenerator,
+    } from "unique-names-generator";
 
     const auth = getAuthContext();
 
@@ -30,25 +40,62 @@
     });
 
     let date = $state({
-        start: parseDateTime(new Date().toISOString().slice(0, 16)),
-        end: parseDateTime(new Date().toISOString().slice(0, 16)),
+        start: parseDate(new Date().toISOString().slice(0, 10)),
+        end: parseDate(new Date().toISOString().slice(0, 10)),
     });
 
+    const currentTime = now(getLocalTimeZone());
     let time = $state({
-        start: parseTime(new Date().toISOString().slice(11, 16)),
-        end: parseTime(new Date().toISOString().slice(11, 16)),
+        start: toTime(currentTime),
+        end: toTime(currentTime),
     });
+
+    // Track if slug has been manually edited
+    let isSlugCustom = $state(false);
+    let isRotating = $state(false);
+
+    function generateRandomName() {
+        const name = uniqueNamesGenerator({
+            dictionaries: [adjectives, animals],
+            style: "capital",
+            separator: " ",
+        });
+
+        return {
+            name,
+            slug: nameToSlug(name),
+        };
+    }
+
+    let { name: initialName, slug: initialSlug } = generateRandomName();
+
+    function nameToSlug(name: string): string {
+        return name.trim().toLowerCase().replace(/\s+/g, "-");
+    }
 
     const form = createForm(() => ({
         defaultValues: {
-            name: "",
-            slug: "",
+            name: initialName,
+            slug: initialSlug,
             description: "",
             start_date: new Date().toJSON(),
             end_date: new Date().toJSON(),
         },
         onSubmit: async ({ value }) => {
-            await client.POST("/hackathons", { body: value });
+            // Combine date and time into ISO strings
+            const startDateTime = date.start.toDate(getLocalTimeZone());
+            startDateTime.setHours(time.start.hour, time.start.minute, 0, 0);
+
+            const endDateTime = date.end.toDate(getLocalTimeZone());
+            endDateTime.setHours(time.end.hour, time.end.minute, 0, 0);
+
+            await client.POST("/hackathons", {
+                body: {
+                    ...value,
+                    start_date: startDateTime.toISOString(),
+                    end_date: endDateTime.toISOString(),
+                },
+            });
         },
     }));
 </script>
@@ -82,29 +129,64 @@
                         >
 
                         <div class="my-7 flex flex-col gap-5">
-                            <div class="flex flex-col gap-2">
-                                <form.Field name="name">
-                                    {#snippet children(field)}
-                                        <label
-                                            for="name"
-                                            class="text-label text-sm font-medium"
-                                            >Name</label
-                                        >
-                                        <input
-                                            id="name"
-                                            name={field.name}
-                                            value={field.state.value}
-                                            onblur={field.handleBlur}
-                                            oninput={(e) =>
-                                                field.handleChange(
-                                                    e.currentTarget.value,
-                                                )}
-                                            type="text"
-                                            placeholder="Name"
-                                            class="text-input h-10 bg-primary rounded-lg px-4 py-2"
-                                        />
-                                    {/snippet}
-                                </form.Field>
+                            <div class="flex gap-2 items-end">
+                                <div class="flex flex-col gap-2 flex-1">
+                                    <form.Field name="name">
+                                        {#snippet children(field)}
+                                            <label
+                                                for="name"
+                                                class="text-label text-sm font-medium"
+                                                >Name</label
+                                            >
+                                            <input
+                                                id="name"
+                                                name={field.name}
+                                                value={field.state.value}
+                                                onblur={field.handleBlur}
+                                                oninput={(e) => {
+                                                    const newName =
+                                                        e.currentTarget.value;
+                                                    field.handleChange(newName);
+
+                                                    // Auto-update slug if not customized
+                                                    if (!isSlugCustom) {
+                                                        form.setFieldValue(
+                                                            "slug",
+                                                            nameToSlug(newName),
+                                                        );
+                                                    }
+                                                }}
+                                                type="text"
+                                                placeholder="Name"
+                                                class="text-input h-10 bg-primary rounded-lg px-4 py-2"
+                                            />
+                                        {/snippet}
+                                    </form.Field>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onclick={() => {
+                                        const { name, slug } =
+                                            generateRandomName();
+                                        form.setFieldValue("name", name);
+                                        form.setFieldValue("slug", slug);
+                                        isSlugCustom = false;
+
+                                        // Trigger rotation animation
+                                        isRotating = true;
+                                        setTimeout(() => {
+                                            isRotating = false;
+                                        }, 500);
+                                    }}
+                                    class="h-10 px-3 rounded-lg bg-primary hover:bg-gray-200 transition-colors"
+                                >
+                                    <RefreshCcw05Icon
+                                        class="size-5 {isRotating
+                                            ? 'animate-spin-once'
+                                            : ''}"
+                                    />
+                                </button>
                             </div>
 
                             <div class="flex flex-col gap-2">
@@ -120,13 +202,24 @@
                                             name={field.name}
                                             value={field.state.value}
                                             onblur={field.handleBlur}
-                                            oninput={(e) =>
-                                                field.handleChange(
-                                                    e.currentTarget.value,
-                                                )}
+                                            oninput={(e) => {
+                                                const newSlug =
+                                                    e.currentTarget.value;
+                                                field.handleChange(newSlug);
+
+                                                // Check if slug matches what would be auto-generated
+                                                const currentName =
+                                                    form.getFieldValue("name");
+                                                const autoSlug =
+                                                    nameToSlug(currentName);
+                                                isSlugCustom =
+                                                    newSlug !== autoSlug;
+                                            }}
                                             type="text"
-                                            placeholder="hackathon-slug"
-                                            class="text-input h-10 bg-primary rounded-lg px-4 py-2"
+                                            placeholder="name"
+                                            class="h-10 bg-primary rounded-lg px-4 py-2 {isSlugCustom
+                                                ? 'text-input'
+                                                : 'text-gray-400'}"
                                         />
                                     {/snippet}
                                 </form.Field>
@@ -149,7 +242,7 @@
                                                 field.handleChange(
                                                     e.currentTarget.value,
                                                 )}
-                                            placeholder="Description"
+                                            placeholder="An amazing hackathon..."
                                             class="text-input h-20 bg-primary rounded-lg px-4 py-2 resize-none"
                                         ></textarea>
                                     {/snippet}
