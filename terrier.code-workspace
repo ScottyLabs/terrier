@@ -40,7 +40,7 @@
             "**/src/entities/*": true,
             "**/src/lib/schema.d.ts": true
         },
-        "biome.enabled": true, // Agrees with biome.jsonc, but needed for some reason
+        "biome.enabled": false, // Agrees with biome.jsonc, but needed for some reason
         "biome.lsp.bin": "terrier-client/node_modules/.bin/biome",
         "rust-analyzer.linkedProjects": [
             "terrier-backend/Cargo.toml",
