@@ -103,18 +103,24 @@ pub async fn create_hackathon(
     _admin: RequireGlobalAdmin,
     State(state): State<AppState>,
     Json(req): Json<CreateHackathonRequest>,
-) -> Result<(StatusCode, Json<HackathonInfo>), StatusCode> {
+) -> Result<(StatusCode, Json<HackathonInfo>), (StatusCode, String)> {
     // Check if slug already exists
     let existing = Hackathons::find()
         .filter(hackathons::Column::Slug.eq(&req.slug))
         .one(&state.db)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    println!("{:?}", existing);
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     if existing.is_some() {
-        return Err(StatusCode::BAD_REQUEST);
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("A hackathon with slug '{}' already exists", req.slug),
+        ));
     }
 
     // Create hackathon
@@ -132,10 +138,12 @@ pub async fn create_hackathon(
         ..Default::default()
     };
 
-    let result = hackathon
-        .insert(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let result = hackathon.insert(&state.db).await.map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to create hackathon".to_string(),
+        )
+    })?;
 
     Ok((
         StatusCode::CREATED,

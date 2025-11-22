@@ -28,6 +28,8 @@
 
     let hackathons = $state<any[]>([]);
     let isLoading = $state(true);
+    let hackathonSubmissionError = $state<string | null>(null);
+    let isDialogOpen = $state(false);
 
     onMount(async () => {
         const { data, response } = await client.GET("/hackathons/public");
@@ -89,13 +91,22 @@
             const endDateTime = date.end.toDate(getLocalTimeZone());
             endDateTime.setHours(time.end.hour, time.end.minute, 0, 0);
 
-            await client.POST("/hackathons", {
+            const response = await client.POST("/hackathons", {
                 body: {
                     ...value,
                     start_date: startDateTime.toISOString(),
                     end_date: endDateTime.toISOString(),
                 },
             });
+            if (response.response.ok) {
+                // Close dialog and reload hackathons list
+                hackathons = [...hackathons, response.data];
+                isDialogOpen = false;
+            } else {
+                // Show error in the form UI
+                hackathonSubmissionError =
+                    response.error || "Failed to create hackathon.";
+            }
         },
     }));
 </script>
@@ -110,7 +121,7 @@
 
     <main class="mx-7">
         {#if auth.user?.is_admin}
-            <Dialog.Root>
+            <Dialog.Root bind:open={isDialogOpen}>
                 <Dialog.Trigger
                     class="bg-selected text-primary cursor-pointer font-semibold px-5 py-3.5 flex gap-2 rounded-4xl mb-6"
                 >
@@ -251,6 +262,11 @@
 
                             <DateRangePicker value={date} />
                             <TimeRangeField value={time} />
+                            {#if hackathonSubmissionError}
+                                <p class="text-red-600 text-sm">
+                                    {hackathonSubmissionError}
+                                </p>
+                            {/if}
                         </div>
 
                         <div class="flex justify-end gap-3">
