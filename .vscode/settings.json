@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "files.insertFinalNewline": true, // Agrees with .editorconfig, but needed for some reason
+    "tailwindCSS.experimental.classRegex": [
+        "class: \"(.*)\""
+    ],
+    "tailwindCSS.includeLanguages": {
+        "rust": "html"
+    },
+}
