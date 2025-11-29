@@ -18,12 +18,11 @@
     {#if description}
         <p class="text-sm text-muted-foreground">{description}</p>
     {/if}
-    <input
-        type="text"
-        class="w-full rounded-xl bg-slate-100 px-4 py-3 text-gray-500 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-300"
+    <textarea
+        class="w-full rounded-xl bg-slate-100 px-4 py-3 text-gray-500 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-300 resize-y min-h-[100px]"
         bind:value
         {placeholder}
         maxlength={maxLength ?? undefined}
-        on:input={(e) => onInput((e.target as HTMLInputElement).value)}
-    />
+        on:input={(e) => onInput((e.target as HTMLTextAreaElement).value)}
+    ></textarea>
 </label>

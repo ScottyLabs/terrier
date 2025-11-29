@@ -1,62 +1,88 @@
 <script lang="ts">
-    import Dropdown from "@/components/form-elements/dropdown.svelte";
-    import SingleLineText from "@/components/form-elements/single-line-text.svelte";
-
     import { getAuthContext } from "@/lib/auth.svelte";
 
+    import Checkbox from "@/components/form-elements/checkbox.svelte";
+    import Dropdown from "@/components/form-elements/dropdown.svelte";
+    import Signature from "@/components/form-elements/signature.svelte";
+    import SingleLineText from "@/components/form-elements/single-line-text.svelte";
+
+    import LongResponse from "@/components/form-elements/long-response.svelte";
+    import MultiCheckbox from "@/components/form-elements/multi-checkbox.svelte";
+    import formSchemaImport from "./mock_form.json";
+    const formSchema: FormSchema = formSchemaImport as FormSchema;
+
     const auth = getAuthContext();
+
+    // Stateful form data
+    let formData: Record<string, string | boolean> = $state({});
+
     type SingleLineTextQuestion = {
         id: string;
+        type: "single-line-text";
         question: string;
         description: string | null;
         maxLength: number | null;
         required: boolean;
+        condition?: { id: string; value: string } | null;
+    };
+    type LongResponseQuestion = {
+        id: string;
+        type: "long-response";
+        question: string;
+        description: string | null;
+        maxLength: number | null;
+        required: boolean;
+        condition?: { id: string; value: string } | null;
     };
     type DropdownQuestion = {
         id: string;
+        type: "dropdown";
         question: string;
         description: string | null;
         options: string[];
         required: boolean;
+        condition?: { id: string; value: string } | null;
+    };
+    type CheckboxQuestion = {
+        id: string;
+        type: "checkbox";
+        question: string;
+        description: string | null;
+        required: boolean;
+        condition?: { id: string; value: string } | null;
+    };
+    type MultiCheckboxQuestion = {
+        id: string;
+        type: "multi-checkbox";
+        question: string;
+        description: string | null;
+        options: string[];
+        required: boolean;
+        condition?: { id: string; value: string } | null;
+    };
+    type SignatureQuestion = {
+        id: string;
+        type: "signature";
+        question: string;
+        description: string | null;
+        required: boolean;
+        condition?: { id: string; value: string } | null;
     };
     type FormSchema = Record<
         string,
-        (SingleLineTextQuestion | DropdownQuestion)[]
+        (
+            | SingleLineTextQuestion
+            | DropdownQuestion
+            | CheckboxQuestion
+            | SignatureQuestion
+            | MultiCheckboxQuestion
+            | LongResponseQuestion
+        )[]
     >;
-    const formSchema: FormSchema = {
-        personal: [
-            {
-                id: "full_name",
-                question: "Full Name",
-                description: null,
-                maxLength: 100,
-                required: true,
-            },
-            {
-                id: "email",
-                question: "Email Address",
-                description: null,
-                maxLength: 100,
-                required: true,
-            },
-        ],
-        project: [
-            {
-                id: "project_idea",
-                question: "Project Idea",
-                description: "Describe your project idea in detail.",
-                maxLength: 500,
-                required: true,
-            },
-            {
-                id: "tech_stack",
-                question: "Tech Stack",
-                description: null,
-                options: ["JavaScript", "Python", "Java", "C++", "Other"],
-                required: true,
-            } as DropdownQuestion,
-        ],
-    };
+
+    // const formSchema: FormSchema = await fetch(
+    //     `/api/h/${auth.hackathonId}/application/form-schema`
+    // ).then((res) => res.json());
 </script>
 
 <div
@@ -79,31 +105,64 @@
                     {section} Information
                 </h2>
                 <div class="flex flex-col gap-6">
-                    {#each questions as question}
-                        {#if "options" in question}
-                            <Dropdown
-                                label={question.question}
-                                description={question.description}
-                                maxLength={null}
-                                required={question.required}
-                                value=""
-                                onInput={(value) =>
-                                    console.log(
-                                        `Dropdown ${question.id} input: ${value}`,
-                                    )}
-                                options={question.options}
-                            />
-                        {:else}
+                    {#each questions.filter((q) => !q.condition || formData[q.condition.id] === q.condition.value) as question}
+                        {#if question.type === "single-line-text"}
                             <SingleLineText
                                 label={question.question}
                                 description={question.description}
                                 maxLength={question.maxLength}
                                 required={question.required}
-                                value=""
-                                onInput={(value) =>
-                                    console.log(
-                                        `Text ${question.id} input: ${value}`,
-                                    )}
+                                value={formData[question.id]?.toString() ?? ""}
+                                onInput={(v: string) =>
+                                    (formData[question.id] = v)}
+                            />
+                        {:else if question.type === "long-response"}
+                            <LongResponse
+                                label={question.question}
+                                description={question.description}
+                                maxLength={question.maxLength}
+                                required={question.required}
+                                value={formData[question.id]?.toString() ?? ""}
+                                onInput={(v: string) =>
+                                    (formData[question.id] = v)}
+                            />
+                        {:else if question.type === "dropdown"}
+                            <Dropdown
+                                label={question.question}
+                                description={question.description}
+                                options={question.options}
+                                required={question.required}
+                                value={formData[question.id]?.toString() ?? ""}
+                                onInput={(v: string) =>
+                                    (formData[question.id] = v)}
+                            />
+                        {:else if question.type === "multi-checkbox"}
+                            <MultiCheckbox
+                                label={question.question}
+                                description={question.description}
+                                options={question.options}
+                                required={question.required}
+                                value={formData[question.id]?.toString() ?? ""}
+                                onInput={(v: string) =>
+                                    (formData[question.id] = v)}
+                            />
+                        {:else if question.type === "checkbox"}
+                            <Checkbox
+                                label={question.question}
+                                description={question.description}
+                                required={question.required}
+                                checked={!!formData[question.id]}
+                                onInput={(v: boolean) =>
+                                    (formData[question.id] = v)}
+                            />
+                        {:else if question.type === "signature"}
+                            <Signature
+                                label={question.question}
+                                description={question.description}
+                                required={question.required}
+                                value={formData[question.id]?.toString() ?? ""}
+                                onInput={(v: string) =>
+                                    (formData[question.id] = v)}
                             />
                         {/if}
                     {/each}
