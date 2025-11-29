@@ -1,7 +1,62 @@
 <script lang="ts">
+    import Dropdown from "@/components/form-elements/dropdown.svelte";
+    import SingleLineText from "@/components/form-elements/single-line-text.svelte";
+
     import { getAuthContext } from "@/lib/auth.svelte";
 
     const auth = getAuthContext();
+    type SingleLineTextQuestion = {
+        id: string;
+        question: string;
+        description: string | null;
+        maxLength: number | null;
+        required: boolean;
+    };
+    type DropdownQuestion = {
+        id: string;
+        question: string;
+        description: string | null;
+        options: string[];
+        required: boolean;
+    };
+    type FormSchema = Record<
+        string,
+        (SingleLineTextQuestion | DropdownQuestion)[]
+    >;
+    const formSchema: FormSchema = {
+        personal: [
+            {
+                id: "full_name",
+                question: "Full Name",
+                description: null,
+                maxLength: 100,
+                required: true,
+            },
+            {
+                id: "email",
+                question: "Email Address",
+                description: null,
+                maxLength: 100,
+                required: true,
+            },
+        ],
+        project: [
+            {
+                id: "project_idea",
+                question: "Project Idea",
+                description: "Describe your project idea in detail.",
+                maxLength: 500,
+                required: true,
+            },
+            {
+                id: "tech_stack",
+                question: "Tech Stack",
+                description: null,
+                options: ["JavaScript", "Python", "Java", "C++", "Other"],
+                required: true,
+            } as DropdownQuestion,
+        ],
+    };
 </script>
 
 <div
@@ -17,7 +72,45 @@
         </div>
     </div>
 
-    <div class="bg-primary shadow-lg rounded-4xl w-full p-7">Content</div>
+    <div class="flex flex-col gap-8">
+        {#each Object.entries(formSchema) as [section, questions]}
+            <div class="bg-primary shadow-lg rounded-4xl w-full p-7">
+                <h2 class="text-lg font-semibold capitalize mb-5">
+                    {section} Information
+                </h2>
+                <div class="flex flex-col gap-6">
+                    {#each questions as question}
+                        {#if "options" in question}
+                            <Dropdown
+                                label={question.question}
+                                description={question.description}
+                                maxLength={null}
+                                required={question.required}
+                                value=""
+                                onInput={(value) =>
+                                    console.log(
+                                        `Dropdown ${question.id} input: ${value}`,
+                                    )}
+                                options={question.options}
+                            />
+                        {:else}
+                            <SingleLineText
+                                label={question.question}
+                                description={question.description}
+                                maxLength={question.maxLength}
+                                required={question.required}
+                                value=""
+                                onInput={(value) =>
+                                    console.log(
+                                        `Text ${question.id} input: ${value}`,
+                                    )}
+                            />
+                        {/if}
+                    {/each}
+                </div>
+            </div>
+        {/each}
+    </div>
 
     <div class="flex justify-end">
         <button
