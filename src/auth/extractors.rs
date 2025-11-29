@@ -3,6 +3,7 @@ use axum::{
     extract::{FromRequestParts, Path},
     http::{StatusCode, request::Parts},
 };
+use axum::extract::FromRef;
 use axum_oidc::{EmptyAdditionalClaims, OidcClaims};
 use sea_orm::{ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait};
 
@@ -15,14 +16,19 @@ pub struct RequireGlobalAdmin {
     pub email: String,
 }
 
-impl FromRequestParts<AppState> for RequireGlobalAdmin {
+impl<S> FromRequestParts<S> for RequireGlobalAdmin
+where
+AppState: FromRef<S>,
+S: Send + Sync {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState,
+        state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let claims = OidcClaims::<EmptyAdditionalClaims>::from_request_parts(parts, state)
+        let app_state = AppState::from_ref(state);
+
+        let claims = OidcClaims::<EmptyAdditionalClaims>::from_request_parts(parts, &app_state)
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
@@ -31,7 +37,7 @@ impl FromRequestParts<AppState> for RequireGlobalAdmin {
             .map(|e| e.to_string())
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        if state.config.admin_emails.contains(&email.to_lowercase()) {
+        if app_state.config.admin_emails.contains(&email.to_lowercase()) {
             Ok(RequireGlobalAdmin { email })
         } else {
             Err(StatusCode::FORBIDDEN)

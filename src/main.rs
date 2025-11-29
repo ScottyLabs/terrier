@@ -1,5 +1,6 @@
+use dioxus::fullstack::reqwest;
 use dioxus::prelude::*;
-
+use dioxus::document::eval;
 mod auth;
 mod config;
 #[cfg(feature = "server")]
@@ -8,7 +9,10 @@ mod hackathons;
 mod pages;
 mod types;
 
+mod backend;
+
 pub use pages::Home;
+pub use pages::Test;
 
 #[cfg(feature = "server")]
 use config::Config;
@@ -20,11 +24,24 @@ pub struct AppState {
     pub db: sea_orm::DatabaseConnection,
 }
 
+use crate::dioxus_fullstack::FullstackContext;
+use crate::dioxus_fullstack::extract::FromRef;
+use dioxus::fullstack::extract::State;
+
+#[cfg(feature = "server")]
+impl FromRef<FullstackContext> for AppState {
+    fn from_ref(state: &FullstackContext) -> Self {
+        state.extension::<AppState>().unwrap()
+    }
+}
+
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
     #[route("/")]
     Home {},
+    #[route("/test")]
+    Test {},
 }
 
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
@@ -33,7 +50,7 @@ fn main() {
     #[cfg(feature = "server")]
     {
         use axum::{
-            Router, middleware,
+            Extension, Router, middleware,
             response::IntoResponse,
             routing::{get, post},
         };
@@ -44,6 +61,7 @@ fn main() {
         use dioxus::prelude::{DioxusRouterExt, ServeConfig};
         use http::Uri;
         use openidconnect::{ClientId, ClientSecret};
+
         use sea_orm::Database;
         use tower::ServiceBuilder;
         use tower_sessions::{
@@ -89,16 +107,18 @@ fn main() {
                     .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
                 // OIDC Client Configuration
-                let redirect_url = format!("{}/api/auth/callback", config.api_url);
+                let redirect_url = format!("{}/auth/callback", app_state.config.api_url);
                 tracing::info!("OIDC redirect URL: {}", redirect_url);
 
                 let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
                     .with_default_http_client()
                     .with_redirect_url(Uri::try_from(redirect_url).expect("valid API_URL"))
-                    .with_client_id(ClientId::new(config.oidc_client_id))
-                    .with_client_secret(ClientSecret::new(config.oidc_client_secret))
+                    .with_client_id(ClientId::new(app_state.config.oidc_client_id.clone()))
+                    .with_client_secret(ClientSecret::new(
+                        app_state.config.oidc_client_secret.clone(),
+                    ))
                     .with_scopes(["openid", "email", "profile"].into_iter())
-                    .discover(config.oidc_issuer.clone())
+                    .discover(app_state.config.oidc_issuer.clone())
                     .await
                     .expect("Failed to discover OIDC provider")
                     .build();
@@ -130,37 +150,47 @@ fn main() {
                     // Protected routes (require authentication)
                     .route("/auth/login", get(auth::handlers::login))
                     .route("/auth/logout", get(auth::handlers::logout))
-                    .route("/hackathons", post(hackathons::handlers::create_hackathon))
-                    .route(
-                        "/hackathons/{slug}/role",
-                        get(hackathons::handlers::get_user_role),
-                    )
+                    // .route("/hackathons", post(hackathons::handlers::create_hackathon))
+                    // .route(
+                    //     "/hackathons/{slug}/role",
+                    //     get(hackathons::handlers::get_user_role),
+                    // )
                     // User sync middleware (runs on authenticated requests)
                     .layer(middleware::from_fn_with_state(
                         app_state.clone(),
                         auth::middleware::sync_user_middleware,
                     ))
-                    .layer(oidc_login_service)
+                    .layer(oidc_login_service.clone())
                     // Public routes (no authentication required)
-                    .route("/auth/status", get(auth::handlers::status))
+                    // .route("/auth/status", get(auth::handlers::status))
                     .route(
                         "/auth/callback",
                         get(handle_oidc_redirect::<EmptyAdditionalClaims>),
                     )
-                    .route(
-                        "/hackathons/public",
-                        get(hackathons::handlers::list_public_hackathons),
-                    )
+                    // .route(
+                    //     "/hackathons/public",
+                    //     get(hackathons::handlers::list_public_hackathons),
+                    // )
                     .route("/health", get(|| async { "OK" }))
                     // Apply OIDC auth and session layers
-                    .layer(oidc_auth_service)
-                    .layer(session_layer)
-                    .with_state(app_state);
+                    .layer(oidc_auth_service.clone())
+                    .layer(session_layer.clone())
+                    .with_state(app_state.clone());
 
                 // Create the main router with API routes under /api and Dioxus app
-                let router = Router::new()
-                    .nest("/api", api_router)
-                    .serve_dioxus_application(ServeConfig::default(), App);
+                // Add Extension layer to share state with Dioxus server functions
+                let dioxus_router = Router::new()
+                    .serve_dioxus_application(ServeConfig::default(), App)
+                    .layer(middleware::from_fn_with_state(
+                        app_state.clone(),
+                        auth::middleware::sync_user_middleware,
+                    ))
+                    .layer(oidc_login_service.clone())
+                    .layer(oidc_auth_service.clone())
+                    .layer(session_layer.clone())
+                    .layer(Extension(app_state.clone()));
+
+                let router = Router::new().nest("/api", api_router).merge(dioxus_router);
 
                 // Get address from CLI config or default to localhost:8080
                 let address = dioxus::cli_config::fullstack_address_or_localhost();
@@ -185,6 +215,7 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+
     rsx! {
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
         Router::<Route> {}

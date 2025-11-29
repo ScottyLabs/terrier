@@ -7,7 +7,7 @@ pub mod middleware;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UserInfo {
     pub id: String,
     pub email: String,
