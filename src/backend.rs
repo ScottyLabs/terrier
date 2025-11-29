@@ -1,15 +1,12 @@
-use std::any;
 use crate::auth;
+use std::any;
 
 use dioxus::fullstack::{Form, SetCookie, SetHeader};
 
 #[cfg(feature = "server")]
-use crate::{
-    entities::{prelude::*, users},
-};
+use crate::entities::{prelude::*, users};
 #[cfg(feature = "server")]
 use axum_oidc::{EmptyAdditionalClaims, OidcClaims, OidcRpInitiatedLogout};
-
 
 #[cfg(feature = "server")]
 use chrono::NaiveDateTime;
@@ -100,7 +97,7 @@ impl CreateHackathonForm {
             start_date,
             end_date,
             start_time,
-            end_time
+            end_time,
         })
     }
 }
@@ -115,23 +112,26 @@ pub async fn create_hackathon(form: Form<CreateHackathonForm>) -> Result<Hackath
         .map_err(|e| ServerFnError::new("Slug exists"))?;
 
     if existing.is_some() {
-return Err(ServerFnError::new("Error: Hackathon slug already exists").into());    }
+        return Err(ServerFnError::new("Error: Hackathon slug already exists").into());
+    }
 
     // Create hackathon
     let hackathon = hackathons::ActiveModel {
         name: Set(form.0.name),
         slug: Set(form.0.slug),
         description: Set(form.0.description),
-        start_date: Set(
-            NaiveDateTime::parse_from_str(&format!("{}T{}", form.0.start_date, form.0.start_time), "%Y-%m-%dT%H:%M")
-                // .or_else(|_| NaiveDateTime::parse_from_str(&form.0.start_date, "%Y-%m-%dT%H:%M:%S"))
-                .map_err(|_| ServerFnError::new(("Can't parse1".to_string())))?,
-        ),
-        end_date: Set(
-            NaiveDateTime::parse_from_str(&format!("{}T{}", form.0.end_date, form.0.end_time), "%Y-%m-%dT%H:%M")
-                // .or_else(|_| NaiveDateTime::parse_from_str(&form.0.end_date, "%Y-%m-%dT%H:%M:%S"))
-                .map_err(|_| ServerFnError::new(("Can't parse2".to_string())))?,
-        ),
+        start_date: Set(NaiveDateTime::parse_from_str(
+            &format!("{}T{}", form.0.start_date, form.0.start_time),
+            "%Y-%m-%dT%H:%M",
+        )
+        // .or_else(|_| NaiveDateTime::parse_from_str(&form.0.start_date, "%Y-%m-%dT%H:%M:%S"))
+        .map_err(|_| ServerFnError::new(("Can't parse1".to_string())))?),
+        end_date: Set(NaiveDateTime::parse_from_str(
+            &format!("{}T{}", form.0.end_date, form.0.end_time),
+            "%Y-%m-%dT%H:%M",
+        )
+        // .or_else(|_| NaiveDateTime::parse_from_str(&form.0.end_date, "%Y-%m-%dT%H:%M:%S"))
+        .map_err(|_| ServerFnError::new(("Can't parse2".to_string())))?),
         is_active: Set(false),
         ..Default::default()
     };
@@ -181,4 +181,68 @@ pub async fn user_status() -> Result<auth::UserInfo, ServerFnError> {
         }
         None => Err(ServerFnError::new("Not authenticated")),
     }
+}
+
+// hackathon
+#[get("/hackathons/:slug/form", state: State<AppState>)]
+pub async fn get_hackathon_form(slug: String) -> Result<serde_json::Value, ServerFnError> {
+    let form = serde_json::json!({
+        "personal": [
+            {"id": "display_name", "type": "single-line-text", "question": "Display Name", "description": null, "maxLength": 100, "required": true},
+            {"id": "first_name", "type": "single-line-text", "question": "First Name", "description": null, "maxLength": 100, "required": true},
+            {"id": "middle_names", "type": "single-line-text", "question": "Middle Names", "description": null, "maxLength": 100, "required": false},
+            {"id": "last_name", "type": "single-line-text", "question": "Last Name", "description": null, "maxLength": 100, "required": true},
+            {"id": "gender", "type": "dropdown", "question": "Gender", "description": null, "options": ["Man", "Woman", "Non-binary", "Prefer not to say", "Other (please specify)"], "required": true},
+            {"id": "gender_other", "type": "single-line-text", "question": "Please specify your gender", "description": null, "maxLength": 100, "required": true, "condition": {"id": "gender", "value": "Other (please specify)"}},
+            {"id": "ethnicity", "type": "multi-checkbox", "question": "Ethnicity", "description": "Select all that apply.", "options": ["Native American", "Asian", "Black", "Pacific Islander", "White", "Hispanic", "Other", "Prefer not to say"], "required": true},
+            {"id": "ethnicity_other", "type": "single-line-text", "question": "Please specify your ethnicity", "description": null, "maxLength": 100, "required": true, "condition": {"id": "ethnicity", "value": "Other"}},
+            {"id": "age", "type": "single-line-text", "question": "Age", "description": null, "maxLength": 3, "required": true},
+            {"id": "city", "type": "single-line-text", "question": "City", "description": null, "maxLength": 100, "required": false},
+            {"id": "country", "type": "dropdown", "question": "Country", "description": null, "options": ["United States", "Canada", "Mexico", "United Kingdom", "China", "India", "Other"], "required": true}
+        ],
+        "school": [
+            {"id": "school_select", "type": "dropdown", "question": "School", "description": null, "options": ["Carnegie Mellon University", "University of Pittsburgh", "Penn State", "Other"], "required": true},
+            {"id": "school_manual", "type": "single-line-text", "question": "School Name", "description": "Please enter the name of your school.", "maxLength": 200, "required": true, "condition": {"id": "school_select", "value": "Other"}},
+            {"id": "cmu_college", "type": "dropdown", "question": "College (CMU)", "description": null, "options": ["SCS", "CIT", "CFA", "Dietrich", "MCS", "Tepper", "Heinz"], "required": true, "condition": {"id": "school_select", "value": "Carnegie Mellon University"}},
+            {"id": "academic_program", "type": "dropdown", "question": "Academic Program", "description": null, "options": ["Undergraduate", "Masters", "Doctorate", "Other"], "required": true},
+            {"id": "graduation_year", "type": "dropdown", "question": "Graduation Year", "description": null, "options": ["2026", "2027", "2028", "2029", "2030"], "required": true},
+            {"id": "major", "type": "single-line-text", "question": "Major", "description": null, "maxLength": 100, "required": true}
+        ],
+        "experience": [
+            {"id": "hackathon_experience", "type": "dropdown", "question": "Years of Hackathon Experience", "description": null, "options": ["0", "1-3", "4+"], "required": true}
+        ],
+        "sponsor": [
+            {"id": "work_auth", "type": "dropdown", "question": "US Work Authorization", "description": null, "options": ["I am a US citizen", "I will need employer sponsorship at some point in the future", "I will NOT need employer sponsorship at some point in the future"], "required": false},
+            {"id": "work_location", "type": "single-line-text", "question": "Work Location Preferences", "description": null, "maxLength": 200, "required": false}
+        ],
+        "portfolio": [
+            {"id": "resume", "type": "single-line-text", "question": "Resume URL", "description": "Please provide a link to your resume (Google Drive, Dropbox, etc).", "maxLength": 500, "required": true},
+            {"id": "github", "type": "single-line-text", "question": "Github Username", "description": null, "maxLength": 100, "required": true},
+            {"id": "linkedin", "type": "single-line-text", "question": "LinkedIn Profile URL", "description": null, "maxLength": 200, "required": false},
+            {"id": "website", "type": "single-line-text", "question": "Personal Website", "description": null, "maxLength": 200, "required": false},
+            {"id": "design_portfolio", "type": "single-line-text", "question": "Design Portfolio", "description": null, "maxLength": 200, "required": false}
+        ],
+        "travel": [
+            {"id": "travel_reimbursement", "type": "checkbox", "question": "Would you like to apply for travel reimbursement?", "description": null, "required": false},
+            {"id": "travel_details", "type": "long-response", "question": "Travel Details", "description": "Please provide details regarding your travel plans.", "maxLength": 500, "required": false, "condition": {"id": "travel_reimbursement", "value": "true"}}
+        ],
+        "diversity": [
+            {"id": "diversity_statement", "type": "long-response", "question": "Diversity Statement", "description": "Optional statement regarding diversity.", "maxLength": 1000, "required": false}
+        ],
+        "logistics": [
+            {"id": "phone_number", "type": "single-line-text", "question": "Phone Number", "description": null, "maxLength": 20, "required": true},
+            {"id": "dietary_restrictions", "type": "single-line-text", "question": "Dietary Considerations", "description": null, "maxLength": 200, "required": false},
+            {"id": "shirt_size", "type": "dropdown", "question": "Shirt Size", "description": "Unisex sizes.", "options": ["XS", "S", "M", "L", "XL", "XXL"], "required": true},
+            {"id": "hardware_needs", "type": "checkbox", "question": "Will you use hardware?", "description": null, "required": false},
+            {"id": "additional_notes", "type": "long-response", "question": "Additional Notes", "description": null, "maxLength": 500, "required": false}
+        ],
+        "consent": [
+            {"id": "coc_consent", "type": "checkbox", "question": "I agree to the THX Code of Conduct", "description": null, "required": true},
+            {"id": "media_release", "type": "checkbox", "question": "Media Release Consent", "description": "I authorize the use of my image/media.", "required": true},
+            {"id": "sponsor_consent", "type": "checkbox", "question": "I authorize sharing my info with sponsors", "description": null, "required": false},
+            {"id": "signature", "type": "signature", "question": "Signature", "description": "By signing, you agree to the terms above.", "required": true}
+        ]
+    });
+
+    Ok(form)
 }

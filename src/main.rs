@@ -13,6 +13,7 @@ mod backend;
 
 pub use pages::Home;
 pub use pages::Test;
+pub use pages::Application;
 
 #[cfg(feature = "server")]
 use config::Config;
@@ -42,6 +43,10 @@ pub enum Route {
     Home {},
     #[route("/test")]
     Test {},
+    #[route("/hackathon/:id/application")]
+    Application {
+        id: String,
+    },
 }
 
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");

@@ -38,6 +38,7 @@ utoipa = { version = "5.4.0", features = [
 ], optional = true }
 utoipa-axum = { version = "0.2.0", optional = true }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"], optional = true }
+serde_json = "1.0.145"
 
 [features]
 default = []
