@@ -20,12 +20,14 @@
         File05Icon,
         Home03Icon,
         LogOut01Icon,
+        Menu01Icon,
         MessageTextSquare01Icon,
         QrCode01Icon,
         Scales01Icon,
         Tool01Icon,
         User02Icon,
         Users01Icon,
+        XCloseIcon,
     } from "@untitled-theme/icons-svelte";
 
     const { children } = $props();
@@ -34,6 +36,15 @@
     const auth = getAuthContext();
     const hackathon = setHackathonContext();
     const currentPath = $derived(page.url.pathname);
+
+    // Mobile menu state
+    let mobileMenuOpen = $state(false);
+
+    // Close mobile menu when route changes
+    $effect(() => {
+        currentPath;
+        mobileMenuOpen = false;
+    });
 
     // Update hackathonId in context when it changes
     $effect(() => {
@@ -168,9 +179,74 @@
         <p>Authenticating...</p>
     </div>
 {:else if auth.user}
+    <!-- Mobile Header -->
+    <div
+        class="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary shadow-md px-4 py-3 flex items-center justify-between"
+    >
+        <a href="/" class="flex items-center gap-2">
+            <ScottyLabsFilled class="size-6" />
+            <span class="text-xl font-medium">Terrier</span>
+        </a>
+        <button
+            onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+            class="p-2 rounded-lg hover:bg-gray-100"
+            aria-label="Toggle menu"
+        >
+            {#if mobileMenuOpen}
+                <XCloseIcon class="size-6" />
+            {:else}
+                <Menu01Icon class="size-6" />
+            {/if}
+        </button>
+    </div>
+
+    <!-- Mobile Menu Overlay -->
+    {#if mobileMenuOpen}
+        <div
+            class="md:hidden fixed inset-0 z-50 bg-white"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="flex justify-end p-4">
+                <button
+                    onclick={() => (mobileMenuOpen = false)}
+                    class="p-2 rounded-lg hover:bg-gray-100"
+                    aria-label="Close menu"
+                >
+                    <XCloseIcon class="size-6" />
+                </button>
+            </div>
+
+            <nav class="flex flex-col px-6 gap-2">
+                {#each navItems as item}
+                    <a
+                        href={item.href}
+                        class="flex gap-3 px-4 py-3 rounded-xl text-lg {currentPath ===
+                        item.href
+                            ? 'bg-selected text-primary'
+                            : 'text-selected hover:bg-gray-100'}"
+                    >
+                        <item.icon class="my-auto size-6" />
+                        <span class="font-medium">{item.label}</span>
+                    </a>
+                {/each}
+
+                <button
+                    type="button"
+                    onclick={logout}
+                    class="flex gap-3 px-4 py-3 rounded-xl text-lg text-selected hover:bg-gray-100 cursor-pointer"
+                >
+                    <LogOut01Icon class="my-auto size-6" />
+                    <span class="font-medium">Logout</span>
+                </button>
+            </nav>
+        </div>
+    {/if}
+
     <div class="min-h-screen bg-secondary text-selected flex">
+        <!-- Desktop Sidebar -->
         <aside
-            class="w-64 h-[calc(100vh-3.5rem)] mt-7 ml-7 p-4 rounded-4xl shadow-lg bg-primary"
+            class="hidden md:block w-64 h-[calc(100vh-3.5rem)] mt-7 ml-7 p-4 rounded-4xl shadow-lg bg-primary"
         >
             <a href="/" class="mt-6 justify-center gap-2 flex">
                 <ScottyLabsFilled class="my-auto" />
@@ -202,7 +278,7 @@
             </nav>
         </aside>
 
-        <main class="flex-1 p-7 overflow-y-auto">
+        <main class="flex-1 p-7 pt-20 md:pt-7 overflow-y-auto">
             {@render children()}
         </main>
     </div>
