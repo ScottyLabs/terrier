@@ -157,6 +157,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(Applications::Content).text().not_null())
                     .col(
                         ColumnDef::new(Applications::CreatedAt)
                             .timestamp()

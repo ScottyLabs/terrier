@@ -6,18 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, utoipa :: ToSchema,
 )]
-#[sea_orm(table_name = "hackathons")]
+#[sea_orm(table_name = "applications")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub name: String,
-    #[sea_orm(unique)]
-    pub slug: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub description: Option<String>,
-    pub start_date: DateTime,
-    pub end_date: DateTime,
-    pub is_active: bool,
+    #[sea_orm(column_type = "Text")]
+    pub content: String,
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }
@@ -26,19 +20,11 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::user_hackathon_applications::Entity")]
     UserHackathonApplications,
-    #[sea_orm(has_many = "super::user_hackathon_roles::Entity")]
-    UserHackathonRoles,
 }
 
 impl Related<super::user_hackathon_applications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserHackathonApplications.def()
-    }
-}
-
-impl Related<super::user_hackathon_roles::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserHackathonRoles.def()
     }
 }
 

@@ -23,7 +23,7 @@ use serde::Serialize;
 use crate::{
     AppState,
     auth::extractors::{HackathonRole, RequireGlobalAdmin},
-    entities::{hackathons, prelude::*},
+    entities::{hackathons, applications, user_hackathon_applications, prelude::*},
 };
 
 use crate::dioxus_fullstack::ServerFnError;
@@ -274,21 +274,105 @@ pub async fn get_hackathon_form(slug: String) -> Result<serde_json::Value, Serve
     Ok(form)
 }
 
-#[post("/hackathons/:slug/apply")]
+#[get("/hackathons/:slug/applications", state: State<AppState>)]
+pub async fn get_existing_application(slug: String) -> Result<serde_json::Value, ServerFnError> {
+    // Get the authenticated user
+    let user = user_status().await?;
+    let user_id = user.id.parse::<i32>().map_err(|_| ServerFnError::new("Invalid user ID"))?;
+
+    // Get the hackathon by slug
+    let hackathon = Hackathons::find()
+        .filter(hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Check if user has an application for this hackathon
+    let existing_application = UserHackathonApplications::find()
+        .filter(user_hackathon_applications::Column::UserId.eq(user_id))
+        .filter(user_hackathon_applications::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?;
+
+    if let Some(ua) = existing_application {
+        let application = Applications::find_by_id(ua.application_id)
+            .one(&state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
+            .ok_or_else(|| ServerFnError::new("Application not found"))?;
+
+        let content: serde_json::Value = serde_json::from_str(&application.content)
+            .map_err(|_| ServerFnError::new("Failed to parse application content"))?;
+
+        Ok(content)
+    } else {
+        Err(ServerFnError::new("No existing application found"))
+    }
+}
+
+#[post("/hackathons/:slug/apply", state: State<AppState>)]
 pub async fn submit_hackathon_application(
     slug: String,
     data: std::collections::HashMap<String, String>,
 ) -> Result<(), ServerFnError> {
-    // TODO: make this into an extractor
+    // Get the authenticated user
     let user = user_status().await?;
-    let id = user.id.parse::<i32>().map_err(|_| ServerFnError::new("Invalid user ID"))?;
+    let user_id = user.id.parse::<i32>().map_err(|_| ServerFnError::new("Invalid user ID"))?;
+
+    // Get the hackathon by slug
+    let hackathon = Hackathons::find()
+        .filter(hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Check if user already has an application for this hackathon
+    let existing_application = UserHackathonApplications::find()
+        .filter(user_hackathon_applications::Column::UserId.eq(user_id))
+        .filter(user_hackathon_applications::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?;
+
+    if existing_application.is_some() {
+        return Err(ServerFnError::new("You have already submitted an application for this hackathon"));
+    }
+
+    // Serialize the form data to JSON
+    let content = serde_json::to_string(&data)
+        .map_err(|_| ServerFnError::new("Serialization error"))?;
 
     tracing::info!("Received application for hackathon {}: {:#?}", slug, data);
 
-    // Convert HashMap to your struct or use it directly
-    // You can access fields like: data.get("display_name"), data.get("first_name"), etc.
+    // Create the application record
+    let application = applications::ActiveModel {
+        content: Set(content),
+        ..Default::default()
+    };
 
-    // Here you would typically save the application to the database
+    let application_result = application
+        .insert(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to create application: {}", e)))?;
+
+    // Create the junction table entry
+    let user_hackathon_application = user_hackathon_applications::ActiveModel {
+        user_id: Set(user_id),
+        hackathon_id: Set(hackathon.id),
+        application_id: Set(application_result.id),
+        ..Default::default()
+    };
+
+    user_hackathon_application
+        .insert(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to link application: {}", e)))?;
+
+    tracing::info!("Application {} created for user {} and hackathon {}", application_result.id, user_id, hackathon.id);
+
     Ok(())
 }
 
