@@ -30,7 +30,7 @@ pub fn Home() -> Element {
     let today = Local::now().format("%Y-%m-%d").to_string();
     let current_time = Local::now().format("%H:%M").to_string();
 
-    let mut add_hackathon = use_action(backend::create_hackathon);
+    let mut add_hackathon: Action<(Form<backend::CreateHackathonForm>,), crate::types::HackathonInfo> = use_action(backend::create_hackathon);
 
     rsx! {
         div { class: "min-h-screen bg-secondary text-selected flex flex-col",
