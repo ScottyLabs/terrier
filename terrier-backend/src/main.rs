@@ -4,7 +4,7 @@ use axum::{
     http::Uri,
     middleware,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
@@ -21,6 +21,7 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+mod applications;
 mod auth;
 mod config;
 mod docs;
@@ -77,6 +78,18 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
         .route(
             "/api/hackathons/{slug}/role",
             get(hackathons::handlers::get_user_role),
+        )
+        .route(
+            "/api/hackathons/{slug}/application",
+            get(applications::handlers::get_application),
+        )
+        .route(
+            "/api/hackathons/{slug}/application",
+            put(applications::handlers::save_application),
+        )
+        .route(
+            "/api/hackathons/{slug}/application/submit",
+            post(applications::handlers::submit_application),
         )
         .route(
             "/api/hackathons",

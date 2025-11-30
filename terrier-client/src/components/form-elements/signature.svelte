@@ -7,6 +7,7 @@
     export let placeholder: string = "Enter";
     export let maxLength: number | null = null;
     export let required: boolean = false;
+    export let disabled: boolean = false;
     export let value: string = "";
     export let onInput: (value: string) => void = () => {};
 
@@ -25,9 +26,10 @@
     {/if}
     <input
         type="text"
-        class="w-full rounded-xl bg-slate-100 px-4 py-2 text-gray-500 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-300"
-        bind:value
+        class="w-full rounded-xl bg-slate-100 px-4 py-2 text-gray-500 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        {value}
         {placeholder}
+        {disabled}
         maxlength={maxLength ?? undefined}
         on:input={(e) => onInput((e.target as HTMLInputElement).value)}
     />

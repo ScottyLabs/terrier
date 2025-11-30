@@ -2,6 +2,7 @@
     export let label: string;
     export let description: string | null = null;
     export let required: boolean = false;
+    export let disabled: boolean = false;
     export let checked: boolean = false;
     export let onInput: (value: boolean) => void = () => {};
 </script>
@@ -9,8 +10,9 @@
 <label class="flex items-center gap-3">
     <input
         type="checkbox"
-        class="appearance-none border-2 border-black rounded-sm h-5 w-5 bg-white text-blue-600 focus:ring-2 focus:ring-blue-300 checked:bg-gray-600 checked:border-transparent checked:bg-checkmark"
-        bind:checked
+        class="appearance-none border-2 border-black rounded-sm h-5 w-5 bg-white text-blue-600 focus:ring-2 focus:ring-blue-300 checked:bg-gray-600 checked:border-transparent checked:bg-checkmark disabled:opacity-50 disabled:cursor-not-allowed"
+        {checked}
+        {disabled}
         on:change={(e) => onInput((e.target as HTMLInputElement).checked)}
     />
     <div class="flex flex-col">

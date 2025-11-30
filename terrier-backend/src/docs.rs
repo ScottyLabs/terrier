@@ -6,7 +6,7 @@ use utoipa::{
     },
 };
 
-use crate::{auth, hackathons};
+use crate::{applications, auth, hackathons};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -17,6 +17,9 @@ use crate::{auth, hackathons};
         hackathons::handlers::list_public_hackathons,
         hackathons::handlers::get_user_role,
         hackathons::handlers::create_hackathon,
+        applications::handlers::get_application,
+        applications::handlers::save_application,
+        applications::handlers::submit_application,
     ),
     components(schemas(
         auth::handlers::LoginQuery,
@@ -24,11 +27,16 @@ use crate::{auth, hackathons};
         hackathons::handlers::HackathonInfo,
         hackathons::handlers::UserRoleResponse,
         hackathons::handlers::CreateHackathonRequest,
+        applications::handlers::ApplicationResponse,
+        applications::handlers::SaveApplicationRequest,
+        applications::handlers::SaveApplicationResponse,
+        applications::handlers::SubmitApplicationResponse,
     )),
     modifiers(&SecurityAddon),
     tags(
         (name = "Hackathons", description = "Hackathon endpoints"),
-        (name = "Authentication", description = "Authentication endpoints")
+        (name = "Authentication", description = "Authentication endpoints"),
+        (name = "Applications", description = "Application form endpoints")
     ),
     info(
         title = "Terrier API",

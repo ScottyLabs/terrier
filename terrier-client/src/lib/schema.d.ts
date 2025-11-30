@@ -89,6 +89,41 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/hackathons/{slug}/application": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get the current user's application for a hackathon */
+		get: operations["get_application"];
+		/** Save or update the current user's application (auto-save/draft) */
+		put: operations["save_application"];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/application/submit": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Submit the current user's application */
+		post: operations["submit_application"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	"/hackathons/{slug}/role": {
 		parameters: {
 			query?: never;
@@ -110,6 +145,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
+		ApplicationResponse: {
+			/** Format: date-time */
+			created_at: string;
+			form_data: unknown;
+			status: string;
+			/** Format: date-time */
+			submitted_at?: string | null;
+			/** Format: date-time */
+			updated_at: string;
+		};
 		CreateHackathonRequest: {
 			description?: string | null;
 			end_date: string;
@@ -130,6 +175,20 @@ export interface components {
 		};
 		LoginQuery: {
 			redirect_uri?: string | null;
+		};
+		SaveApplicationRequest: {
+			form_data: unknown;
+		};
+		SaveApplicationResponse: {
+			status: string;
+			success: boolean;
+			/** Format: date-time */
+			updated_at: string;
+		};
+		SubmitApplicationResponse: {
+			/** Format: date-time */
+			submitted_at: string;
+			success: boolean;
 		};
 		UserInfo: {
 			email: string;
@@ -278,6 +337,149 @@ export interface operations {
 				content: {
 					"application/json": components["schemas"]["HackathonInfo"][];
 				};
+			};
+		};
+	};
+	get_application: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description User's application */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ApplicationResponse"];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No application found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	save_application: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["SaveApplicationRequest"];
+			};
+		};
+		responses: {
+			/** @description Application saved */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["SaveApplicationResponse"];
+				};
+			};
+			/** @description Cannot modify submitted application */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	submit_application: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Application submitted */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["SubmitApplicationResponse"];
+				};
+			};
+			/** @description Application already submitted or no draft found */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No application found to submit */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 		};
 	};
