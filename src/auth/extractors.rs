@@ -1,9 +1,9 @@
+use axum::extract::FromRef;
 use axum::{
     RequestPartsExt,
     extract::{FromRequestParts, Path},
     http::{StatusCode, request::Parts},
 };
-use axum::extract::FromRef;
 use axum_oidc::{EmptyAdditionalClaims, OidcClaims};
 use sea_orm::{ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait};
 
@@ -18,14 +18,12 @@ pub struct RequireGlobalAdmin {
 
 impl<S> FromRequestParts<S> for RequireGlobalAdmin
 where
-AppState: FromRef<S>,
-S: Send + Sync {
+    AppState: FromRef<S>,
+    S: Send + Sync,
+{
     type Rejection = StatusCode;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let app_state = AppState::from_ref(state);
 
         let claims = OidcClaims::<EmptyAdditionalClaims>::from_request_parts(parts, &app_state)
@@ -37,7 +35,11 @@ S: Send + Sync {
             .map(|e| e.to_string())
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        if app_state.config.admin_emails.contains(&email.to_lowercase()) {
+        if app_state
+            .config
+            .admin_emails
+            .contains(&email.to_lowercase())
+        {
             Ok(RequireGlobalAdmin { email })
         } else {
             Err(StatusCode::FORBIDDEN)
@@ -45,22 +47,7 @@ S: Send + Sync {
     }
 }
 
-pub struct HackathonRole {
-    pub user_id: i32,
-    pub hackathon_id: i32,
-    pub role: String,
-    pub slug: String,
-}
-
-impl HackathonRole {
-    pub fn is_admin(&self) -> bool {
-        self.role == "admin"
-    }
-
-    pub fn is_organizer(&self) -> bool {
-        matches!(self.role.as_str(), "admin" | "organizer")
-    }
-}
+use crate::auth::HackathonRole;
 
 impl FromRequestParts<AppState> for HackathonRole {
     type Rejection = StatusCode;

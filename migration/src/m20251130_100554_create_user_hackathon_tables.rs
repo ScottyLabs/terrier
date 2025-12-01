@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Hackathons::IsActive)
                             .boolean()
                             .not_null()
-                            .default(true),
+                            .default(false),
                     )
                     .col(
                         ColumnDef::new(Hackathons::CreatedAt)
@@ -143,80 +143,6 @@ impl MigrationTrait for Migration {
                     .unique()
                     .to_owned(),
             )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(Applications::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(Applications::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(Applications::Content).text().not_null())
-                    .col(
-                        ColumnDef::new(Applications::CreatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(Applications::UpdatedAt)
-                            .timestamp()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(UserHackathonApplications::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(UserHackathonApplications::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(UserHackathonApplications::UserId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(UserHackathonApplications::HackathonId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(UserHackathonApplications::ApplicationId).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(UserHackathonApplications::Table, UserHackathonApplications::UserId)
-                            .to(Users::Table, Users::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(UserHackathonApplications::Table, UserHackathonApplications::HackathonId)
-                            .to(Hackathons::Table, Hackathons::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(UserHackathonApplications::Table, UserHackathonApplications::ApplicationId)
-                            .to(Applications::Table, Applications::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .to_owned(),
-            )
             .await
     }
 
@@ -224,9 +150,11 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(UserHackathonRoles::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Hackathons::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Users::Table).to_owned())
             .await
@@ -261,25 +189,6 @@ enum Hackathons {
     CreatedAt,
     UpdatedAt,
 }
-
-#[derive(DeriveIden)]
-enum Applications {
-    Table,
-    Id,
-    Content,
-    CreatedAt,
-    UpdatedAt
-}
-
-#[derive(DeriveIden)]
-enum UserHackathonApplications {
-    Table,
-    Id,
-    UserId,
-    HackathonId,
-    ApplicationId,
-}
-
 
 #[derive(DeriveIden)]
 enum UserHackathonRoles {
