@@ -16,22 +16,6 @@ pub fn use_hackathon_role(
 }
 
 /// Hook to require specific access roles for a hackathon page
-/// Reads the role from context (provided by HackathonLayout) instead of fetching
-pub fn use_require_access(required_roles: &'static [HackathonRoleType]) -> Option<Element> {
-    let role = use_context::<Option<HackathonRole>>();
-
-    if !role.as_ref().map(|r| has_access(r, required_roles)).unwrap_or(false) {
-        return Some(rsx! {
-            div { class: "flex items-center justify-center h-full",
-                p { class: "text-xl text-foreground-neutral-primary", "Unauthorized" }
-            }
-        });
-    }
-
-    None
-}
-
-/// Hook to require specific access roles for a hackathon page
 pub fn use_require_access_or_redirect(required_roles: &'static [HackathonRoleType]) -> Option<Element> {
     let role = use_context::<Option<HackathonRole>>();
 
