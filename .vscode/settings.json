@@ -1,0 +1,29 @@
+{
+    "editor.formatOnSave": true,
+    // Agrees with .editorconfig, but needed for some reason
+    "files.insertFinalNewline": true,
+    // Enable rust-analyzer in all scenarios
+    "rust-analyzer.cargo.features": "all",
+    "rust-analyzer.linkedProjects": [
+        "migration/Cargo.toml",
+        "dioxus-forms/Cargo.toml",
+        "Cargo.toml"
+    ],
+    "rust-analyzer.diagnostics.disabled": [
+        "unlinked-file"
+    ],
+    // Get the extension to recognize Tailwind in Dioxus' RSX
+    "tailwindCSS.experimental.classRegex": [
+        "class: \"(.*)\""
+    ],
+    "tailwindCSS.includeLanguages": {
+        "rust": "html"
+    },
+    // Prevent editing of SeaORM generated files
+    "files.readonlyInclude": {
+        "src/entities/*": true
+    },
+    "files.watcherExclude": {
+        "src/entities/**": true
+    }
+}

@@ -1,0 +1,222 @@
+use axum::{Extension, Router, middleware, response::IntoResponse, routing::get};
+use axum_oidc::{
+    EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
+    handle_oidc_redirect,
+};
+use dioxus::prelude::{DioxusRouterExt, ServeConfig};
+use http::Uri;
+use openidconnect::{ClientId, ClientSecret};
+use sea_orm::Database;
+use tower::ServiceBuilder;
+use tower_sessions::{
+    Expiry, SessionManagerLayer,
+    cookie::{SameSite, time::Duration},
+};
+use tower_sessions_redis_store::{
+    RedisStore,
+    fred::prelude::{Builder, ClientLike, Config as RedisConfig},
+};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+
+use crate::{App, AppState, auth, config::Config, docs::ApiDoc};
+
+pub async fn setup() {
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "info,terrier=debug,axum_oidc=trace,openidconnect=debug,tower_sessions=debug".into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // Load configuration
+    let config = Config::from_env().expect("Failed to load configuration");
+    tracing::info!("Configuration loaded successfully");
+
+    // Set up database connection
+    let db = Database::connect(&config.database_url)
+        .await
+        .expect("Failed to connect to database");
+    tracing::info!("Database connected successfully");
+
+    // Set up Redis connection
+    let redis_config = RedisConfig::from_url(&config.redis_url).expect("Invalid Redis URL");
+    let redis_pool = Builder::from_config(redis_config)
+        .build_pool(5)
+        .expect("Failed to create Redis pool");
+
+    redis_pool.init().await.expect("Failed to connect to Redis");
+
+    // Set up MinIO client
+    let provider = minio::s3::creds::StaticProvider::new(
+        &config.minio_root_user,
+        &config.minio_root_password,
+        None,
+    );
+    let s3 = minio::s3::client::Client::new(
+        config
+            .minio_endpoint
+            .parse()
+            .expect("Invalid MinIO endpoint"),
+        Some(Box::new(provider)),
+        None,
+        None,
+    )
+    .expect("Failed to create MinIO client");
+
+    // Create bucket if it doesn't exist
+    let bucket_args =
+        minio::s3::args::BucketExistsArgs::new(&config.minio_bucket).expect("Invalid bucket name");
+
+    match s3.bucket_exists(&bucket_args).await {
+        Ok(exists) => {
+            if !exists {
+                let make_bucket_args = minio::s3::args::MakeBucketArgs::new(&config.minio_bucket)
+                    .expect("Invalid bucket name");
+                s3.make_bucket(&make_bucket_args)
+                    .await
+                    .expect("Failed to create bucket");
+
+                tracing::info!("Created MinIO bucket: {}", config.minio_bucket);
+            } else {
+                tracing::info!("MinIO bucket already exists: {}", config.minio_bucket);
+            }
+
+            // Set bucket policy to allow public read access to banner files
+            let policy = serde_json::json!({
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [format!("arn:aws:s3:::{}/*/banner.*", config.minio_bucket)]
+                }]
+            })
+            .to_string();
+
+            let set_policy_args =
+                minio::s3::args::SetBucketPolicyArgs::new(&config.minio_bucket, &policy)
+                    .expect("Invalid bucket policy");
+
+            match s3.set_bucket_policy(&set_policy_args).await {
+                Ok(_) => {
+                    tracing::info!("Set public read policy for bucket: {}", config.minio_bucket);
+                    tracing::debug!("Policy: {}", policy);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to set bucket policy: {:?}", e);
+                    tracing::error!("Policy was: {}", policy);
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to check bucket existence: {:?}", e);
+        }
+    }
+
+    // Create app state
+    let app_state = AppState {
+        config: config.clone(),
+        db,
+        s3,
+    };
+
+    // Session management
+    let session_store = RedisStore::new(redis_pool);
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false)
+        .with_same_site(SameSite::Lax)
+        .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
+
+    // OIDC client
+    let redirect_url = format!("{}/auth/callback", app_state.config.api_url);
+
+    let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
+        .with_default_http_client()
+        .with_redirect_url(Uri::try_from(redirect_url).expect("valid API_URL"))
+        .with_client_id(ClientId::new(app_state.config.oidc_client_id.clone()))
+        .with_client_secret(ClientSecret::new(
+            app_state.config.oidc_client_secret.clone(),
+        ))
+        .with_scopes(["openid", "email", "profile"].into_iter())
+        .discover(app_state.config.oidc_issuer.clone())
+        .await
+        .expect("Failed to discover OIDC provider")
+        .build();
+
+    tracing::info!("OIDC client configured successfully");
+
+    // OIDC login Layer
+    let oidc_login_service = ServiceBuilder::new()
+        .layer(axum::error_handling::HandleErrorLayer::new(
+            |e: MiddlewareError| async {
+                tracing::error!("OIDC login error: {:?}", e);
+                e.into_response()
+            },
+        ))
+        .layer(OidcLoginLayer::<EmptyAdditionalClaims>::new());
+
+    // OIDC auth Layer
+    let oidc_auth_service = ServiceBuilder::new()
+        .layer(axum::error_handling::HandleErrorLayer::new(
+            |e: MiddlewareError| async {
+                tracing::error!("OIDC auth error: {:?}", e);
+                e.into_response()
+            },
+        ))
+        .layer(OidcAuthLayer::new(oidc_client));
+
+    // Build routers
+    let api_router = Router::new()
+        // Swagger UI for API documentation
+        .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
+        // Protected routes
+        .route("/auth/login", get(auth::handlers::login))
+        .route("/auth/logout", get(auth::handlers::logout))
+        // User sync middleware
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            auth::middleware::sync_user_middleware,
+        ))
+        .layer(oidc_login_service.clone())
+        // Public routes
+        .route(
+            "/auth/callback",
+            get(handle_oidc_redirect::<EmptyAdditionalClaims>),
+        )
+        .route("/health", get(|| async { "OK" }))
+        // Apply OIDC auth and session layers
+        .layer(oidc_auth_service.clone())
+        .layer(session_layer.clone())
+        .with_state(app_state.clone());
+
+    let dioxus_router = Router::new()
+        .serve_dioxus_application(ServeConfig::default(), App)
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            auth::middleware::sync_user_middleware,
+        ))
+        .layer(oidc_login_service.clone())
+        .layer(oidc_auth_service.clone())
+        .layer(session_layer.clone())
+        .layer(Extension(app_state.clone()));
+
+    // Create the main router with API routes and Dioxus app
+    let router = api_router.merge(dioxus_router);
+
+    // Get address from CLI config or default to localhost:8080
+    let address = dioxus::cli_config::fullstack_address_or_localhost();
+    tracing::info!("Starting server at {}", address);
+
+    let listener = tokio::net::TcpListener::bind(address)
+        .await
+        .expect("Failed to bind to address");
+
+    axum::serve(listener, router.into_make_service())
+        .await
+        .expect("Failed to start server");
+}

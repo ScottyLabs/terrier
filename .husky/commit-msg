@@ -1,1 +1,0 @@
-cd terrier-client && bun commitlint --edit $1

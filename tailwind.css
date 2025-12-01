@@ -1,0 +1,22 @@
+@import url("https://api.fonts.coollabs.io/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap");
+@import "tailwindcss";
+
+@theme {
+    --font-sans: "Inter", sans-serif;
+
+    --color-foreground-neutral-primary: #1e1e1e;
+    --color-foreground-neutral-secondary: #666666;
+    --color-foreground-neutral-tertiary: #808080;
+    --color-background-neutral-primary: #ffffff;
+    --color-background-neutral-secondary-enabled: #f5f5f5;
+    --color-background-neutral-subtle-pressed: #e6e6e6;
+    --color-stroke-neutral-1: #d6d6d6;
+    --color-stroke-neutral-2: #e6e6e6;
+
+    --color-background-brandNeutral-secondary: #f0f4f8;
+    --color-foreground-brandNeutral-secondary: #7a8fa3;
+
+    --color-status-danger-foreground: #c4213e;
+    --color-status-warning-foreground: #f3c033;
+    --color-status-success-foreground: #0a722e;
+}

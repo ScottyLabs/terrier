@@ -1,0 +1,246 @@
+use dioxus::prelude::*;
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdChevronDown, LdSearch},
+};
+
+use crate::{
+    auth::{APPLICANTS_ROLES, hooks::use_require_access_or_redirect},
+    components::{ApplicationModal, Button, Dropdown, DropdownOption, PersonCard, TabSwitcher},
+    hackathons::handlers::applications::{accept_applications, get_all_applications, reject_applications, ApplicationWithUser},
+};
+
+#[derive(Clone, Copy, PartialEq)]
+enum ApplicantTab {
+    Individuals,
+    Teams,
+}
+
+#[component]
+pub fn HackathonApplicants(slug: String) -> Element {
+    if let Some(no_access) = use_require_access_or_redirect(APPLICANTS_ROLES) {
+        return no_access;
+    }
+
+    let mut filter_open = use_signal(|| false);
+    let mut selected_filters = use_signal(|| vec![]);
+    let active_tab = use_signal(|| ApplicantTab::Individuals);
+    let mut search_query = use_signal(|| String::new());
+    let mut selected_application = use_signal(|| None::<ApplicationWithUser>);
+
+    // Fetch applications
+    let mut applications_resource = use_resource({
+        let slug = slug.clone();
+        move || {
+            let slug = slug.clone();
+            async move {
+                let result: Result<Vec<ApplicationWithUser>, _> = get_all_applications(slug).await;
+                result.ok()
+            }
+        }
+    });
+
+    // Only show filter on Individuals tab with CMU Students option only
+    let filter_options = vec![DropdownOption {
+        label: "CMU Students".to_string(),
+        value: "cmu_students".to_string(),
+        selected: selected_filters().contains(&"cmu_students".to_string()),
+    }];
+
+    let tabs = vec![
+        (ApplicantTab::Individuals, "Individuals".to_string()),
+        (ApplicantTab::Teams, "Teams".to_string()),
+    ];
+
+    let search_placeholder = match active_tab() {
+        ApplicantTab::Individuals => "Search individuals",
+        ApplicantTab::Teams => "Search teams",
+    };
+
+    let show_filter = matches!(active_tab(), ApplicantTab::Individuals);
+
+    // Filter applications based on search and filters
+    let filtered_applications = applications_resource.read().as_ref().and_then(|apps| {
+        apps.as_ref().map(|app_list| {
+            app_list
+                .iter()
+                .filter(|app| {
+                    // Search filter
+                    let query = search_query().to_lowercase();
+                    let matches_search = query.is_empty()
+                        || app
+                            .user_name
+                            .as_ref()
+                            .map(|name| name.to_lowercase().contains(&query))
+                            .unwrap_or(false)
+                        || app.user_email.to_lowercase().contains(&query);
+
+                    // CMU students filter
+                    let is_cmu_filter_active = selected_filters().contains(&"cmu_students".to_string());
+                    let matches_cmu_filter = !is_cmu_filter_active
+                        || app.user_email.ends_with("@andrew.cmu.edu");
+
+                    matches_search && matches_cmu_filter
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+    });
+
+    rsx! {
+        div { class: "flex flex-col h-full",
+            h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary pt-11 pb-7",
+                "Applicants"
+            }
+
+            div { class: "mb-6",
+                TabSwitcher { active_tab, tabs }
+            }
+
+            div { class: "flex flex-col gap-7 flex-1 min-h-0",
+                div { class: "flex items-center justify-between",
+                    div { class: "flex items-center gap-2",
+                        // Search bar
+                        div { class: "w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
+                            Icon {
+                                width: 20,
+                                height: 20,
+                                icon: LdSearch,
+                                class: "text-foreground-neutral-tertiary",
+                            }
+                            input {
+                                class: "flex-1 px-2.5 text-sm leading-5 text-foreground-neutral-tertiary outline-none bg-transparent",
+                                placeholder: "{search_placeholder}",
+                                r#type: "text",
+                                value: "{search_query}",
+                                oninput: move |e| search_query.set(e.value()),
+                            }
+                        }
+
+                        // Filter button and dropdown (only on Individuals tab)
+                        if show_filter {
+                            div { class: "relative",
+                                button {
+                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full px-4 py-[9px] flex gap-2 items-center cursor-pointer",
+                                    onclick: move |_| filter_open.set(!filter_open()),
+                                    "Filter"
+                                    Icon {
+                                        width: 20,
+                                        height: 20,
+                                        icon: LdChevronDown,
+                                        class: "text-white",
+                                    }
+                                }
+
+                                if filter_open() {
+                                    div { class: "absolute top-[calc(100%+5px)] right-0 z-10",
+                                        Dropdown {
+                                            options: filter_options.clone(),
+                                            on_change: move |new_values| {
+                                                selected_filters.set(new_values);
+                                            },
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Button { "Approve All" }
+                }
+
+                // Application list
+                div { class: "bg-background-neutral-primary rounded-[20px] p-7 flex flex-col overflow-y-auto flex-1",
+                    match filtered_applications {
+                        Some(apps) => rsx! {
+                            if apps.is_empty() {
+                                div { class: "flex items-center justify-center h-full",
+                                    p { class: "text-foreground-neutral-secondary", "No applicants found" }
+                                }
+                            } else {
+                                for app in apps {
+                                    {
+                                        let app_id = app.id;
+                                        let app_clone = app.clone();
+                                        rsx! {
+                                            PersonCard {
+                                                key: "{app.id}",
+                                                name: app.user_name.clone().unwrap_or_else(|| "Unknown".to_string()),
+                                                role: app.status.clone(),
+                                                on_view: move |_| {
+                                                    selected_application.set(Some(app_clone.clone()));
+                                                },
+                                                on_deny: {
+                                                    let slug = slug.clone();
+                                                    move |_| {
+                                                        let slug = slug.clone();
+                                                        spawn(async move {
+                                                            let _ = reject_applications(slug, vec![app_id]).await;
+                                                            applications_resource.restart();
+                                                        });
+                                                    }
+                                                },
+                                                on_approve: {
+                                                    let slug = slug.clone();
+                                                    move |_| {
+                                                        let slug = slug.clone();
+                                                        spawn(async move {
+                                                            let _ = accept_applications(slug, vec![app_id]).await;
+                                                            applications_resource.restart();
+                                                        });
+                                                    }
+                                                },
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        None => rsx! {
+                            div { class: "flex items-center justify-center h-full",
+                                p { class: "text-foreground-neutral-secondary", "Loading applications..." }
+                            }
+                        },
+                    }
+                }
+            }
+        }
+
+        // Application modal
+        if let Some(app) = selected_application() {
+            {
+                let app_id = app.id;
+                rsx! {
+                    ApplicationModal {
+                        user_name: app.user_name.unwrap_or_else(|| "Unknown".to_string()),
+                        user_email: app.user_email,
+                        form_data: app.form_data,
+                        on_close: move |_| selected_application.set(None),
+                        on_deny: {
+                            let slug = slug.clone();
+                            move |_| {
+                                selected_application.set(None);
+                                let slug = slug.clone();
+                                spawn(async move {
+                                    let _ = reject_applications(slug, vec![app_id]).await;
+                                    applications_resource.restart();
+                                });
+                            }
+                        },
+                        on_approve: {
+                            let slug = slug.clone();
+                            move |_| {
+                                selected_application.set(None);
+                                let slug = slug.clone();
+                                spawn(async move {
+                                    let _ = accept_applications(slug, vec![app_id]).await;
+                                    applications_resource.restart();
+                                });
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+}
