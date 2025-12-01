@@ -3468,6 +3468,7 @@ dependencies = [
  "axum-oidc",
  "chrono",
  "dotenvy",
+ "http",
  "minio",
  "sea-orm",
  "serde",

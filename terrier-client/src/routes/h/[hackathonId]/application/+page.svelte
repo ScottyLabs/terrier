@@ -5,6 +5,7 @@
 
     import Checkbox from "@/components/form-elements/checkbox.svelte";
     import Dropdown from "@/components/form-elements/dropdown.svelte";
+    import FileUpload from "@/components/form-elements/file-upload.svelte";
     import LongResponse from "@/components/form-elements/long-response.svelte";
     import MultiCheckbox from "@/components/form-elements/multi-checkbox.svelte";
     import Signature from "@/components/form-elements/signature.svelte";
@@ -82,6 +83,16 @@
         required: boolean;
         condition?: { id: string; value: string } | null;
     };
+    type FileUploadQuestion = {
+        id: string;
+        type: "file-upload";
+        question: string;
+        description: string | null;
+        accept: string;
+        maxSizeMB: number;
+        required: boolean;
+        condition?: { id: string; value: string } | null;
+    };
     type FormSchema = Record<
         string,
         (
@@ -91,6 +102,7 @@
             | SignatureQuestion
             | MultiCheckboxQuestion
             | LongResponseQuestion
+            | FileUploadQuestion
         )[]
     >;
 
@@ -111,6 +123,62 @@
         }
         // 404 is fine - means no application yet
     });
+
+    // Check if a question should be visible (based on conditions)
+    function isQuestionVisible(question: {
+        condition?: { id: string; value: string } | null;
+    }): boolean {
+        if (!question.condition) return true;
+        const conditionValue = formData[question.condition.id];
+        // For checkboxes, the value might be boolean true or string "true"
+        if (question.condition.value === "true") {
+            return conditionValue === true || conditionValue === "true";
+        }
+        return conditionValue === question.condition.value;
+    }
+
+    // Get all required fields that are missing
+    function getMissingRequiredFields(): string[] {
+        const missing: string[] = [];
+
+        for (const [_section, questions] of Object.entries(formSchema)) {
+            for (const question of questions) {
+                // Skip if not required or not visible
+                if (!question.required || !isQuestionVisible(question))
+                    continue;
+
+                const value = formData[question.id];
+
+                // Check if field is empty
+                if (question.type === "checkbox") {
+                    // Checkbox is required means it must be checked
+                    if (value !== true && value !== "true") {
+                        missing.push(question.question);
+                    }
+                } else if (question.type === "multi-checkbox") {
+                    // Multi-checkbox needs at least one selection
+                    if (!value || value.toString().trim() === "") {
+                        missing.push(question.question);
+                    }
+                } else {
+                    // All other types just need a non-empty value
+                    if (
+                        value === undefined ||
+                        value === null ||
+                        value.toString().trim() === ""
+                    ) {
+                        missing.push(question.question);
+                    }
+                }
+            }
+        }
+
+        return missing;
+    }
+
+    // Derived state for validation
+    let missingFields = $derived(getMissingRequiredFields());
+    let canSubmit = $derived(missingFields.length === 0);
 
     // Auto-save function with debounce
     function scheduleAutoSave() {
@@ -151,6 +219,13 @@
 
     async function handleSubmit() {
         if (!hackathon.hackathonId) return;
+
+        // Validate required fields
+        const missing = getMissingRequiredFields();
+        if (missing.length > 0) {
+            submitError = `Please fill in all required fields: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ` and ${missing.length - 3} more` : ""}`;
+            return;
+        }
 
         isSubmitting = true;
         submitError = null;
@@ -243,7 +318,7 @@
                         {section} Information
                     </h2>
                     <div class="flex flex-col gap-6">
-                        {#each questions.filter((q) => !q.condition || formData[q.condition.id] === q.condition.value) as question}
+                        {#each questions.filter( (q) => isQuestionVisible(q), ) as question}
                             {#if question.type === "single-line-text"}
                                 <SingleLineText
                                     label={question.question}
@@ -319,6 +394,24 @@
                                     onInput={(v: string) =>
                                         handleInput(question.id, v)}
                                 />
+                            {:else if question.type === "file-upload"}
+                                {@const fileQuestion =
+                                    question as FileUploadQuestion}
+                                <FileUpload
+                                    label={fileQuestion.question}
+                                    description={fileQuestion.description}
+                                    required={fileQuestion.required}
+                                    disabled={applicationStatus ===
+                                        "under_review"}
+                                    accept={fileQuestion.accept}
+                                    maxSizeMB={fileQuestion.maxSizeMB}
+                                    fieldId={fileQuestion.id}
+                                    value={formData[
+                                        fileQuestion.id
+                                    ]?.toString() ?? ""}
+                                    onInput={(v: string) =>
+                                        handleInput(fileQuestion.id, v)}
+                                />
                             {/if}
                         {/each}
                     </div>
@@ -345,13 +438,26 @@
                 Application Submitted
             </div>
         {:else}
-            <button
-                class="bg-selected text-primary font-semibold px-5 py-3.5 rounded-4xl disabled:opacity-50"
-                onclick={handleSubmit}
-                disabled={isSubmitting}
-            >
-                {isSubmitting ? "Submitting..." : "Submit"}
-            </button>
+            <div class="flex flex-col items-end gap-2">
+                {#if !canSubmit && missingFields.length > 0}
+                    <p class="text-sm text-gray-500">
+                        {missingFields.length} required field{missingFields.length ===
+                        1
+                            ? ""
+                            : "s"} remaining
+                    </p>
+                {/if}
+                <button
+                    class="bg-selected text-primary font-semibold px-5 py-3.5 rounded-4xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    onclick={handleSubmit}
+                    disabled={isSubmitting || !canSubmit}
+                    title={!canSubmit
+                        ? `Missing: ${missingFields.slice(0, 5).join(", ")}${missingFields.length > 5 ? "..." : ""}`
+                        : ""}
+                >
+                    {isSubmitting ? "Submitting..." : "Submit"}
+                </button>
+            </div>
         {/if}
     </div>
 </div>

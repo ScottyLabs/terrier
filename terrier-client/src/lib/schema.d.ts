@@ -124,6 +124,23 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/hackathons/{slug}/application/upload-url": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Get a presigned URL for uploading a file */
+		post: operations["get_upload_url"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	"/hackathons/{slug}/role": {
 		parameters: {
 			query?: never;
@@ -189,6 +206,15 @@ export interface components {
 			/** Format: date-time */
 			submitted_at: string;
 			success: boolean;
+		};
+		UploadUrlRequest: {
+			content_type: string;
+			field_id: string;
+			file_name: string;
+		};
+		UploadUrlResponse: {
+			file_key: string;
+			upload_url: string;
 		};
 		UserInfo: {
 			email: string;
@@ -476,6 +502,54 @@ export interface operations {
 			};
 			/** @description No application found to submit */
 			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	get_upload_url: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["UploadUrlRequest"];
+			};
+		};
+		responses: {
+			/** @description Presigned upload URL */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["UploadUrlResponse"];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Failed to generate upload URL */
+			500: {
 				headers: {
 					[name: string]: unknown;
 				};

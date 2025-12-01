@@ -19,6 +19,104 @@ pub struct ApplicationResponse {
     pub updated_at: NaiveDateTime,
 }
 
+#[derive(Deserialize, ToSchema)]
+pub struct UploadUrlRequest {
+    pub field_id: String,
+    pub file_name: String,
+    pub content_type: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct UploadUrlResponse {
+    pub upload_url: String,
+    pub file_key: String,
+}
+
+/// Get a presigned URL for uploading a file
+#[utoipa::path(
+    post,
+    path = "/hackathons/{slug}/application/upload-url",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    request_body = UploadUrlRequest,
+    responses(
+        (status = 200, description = "Presigned upload URL", body = UploadUrlResponse),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "No access to this hackathon"),
+        (status = 500, description = "Failed to generate upload URL")
+    ),
+    tag = "Applications"
+)]
+pub async fn get_upload_url(
+    State(state): State<AppState>,
+    role: HackathonRole,
+    Json(payload): Json<UploadUrlRequest>,
+) -> Result<Json<UploadUrlResponse>, StatusCode> {
+    use http::Method;
+    use minio::s3::Client;
+    use minio::s3::creds::StaticProvider;
+
+    let config = &state.config;
+
+    tracing::debug!(
+        "Creating MinIO client with endpoint: {}",
+        config.s3_endpoint
+    );
+
+    // Create MinIO client
+    let provider = StaticProvider::new(&config.s3_access_key, &config.s3_secret_key, None);
+    let client = Client::new(
+        config.s3_endpoint.parse().map_err(|e| {
+            tracing::error!("Failed to parse S3 endpoint: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?,
+        Some(Box::new(provider)),
+        None,
+        None,
+    )
+    .map_err(|e| {
+        tracing::error!("Failed to create MinIO client: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Generate unique file key
+    let timestamp = Utc::now().timestamp();
+    let file_key = format!(
+        "applications/{}/{}/{}_{}",
+        role.hackathon_id, role.user_id, timestamp, payload.file_name
+    );
+
+    tracing::debug!(
+        "Generating presigned URL for bucket: {}, key: {}",
+        config.s3_bucket_name,
+        file_key
+    );
+
+    // Generate presigned PUT URL (valid for 10 minutes)
+    let presigned_response = client
+        .get_presigned_object_url(&config.s3_bucket_name, &file_key, Method::PUT)
+        .expiry_seconds(600)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Replace internal endpoint with public endpoint for browser access
+    let public_url = presigned_response
+        .url
+        .replace(&config.s3_endpoint, &config.s3_public_endpoint);
+
+    tracing::debug!("Generated presigned URL: {}", public_url);
+
+    Ok(Json(UploadUrlResponse {
+        upload_url: public_url,
+        file_key,
+    }))
+}
+
 /// Get the current user's application for a hackathon
 #[utoipa::path(
     get,

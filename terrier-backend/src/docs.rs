@@ -20,6 +20,7 @@ use crate::{applications, auth, hackathons};
         applications::handlers::get_application,
         applications::handlers::save_application,
         applications::handlers::submit_application,
+        applications::handlers::get_upload_url,
     ),
     components(schemas(
         auth::handlers::LoginQuery,
@@ -31,6 +32,8 @@ use crate::{applications, auth, hackathons};
         applications::handlers::SaveApplicationRequest,
         applications::handlers::SaveApplicationResponse,
         applications::handlers::SubmitApplicationResponse,
+        applications::handlers::UploadUrlRequest,
+        applications::handlers::UploadUrlResponse,
     )),
     modifiers(&SecurityAddon),
     tags(

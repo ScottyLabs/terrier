@@ -96,14 +96,6 @@
             "required": true
         },
         {
-            "id": "city",
-            "type": "single-line-text",
-            "question": "City",
-            "description": null,
-            "maxLength": 100,
-            "required": false
-        },
-        {
             "id": "country",
             "type": "dropdown",
             "question": "Country",
@@ -241,10 +233,11 @@
     "portfolio": [
         {
             "id": "resume",
-            "type": "single-line-text",
-            "question": "Resume URL",
-            "description": "Please provide a link to your resume (Google Drive, Dropbox, etc).",
-            "maxLength": 500,
+            "type": "file-upload",
+            "question": "Resume",
+            "description": "Please upload your resume as a PDF file (max 5MB).",
+            "accept": ".pdf",
+            "maxSizeMB": 5,
             "required": true
         },
         {
@@ -289,10 +282,34 @@
             "required": false
         },
         {
+            "id": "travel_city",
+            "type": "single-line-text",
+            "question": "City Traveling From",
+            "description": "Enter the city you will be traveling from.",
+            "maxLength": 100,
+            "required": true,
+            "condition": {
+                "id": "travel_reimbursement",
+                "value": "true"
+            }
+        },
+        {
+            "id": "travel_state",
+            "type": "single-line-text",
+            "question": "State/Province Traveling From",
+            "description": "Enter the state or province you will be traveling from.",
+            "maxLength": 100,
+            "required": true,
+            "condition": {
+                "id": "travel_reimbursement",
+                "value": "true"
+            }
+        },
+        {
             "id": "travel_details",
             "type": "long-response",
-            "question": "Travel Details",
-            "description": "Please provide details regarding your travel plans.",
+            "question": "Additional Travel Details",
+            "description": "Please provide any additional details regarding your travel plans.",
             "maxLength": 500,
             "required": false,
             "condition": {
@@ -306,25 +323,34 @@
             "id": "diversity_statement",
             "type": "long-response",
             "question": "Diversity Statement",
-            "description": "Optional statement regarding diversity.",
+            "description": "This optional statement is used to help determine travel reimbursement eligibility. Please share any aspects of your background, experiences, or perspectives that contribute to diversity.",
             "maxLength": 1000,
             "required": false
         }
     ],
     "logistics": [
         {
-            "id": "phone_number",
-            "type": "single-line-text",
-            "question": "Phone Number",
-            "description": null,
-            "maxLength": 20,
-            "required": true
+            "id": "dietary_restrictions",
+            "type": "multi-checkbox",
+            "question": "Dietary Restrictions",
+            "description": "Select all that apply.",
+            "options": [
+                "Vegetarian",
+                "Vegan",
+                "Gluten-Free",
+                "Dairy-Free",
+                "Nut Allergy",
+                "Halal",
+                "Kosher",
+                "None"
+            ],
+            "required": false
         },
         {
-            "id": "dietary_restrictions",
+            "id": "dietary_restrictions_other",
             "type": "single-line-text",
-            "question": "Dietary Considerations",
-            "description": null,
+            "question": "Other Dietary Restrictions",
+            "description": "Please specify any additional dietary restrictions or allergies.",
             "maxLength": 200,
             "required": false
         },

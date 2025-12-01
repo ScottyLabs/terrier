@@ -92,6 +92,10 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
             post(applications::handlers::submit_application),
         )
         .route(
+            "/api/hackathons/{slug}/application/upload-url",
+            post(applications::handlers::get_upload_url),
+        )
+        .route(
             "/api/hackathons",
             post(hackathons::handlers::create_hackathon),
         )
