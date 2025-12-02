@@ -7,6 +7,7 @@ pub use form_config::set_form_config;
 pub mod get_hackathons;
 pub use get_hackathons::{get_hackathon_by_slug, get_hackathons};
 pub mod people;
+pub mod teams;
 pub mod toggle_registration;
 pub use toggle_registration::toggle_registration;
 pub mod update_hackathon;

@@ -22,6 +22,7 @@ pub fn SidebarItem<I: IconShape + Clone + PartialEq + 'static>(
         (Route::HackathonSubmission { .. }, Route::HackathonSubmission { .. }) => true,
         (Route::HackathonCheckin { .. }, Route::HackathonCheckin { .. }) => true,
         (Route::HackathonProfile { .. }, Route::HackathonProfile { .. }) => true,
+        (Route::HackathonApply { .. }, Route::HackathonApply { .. }) => true,
         (Route::HackathonSettings { .. }, Route::HackathonSettings { .. }) => true,
         _ => false,
     };

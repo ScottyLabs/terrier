@@ -84,8 +84,14 @@ pub fn HackathonSettings(slug: String) -> Element {
     let desc_for_effect = description_field.clone();
     let max_team_size_for_effect = max_team_size_field.clone();
 
-    // Effect to detect changes and update save status
+    // Effect to detect changes and update save status (only for General/Participation tabs)
     use_effect(move || {
+        // Only run dirty detection for General and Participation tabs
+        let current_tab = active_tab();
+        if current_tab == SettingsTab::Application {
+            return;
+        }
+
         // Subscribe to signal changes by reading them
         let name_val = name_for_effect.value.read().clone();
         let desc_val = desc_for_effect.value.read().clone();
@@ -206,9 +212,7 @@ pub fn HackathonSettings(slug: String) -> Element {
                                                     banner_url.set(updated_info.banner_url.clone());
                                                 }
                                                 save_status.set(SaveStatus::Saved);
-                                                let _ = document::eval(
-                                                    "alert('Settings saved! Please reload the page.')",
-                                                );
+                                                let _ = document::eval("alert('Settings saved!')");
                                             }
                                             Err(e) => {
                                                 tracing::error!("Failed to update settings: {:?}", e);
@@ -318,9 +322,26 @@ pub fn HackathonSettings(slug: String) -> Element {
                     }
                     SettingsTab::Application => {
                         let mut is_active = use_signal(|| hackathon.read().is_active);
-                        let mut selected_preset = use_signal(|| String::from("none"));
+                        // Detect current preset from form_config
+                        let initial_preset = hackathon.read().form_config.as_ref()
+                            .and_then(|config| {
+                                // Check if it matches tartanhacks preset by checking a unique field
+                                if let Ok(schema) = serde_json::from_value::<crate::schemas::FormSchema>(config.clone()) {
+                                    // Check for tartanhacks-specific characteristics
+                                    if schema.fields.iter().any(|f| f.id == "mlh_code_of_conduct") {
+                                        return Some("tartanhacks".to_string());
+                                    }
+                                }
+                                None
+                            })
+                            .unwrap_or_else(|| "none".to_string());
+                        let preset_for_selected = initial_preset.clone();
+                        let preset_for_original = initial_preset.clone();
+                        let mut selected_preset = use_signal(move || preset_for_selected);
+                        let original_preset = use_signal(move || preset_for_original);
                         let slug_for_toggle = slug.clone();
                         let slug_for_preset = slug.clone();
+                        let mut status = save_status;
                         rsx! {
                             div { class: "flex flex-col gap-6",
                                 // Registration Status Toggle
@@ -366,26 +387,33 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     }
                                 }
-
                                 // Preset Selector
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Application Form" }
                                     div { class: "flex flex-col gap-2",
-                                        label { class: "text-base font-medium text-foreground-neutral-primary", "Form Template" }
+                                        label { class: "text-base font-medium text-foregrournd-neutral-primary", "Form Preset" }
                                         select {
                                             class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] border border-border-neutral-primary",
                                             value: "{selected_preset}",
-                                            onchange: move |evt| selected_preset.set(evt.value()),
-                                            option { value: "none", "-- Select a preset --" }
+                                            onchange: move |evt| {
+                                                let new_value = evt.value();
+                                                selected_preset.set(new_value.clone());
+                                                if new_value != original_preset() {
+                                                    status.set(SaveStatus::Unsaved);
+                                                } else {
+                                                    status.set(SaveStatus::Saved);
+                                                }
+                                            },
+                                            option { value: "none", "Select a preset" }
                                             option { value: "tartanhacks", "TartanHacks" }
                                         }
                                     }
-
                                     if selected_preset() != "none" {
                                         div { class: "flex gap-4",
                                             Button {
                                                 button_type: "button".to_string(),
                                                 onclick: move |_| {
+                                                    status.set(SaveStatus::Saving);
                                                     let slug = slug_for_preset.clone();
                                                     let preset = selected_preset();
                                                     spawn(async move {
@@ -396,11 +424,11 @@ pub fn HackathonSettings(slug: String) -> Element {
                                                         };
                                                         match set_form_config(slug, form_schema).await {
                                                             Ok(_) => {
-                                                                let _ = document::eval(
-                                                                    "alert('Form preset applied successfully! Please reload the page.')",
-                                                                );
+                                                                status.set(SaveStatus::Saved);
+                                                                let _ = document::eval("alert('Form preset applied successfully!')");
                                                             }
                                                             Err(e) => {
+                                                                status.set(SaveStatus::Unsaved);
                                                                 let error_msg = e.to_string().replace("'", "\\'");
                                                                 let _ = document::eval(
                                                                     &format!("alert('Failed to apply preset: {}')", error_msg),
@@ -413,7 +441,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                             }
                                         }
                                     }
-
                                     if hackathon.read().form_config.is_some() {
                                         p { class: "text-sm text-foreground-neutral-secondary",
                                             "A form is currently configured for this hackathon."

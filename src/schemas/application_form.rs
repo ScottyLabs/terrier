@@ -1,23 +1,70 @@
 use serde::{Deserialize, Serialize};
 
+/// Represents different field types with their type-specific configuration
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum FieldType {
-    Text,
-    Email,
-    Tel,
-    Number,
-    Textarea,
-    Select,
+    Text {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validation: Option<TextValidation>,
+    },
+    Email {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validation: Option<TextValidation>,
+    },
+    Tel {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+    },
+    Number {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validation: Option<NumberValidation>,
+    },
+    Textarea {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+    },
+    Select {
+        options: Vec<SelectOption>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+    },
     Checkbox,
-    CheckboxGroup,
-    Radio,
-    File,
+    CheckboxGroup {
+        options: Vec<SelectOption>,
+    },
+    Radio {
+        options: Vec<SelectOption>,
+    },
+    File {
+        /// Storage path template for uploaded files. Available variables:
+        /// - `{hackathon_id}`: Database ID of the hackathon
+        /// - `{hackathon_slug}`: URL slug of the hackathon
+        /// - `{user_id}`: Database ID of the user
+        /// - `{user_oidc_sub}`: OIDC subject identifier of the user
+        /// - `{field_name}`: Name of the form field
+        ///
+        /// Must include one user variable and one hackathon variable for proper isolation.
+        /// - e.g. `"{hackathon_slug}/applications/{user_oidc_sub}/resume"`
+        file_path: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validation: Option<FileValidation>,
+    },
     Date,
-    Url,
+    Url {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+    },
 }
 
+/// Option for select, radio, and checkbox group fields
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SelectOption {
@@ -25,6 +72,7 @@ pub struct SelectOption {
     pub value: String,
 }
 
+/// Validation rules for text and email fields
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TextValidation {
@@ -36,6 +84,7 @@ pub struct TextValidation {
     pub pattern: Option<String>,
 }
 
+/// Validation rules for number fields
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct NumberValidation {
@@ -47,6 +96,7 @@ pub struct NumberValidation {
     pub step: Option<f64>,
 }
 
+/// Validation rules for file upload fields
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileValidation {
@@ -59,15 +109,6 @@ pub struct FileValidation {
     /// Allow multiple file uploads
     #[serde(default)]
     pub multiple: bool,
-}
-
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum FieldValidation {
-    Text(TextValidation),
-    Number(NumberValidation),
-    File(FileValidation),
 }
 
 /// Condition for showing a field based on another field's value
@@ -88,8 +129,8 @@ pub struct FormField {
     /// Unique identifier for the field
     pub id: String,
 
-    /// Type of the field
-    #[serde(rename = "type")]
+    /// Type of the field (contains type-specific data like options, validation, etc.)
+    #[serde(flatten)]
     pub field_type: FieldType,
 
     /// Display label for the field
@@ -97,10 +138,6 @@ pub struct FormField {
 
     /// Form field name (used as key in form data)
     pub name: String,
-
-    /// Placeholder text
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub placeholder: Option<String>,
 
     /// Whether the field is required
     #[serde(default)]
@@ -114,27 +151,17 @@ pub struct FormField {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
 
-    /// Options for select, radio, and checkbox fields
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<Vec<SelectOption>>,
-
-    /// Validation rules for the field
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub validation: Option<FieldValidation>,
-
     /// Order/position of the field in the form
     #[serde(default)]
     pub order: u32,
 
+    /// Section this field belongs to
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+
     /// Condition for showing this field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conditional: Option<FieldCondition>,
-
-    /// Storage path template for file uploads, for File type fields
-    /// Template variables: {hackathon_id}, {user_id}, {field_name}
-    /// Example: "applications/{hackathon_id}/{user_id}/{field_name}.pdf"
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file_path: Option<String>,
 }
 
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
@@ -194,11 +221,13 @@ impl FormSchema {
             }
         }
 
-        // Validate that select/radio/checkbox group fields have options
+        // Validate that select/radio/checkbox group fields have non-empty options
         for field in &self.fields {
-            match field.field_type {
-                FieldType::Select | FieldType::Radio | FieldType::CheckboxGroup => {
-                    if field.options.is_none() || field.options.as_ref().unwrap().is_empty() {
+            match &field.field_type {
+                FieldType::Select { options, .. }
+                | FieldType::Radio { options }
+                | FieldType::CheckboxGroup { options } => {
+                    if options.is_empty() {
                         return Err(format!(
                             "Field '{}' of type {:?} must have options",
                             field.name, field.field_type

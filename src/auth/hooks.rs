@@ -16,10 +16,16 @@ pub fn use_hackathon_role(
 }
 
 /// Hook to require specific access roles for a hackathon page
-pub fn use_require_access_or_redirect(required_roles: &'static [HackathonRoleType]) -> Option<Element> {
+pub fn use_require_access_or_redirect(
+    required_roles: &'static [HackathonRoleType],
+) -> Option<Element> {
     let role = use_context::<Option<HackathonRole>>();
 
-    if !role.as_ref().map(|r| has_access(r, required_roles)).unwrap_or(false) {
+    if !role
+        .as_ref()
+        .map(|r| has_access(r, required_roles))
+        .unwrap_or(false)
+    {
         return Some(rsx! {
             crate::pages::NoAccess {}
         });
@@ -108,13 +114,33 @@ async fn get_hackathon_role(slug: String) -> Result<Option<HackathonRole>, Serve
             slug: hackathon.slug,
         })),
         None => {
-            // No role found, assign "applicant" role
-            use sea_orm::{ActiveModelTrait, Set};
+            // No role found, assign "applicant" role and create team
+            use sea_orm::{ActiveModelTrait, Set, ActiveValue::NotSet};
+            use chrono::Utc;
 
+            // Create personal team first
+            let team_name = format!("{}'s Team", user.name.clone().unwrap_or_else(|| "My".to_string()));
+
+            let new_team = crate::entities::teams::ActiveModel {
+                id: NotSet,
+                hackathon_id: Set(hackathon.id),
+                name: Set(team_name),
+                description: Set(None),
+                created_at: Set(Utc::now().naive_utc()),
+                updated_at: Set(Utc::now().naive_utc()),
+            };
+
+            let created_team = new_team
+                .insert(&state.db)
+                .await
+                .map_err(|e| ServerFnError::new(format!("Failed to create team: {}", e)))?;
+
+            // Create applicant role with team
             let new_role = crate::entities::user_hackathon_roles::ActiveModel {
                 user_id: Set(user.id),
                 hackathon_id: Set(hackathon.id),
                 role: Set("applicant".to_string()),
+                team_id: Set(Some(created_team.id)),
                 ..Default::default()
             };
 

@@ -6,6 +6,8 @@ pub enum ButtonVariant {
     #[default]
     Default,
     Secondary,
+    Tertiary,
+    Inverse,
     Danger,
     Success,
 }
@@ -21,19 +23,23 @@ pub fn Button(
     let bg_class = match variant {
         ButtonVariant::Default => "bg-foreground-neutral-primary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
+        ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
+        ButtonVariant::Inverse => "bg-foreground-neutral-primary",
         ButtonVariant::Danger => "bg-status-danger-foreground",
         ButtonVariant::Success => "bg-status-success-foreground",
     };
 
     let text_class = match variant {
         ButtonVariant::Secondary => "text-foreground-neutral-secondary",
+        ButtonVariant::Tertiary => "text-foreground-neutral-primary",
+        ButtonVariant::Inverse => "text-background-neutral-primary",
         _ => "text-white",
     };
 
     rsx! {
         button {
             r#type: "{button_type}",
-            class: "px-4 py-[9px] {bg_class} {text_class} font-semibold text-sm leading-5 rounded-full cursor-pointer",
+            class: "px-5 py-3.5 {bg_class} {text_class} font-semibold text-sm leading-5 rounded-[100px] cursor-pointer",
             onclick: move |evt| {
                 if let Some(handler) = onclick {
                     handler.call(evt);
@@ -57,19 +63,23 @@ pub fn ButtonWithIcon<I: IconShape + Clone + PartialEq + 'static>(
     let bg_class = match variant {
         ButtonVariant::Default => "bg-foreground-neutral-primary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
+        ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
+        ButtonVariant::Inverse => "bg-foreground-neutral-primary",
         ButtonVariant::Danger => "bg-status-danger-foreground",
         ButtonVariant::Success => "bg-status-success-foreground",
     };
 
     let text_class = match variant {
         ButtonVariant::Secondary => "text-foreground-neutral-secondary",
+        ButtonVariant::Tertiary => "text-foreground-neutral-primary",
+        ButtonVariant::Inverse => "text-background-neutral-primary",
         _ => "text-white",
     };
 
     rsx! {
         button {
             r#type: "{button_type}",
-            class: "px-4 py-[9px] {bg_class} {text_class} font-semibold text-sm leading-5 rounded-full cursor-pointer flex gap-2 items-center",
+            class: "px-5 py-3.5 {bg_class} {text_class} font-semibold text-sm leading-5 rounded-[100px] cursor-pointer flex gap-2 items-center",
             onclick: move |evt| {
                 if let Some(handler) = onclick {
                     handler.call(evt);
