@@ -8,6 +8,3 @@
 
 # Environment
 .env
-
-# Tailwind-generated
-assets/tailwind.css
