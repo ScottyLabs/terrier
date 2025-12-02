@@ -1,12 +1,15 @@
-use crate::components::{Input, InputVariant};
-use crate::hackathons::handlers::teams::{
-    TeamListItem, UpdateTeamRequest, JoinTeamRequest,
-    get_my_team, get_all_teams, update_team, join_team, leave_team,
-};
-use crate::hackathons::HackathonInfo;
 use crate::auth::{TEAM_ROLES, hooks::use_require_access_or_redirect};
+use crate::components::{Input, InputVariant};
+use crate::hackathons::HackathonInfo;
+use crate::hackathons::handlers::teams::{
+    JoinTeamRequest, TeamListItem, UpdateTeamRequest, get_all_teams, get_my_team, join_team,
+    leave_team, update_team,
+};
 use dioxus::{logger::tracing, prelude::*};
-use dioxus_free_icons::{Icon, icons::ld_icons::{LdSearch, LdUsers}};
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdSearch, LdUsers},
+};
 
 #[component]
 pub fn HackathonTeam(slug: String) -> Element {
@@ -41,7 +44,16 @@ pub fn HackathonTeam(slug: String) -> Element {
         let slug = slug_for_all_teams.clone();
         let search = search_query();
         async move {
-            match get_all_teams(slug, if search.is_empty() { None } else { Some(search) }).await {
+            match get_all_teams(
+                slug,
+                if search.is_empty() {
+                    None
+                } else {
+                    Some(search)
+                },
+            )
+            .await
+            {
                 Ok(teams) => Some(teams),
                 Err(e) => {
                     tracing::error!("Error fetching teams: {:?}", e);
@@ -85,7 +97,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                     width: 20,
                                     height: 20,
                                     icon: dioxus_free_icons::icons::ld_icons::LdLogOut,
-                                    class: "text-foreground-neutral-primary"
+                                    class: "text-foreground-neutral-primary",
                                 }
                                 span { class: "font-semibold text-sm leading-5 text-foreground-neutral-primary",
                                     "Leave Team"
@@ -122,7 +134,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                         width: 16,
                                         height: 16,
                                         icon: dioxus_free_icons::icons::ld_icons::LdX,
-                                        class: "text-foreground-neutral-primary"
+                                        class: "text-foreground-neutral-primary",
                                     }
                                     span { class: "font-medium text-xs leading-4 text-foreground-neutral-primary",
                                         "Cancel"
@@ -136,7 +148,15 @@ pub fn HackathonTeam(slug: String) -> Element {
                                         let description = edit_description();
                                         spawn(async move {
                                             let desc = if description.is_empty() { None } else { Some(description) };
-                                            match update_team(slug, UpdateTeamRequest { name, description: desc }).await {
+                                            match update_team(
+                                                    slug,
+                                                    UpdateTeamRequest {
+                                                        name,
+                                                        description: desc,
+                                                    },
+                                                )
+                                                .await
+                                            {
                                                 Ok(_) => {
                                                     success_message.set(Some("Team updated successfully".to_string()));
                                                     is_editing.set(false);
@@ -177,11 +197,9 @@ pub fn HackathonTeam(slug: String) -> Element {
                                                     width: 16,
                                                     height: 16,
                                                     icon: dioxus_free_icons::icons::ld_icons::LdPencil,
-                                                    class: "text-foreground-neutral-primary"
+                                                    class: "text-foreground-neutral-primary",
                                                 }
-                                                span { class: "font-medium text-xs leading-4 text-foreground-neutral-primary",
-                                                    "Edit"
-                                                }
+                                                span { class: "font-medium text-xs leading-4 text-foreground-neutral-primary", "Edit" }
                                             }
                                         }
                                     }
@@ -201,16 +219,12 @@ pub fn HackathonTeam(slug: String) -> Element {
                                             p { class: "text-base font-medium text-foreground-neutral-secondary",
                                                 "Description"
                                             }
-                                            p { class: "text-sm text-foreground-neutral-primary",
-                                                "{desc}"
-                                            }
+                                            p { class: "text-sm text-foreground-neutral-primary", "{desc}" }
                                         }
                                     }
 
                                     div { class: "flex flex-col gap-4",
-                                        p { class: "text-xl font-medium text-foreground-neutral-primary",
-                                            "Members"
-                                        }
+                                        p { class: "text-xl font-medium text-foreground-neutral-primary", "Members" }
                                         div { class: "flex flex-col gap-3",
                                             for member in &team.members {
                                                 div { class: "flex items-center gap-4",
@@ -218,7 +232,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                                         img {
                                                             src: "{picture}",
                                                             class: "w-8 h-8 rounded-full",
-                                                            alt: "Member avatar"
+                                                            alt: "Member avatar",
                                                         }
                                                     } else {
                                                         div { class: "w-8 h-8 rounded-full bg-background-neutral-secondary-enabled flex items-center justify-center",
@@ -226,7 +240,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                                                 width: 16,
                                                                 height: 16,
                                                                 icon: LdUsers,
-                                                                class: "text-foreground-neutral-tertiary"
+                                                                class: "text-foreground-neutral-tertiary",
                                                             }
                                                         }
                                                     }
@@ -246,10 +260,8 @@ pub fn HackathonTeam(slug: String) -> Element {
                             }
                         },
                         None => rsx! {
-                            div { class: "text-center text-foreground-neutral-tertiary",
-                                "Loading your team..."
-                            }
-                        }
+                            div { class: "text-center text-foreground-neutral-tertiary", "Loading your team..." }
+                        },
                     }
                 }
             }
@@ -276,7 +288,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                             oninput: move |evt| {
                                 search_query.set(evt.value());
                                 all_teams.restart();
-                            }
+                            },
                         }
                     }
                 }
@@ -285,9 +297,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     match &*all_teams.read() {
                         Some(Some(teams)) => rsx! {
                             if teams.is_empty() {
-                                div { class: "text-center text-foreground-neutral-tertiary",
-                                    "No teams found"
-                                }
+                                div { class: "text-center text-foreground-neutral-tertiary", "No teams found" }
                             } else {
                                 div { class: "divide-y divide-stroke-neutral-1",
                                     for team_item in teams {
@@ -301,15 +311,11 @@ pub fn HackathonTeam(slug: String) -> Element {
                             }
                         },
                         Some(None) => rsx! {
-                            div { class: "text-center text-foreground-neutral-tertiary",
-                                "Error loading teams"
-                            }
+                            div { class: "text-center text-foreground-neutral-tertiary", "Error loading teams" }
                         },
                         None => rsx! {
-                            div { class: "text-center text-foreground-neutral-tertiary",
-                                "Loading teams..."
-                            }
-                        }
+                            div { class: "text-center text-foreground-neutral-tertiary", "Loading teams..." }
+                        },
                     }
                 }
             }
@@ -318,13 +324,10 @@ pub fn HackathonTeam(slug: String) -> Element {
 }
 
 #[component]
-fn TeamListItemComponent(
-    team: TeamListItem,
-    slug: String,
-) -> Element {
-    let mut error_message = use_signal(|| None::<String>);
-    let mut is_loading = use_signal(|| false);
-    let mut join_success = use_signal(|| false);
+fn TeamListItemComponent(team: TeamListItem, slug: String) -> Element {
+    let error_message = use_signal(|| None::<String>);
+    let is_loading = use_signal(|| false);
+    let join_success = use_signal(|| false);
 
     let can_join = !team.is_full;
 
@@ -336,9 +339,7 @@ fn TeamListItemComponent(
                         "{team.name}"
                     }
                     if let Some(desc) = &team.description {
-                        p { class: "text-xs text-foreground-neutral-primary",
-                            "{desc}"
-                        }
+                        p { class: "text-xs text-foreground-neutral-primary", "{desc}" }
                     }
                 }
 
@@ -348,14 +349,11 @@ fn TeamListItemComponent(
                     }
 
                     if let Some(error) = error_message() {
-                        div { class: "text-sm text-status-danger-foreground",
-                            "{error}"
-                        }
+                        div { class: "text-sm text-status-danger-foreground", "{error}" }
                     }
 
                     div { class: "flex gap-3",
-                        button {
-                            class: "bg-background-brandneutral-secondary-enabled text-foreground-brandneutral-primary font-semibold text-sm leading-5 rounded-full px-4 py-2.5 hover:bg-background-brandneutral-secondary-hover cursor-pointer",
+                        button { class: "bg-background-brandneutral-secondary-enabled text-foreground-brandneutral-primary font-semibold text-sm leading-5 rounded-full px-4 py-2.5 hover:bg-background-brandneutral-secondary-hover cursor-pointer",
                             "Details"
                         }
                     }
