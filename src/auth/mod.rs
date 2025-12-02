@@ -73,8 +73,11 @@ pub const APPLICANTS_ROLES: &[HackathonRoleType] = &[HackathonRoleType::Admin];
 pub const PEOPLE_ROLES: &[HackathonRoleType] =
     &[HackathonRoleType::Admin, HackathonRoleType::Organizer];
 
-pub const TEAM_ROLES: &[HackathonRoleType] =
-    &[HackathonRoleType::Participant, HackathonRoleType::Applicant];
+pub const TEAM_ROLES: &[HackathonRoleType] = &[
+    HackathonRoleType::Participant,
+    HackathonRoleType::Applicant,
+    HackathonRoleType::Admin,
+];
 
 pub const SCHEDULE_ROLES: &[HackathonRoleType] = &[
     HackathonRoleType::Participant,

@@ -5,7 +5,7 @@ use dioxus_free_icons::{
     icons::ld_icons::{LdFileText, LdTrash2},
 };
 
-use crate::components::{Button, ButtonVariant, ButtonWithIcon};
+use crate::components::{Button, ButtonVariant, ButtonWithIcon, Input, InputHeight, InputVariant};
 
 #[derive(Clone)]
 pub struct HackathonFormFields {
@@ -64,6 +64,26 @@ pub fn HackathonForm(
     let (start_value, start_oninput, start_onblur) = use_field_bind(&fields.start_date);
     let (end_value, end_oninput, end_onblur) = use_field_bind(&fields.end_date);
 
+    // Create signals for the Input component
+    let mut name_signal = use_signal(|| name_value.clone());
+    let mut desc_signal = use_signal(|| desc_value.clone());
+    let mut start_signal = use_signal(|| start_value.clone());
+    let mut end_signal = use_signal(|| end_value.clone());
+
+    // Sync signals with field values
+    use_effect(move || {
+        name_signal.set(name_value.clone());
+    });
+    use_effect(move || {
+        desc_signal.set(desc_value.clone());
+    });
+    use_effect(move || {
+        start_signal.set(start_value.clone());
+    });
+    use_effect(move || {
+        end_signal.set(end_value.clone());
+    });
+
     rsx! {
         form {
             enctype: "multipart/form-data",
@@ -73,16 +93,14 @@ pub fn HackathonForm(
             },
             div { class: "flex flex-col gap-5",
                 div { class: "flex flex-col gap-2",
-                    label { class: "text-base font-medium text-foreground-neutral-primary",
-                        "Hackathon Name"
-                    }
-                    input {
-                        class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal placeholder:text-foreground-brandNeutral-secondary rounded-[0.625rem]",
-                        r#type: "text",
-                        name: "name",
-                        value: "{name_value}",
-                        oninput: name_oninput,
-                        onblur: name_onblur,
+                    Input {
+                        label: "Hackathon Name".to_string(),
+                        placeholder: Some("Enter hackathon name".to_string()),
+                        value: name_signal,
+                        variant: InputVariant::Secondary,
+                        name: Some("name".to_string()),
+                        oninput: Some(name_oninput),
+                        onblur: Some(name_onblur),
                     }
                     if fields.name.is_touched() {
                         if let Some(error) = fields.name.error.read().as_ref() {
@@ -92,15 +110,15 @@ pub fn HackathonForm(
                 }
 
                 div { class: "flex flex-col gap-2",
-                    label { class: "text-base font-medium text-foreground-neutral-primary",
-                        "Description"
-                    }
-                    textarea {
-                        class: "pl-4 h-20 pt-3 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal placeholder:text-foreground-brandNeutral-secondary rounded-[0.625rem]",
-                        name: "description",
-                        value: "{desc_value}",
-                        oninput: desc_oninput,
-                        onblur: desc_onblur,
+                    Input {
+                        label: "Description".to_string(),
+                        placeholder: Some("Enter description".to_string()),
+                        value: desc_signal,
+                        height: InputHeight::Tall,
+                        variant: InputVariant::Secondary,
+                        name: Some("description".to_string()),
+                        oninput: Some(desc_oninput),
+                        onblur: Some(desc_onblur),
                     }
                     if fields.description.is_touched() {
                         if let Some(error) = fields.description.error.read().as_ref() {
@@ -111,39 +129,41 @@ pub fn HackathonForm(
 
                 div { class: "flex gap-4",
                     div { class: "flex flex-col gap-2 flex-1",
-                        label { class: "text-base font-medium text-foreground-neutral-primary",
-                            "Start Date & Time"
-                        }
-                        input {
-                            class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal placeholder:text-foreground-brandNeutral-secondary rounded-[0.625rem]",
-                            r#type: "datetime-local",
-                            name: "start_date",
-                            value: "{start_value}",
-                            oninput: start_oninput,
-                            onblur: start_onblur,
+                        Input {
+                            label: "Start Date & Time".to_string(),
+                            placeholder: Some("Enter start date & time".to_string()),
+                            value: start_signal,
+                            variant: InputVariant::Secondary,
+                            input_type: "datetime-local".to_string(),
+                            name: Some("start_date".to_string()),
+                            oninput: Some(start_oninput),
+                            onblur: Some(start_onblur),
                         }
                         if fields.start_date.is_touched() {
                             if let Some(error) = fields.start_date.error.read().as_ref() {
-                                span { class: "text-sm text-status-danger-foreground", "{error}" }
+                                span { class: "text-sm text-status-danger-foreground",
+                                    "{error}"
+                                }
                             }
                         }
                     }
 
                     div { class: "flex flex-col gap-2 flex-1",
-                        label { class: "text-base font-medium text-foreground-neutral-primary",
-                            "End Date & Time"
-                        }
-                        input {
-                            class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal placeholder:text-foreground-brandNeutral-secondary rounded-[0.625rem]",
-                            r#type: "datetime-local",
-                            name: "end_date",
-                            value: "{end_value}",
-                            oninput: end_oninput,
-                            onblur: end_onblur,
+                        Input {
+                            label: "End Date & Time".to_string(),
+                            placeholder: Some("Enter end date & time".to_string()),
+                            value: end_signal,
+                            variant: InputVariant::Secondary,
+                            input_type: "datetime-local".to_string(),
+                            name: Some("end_date".to_string()),
+                            oninput: Some(end_oninput),
+                            onblur: Some(end_onblur),
                         }
                         if fields.end_date.is_touched() {
                             if let Some(error) = fields.end_date.error.read().as_ref() {
-                                span { class: "text-sm text-status-danger-foreground", "{error}" }
+                                span { class: "text-sm text-status-danger-foreground",
+                                    "{error}"
+                                }
                             }
                         }
                     }
@@ -197,11 +217,15 @@ pub fn HackathonForm(
                                             })
                                             .unwrap_or("image/jpeg")
                                             .to_string();
-                                        dioxus_logger::tracing::info!("Reading file: {} with content_type: {}", file_name, content_type);
+                                        dioxus_logger::tracing::info!(
+                                            "Reading file: {} with content_type: {}", file_name, content_type
+                                        );
                                         match file.read_bytes().await {
                                             Ok(bytes) => {
                                                 let vec = bytes.to_vec();
-                                                dioxus_logger::tracing::info!("File read successfully: {} bytes", vec.len());
+                                                dioxus_logger::tracing::info!(
+                                                    "File read successfully: {} bytes", vec.len()
+                                                );
                                                 banner_file.set(Some((vec, content_type)));
                                             }
                                             Err(e) => {
@@ -213,7 +237,7 @@ pub fn HackathonForm(
                             }
                             label {
                                 r#for: "banner-upload",
-                                class: "flex items-center justify-center gap-2 h-10 px-4 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                class: "flex items-center justify-center gap-2 h-10 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
                                 Icon { width: 18, height: 18, icon: LdFileText }
                                 "Change banner"
                             }
@@ -248,11 +272,15 @@ pub fn HackathonForm(
                                             })
                                             .unwrap_or("image/jpeg")
                                             .to_string();
-                                        dioxus_logger::tracing::info!("Reading file: {} with content_type: {}", file_name, content_type);
+                                        dioxus_logger::tracing::info!(
+                                            "Reading file: {} with content_type: {}", file_name, content_type
+                                        );
                                         match file.read_bytes().await {
                                             Ok(bytes) => {
                                                 let vec = bytes.to_vec();
-                                                dioxus_logger::tracing::info!("File read successfully: {} bytes", vec.len());
+                                                dioxus_logger::tracing::info!(
+                                                    "File read successfully: {} bytes", vec.len()
+                                                );
                                                 banner_file.set(Some((vec, content_type)));
                                             }
                                             Err(e) => {
@@ -264,7 +292,7 @@ pub fn HackathonForm(
                             }
                             label {
                                 r#for: "banner-upload",
-                                class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
                                 Icon { width: 20, height: 20, icon: LdFileText }
                                 "Choose file"
                             }

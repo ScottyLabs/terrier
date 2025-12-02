@@ -13,17 +13,28 @@ use utoipa::OpenApi;
         // Applications
         crate::hackathons::handlers::applications::update_application,
         crate::hackathons::handlers::applications::submit_application,
+        crate::hackathons::handlers::applications::unsubmit_application,
         crate::hackathons::handlers::applications::get_application,
         crate::hackathons::handlers::applications::get_all_applications,
         crate::hackathons::handlers::applications::accept_applications,
         crate::hackathons::handlers::applications::reject_applications,
+        crate::hackathons::handlers::applications::decline_attendance,
+        crate::hackathons::handlers::applications::confirm_attendance,
         crate::hackathons::handlers::file_upload::upload_application_file,
+        crate::hackathons::handlers::file_upload::delete_application_file,
         // People
         crate::hackathons::handlers::people::get_hackathon_people,
         crate::hackathons::handlers::people::remove_hackathon_person,
         // Form Config
         crate::hackathons::handlers::form_config::set_form_config,
         crate::hackathons::handlers::form_config::get_form_config,
+        // Teams
+        crate::hackathons::handlers::teams::get_my_team,
+        crate::hackathons::handlers::teams::get_all_teams,
+        crate::hackathons::handlers::teams::update_team,
+        crate::hackathons::handlers::teams::join_team,
+        crate::hackathons::handlers::teams::leave_team,
+        crate::hackathons::handlers::teams::get_team_details,
         // Auth
         crate::auth::handlers::get_current_user,
     ),
@@ -43,11 +54,16 @@ use utoipa::OpenApi;
             crate::schemas::application_form::FormSchema,
             crate::schemas::application_form::FormField,
             crate::schemas::application_form::FieldType,
-            crate::schemas::application_form::FieldValidation,
             crate::schemas::application_form::TextValidation,
             crate::schemas::application_form::NumberValidation,
             crate::schemas::application_form::FileValidation,
             crate::schemas::application_form::SelectOption,
+            // Teams
+            crate::hackathons::handlers::teams::TeamData,
+            crate::hackathons::handlers::teams::TeamMemberData,
+            crate::hackathons::handlers::teams::TeamListItem,
+            crate::hackathons::handlers::teams::UpdateTeamRequest,
+            crate::hackathons::handlers::teams::JoinTeamRequest,
             // Auth
             crate::auth::UserInfo,
         )
@@ -56,6 +72,7 @@ use utoipa::OpenApi;
         (name = "hackathons", description = "Hackathon management endpoints"),
         (name = "applications", description = "Application management endpoints"),
         (name = "people", description = "People management endpoints"),
+        (name = "teams", description = "Team management endpoints"),
         (name = "auth", description = "Authentication endpoints")
     ),
     info(
