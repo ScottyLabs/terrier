@@ -21,9 +21,11 @@
     },
     // Prevent editing of SeaORM generated files
     "files.readonlyInclude": {
-        "src/entities/*": true
+        "src/entities/*": true,
+        "assets/tailwind.css": true
     },
     "files.watcherExclude": {
-        "src/entities/**": true
+        "src/entities/**": true,
+        "assets/tailwind.css": true
     }
 }
