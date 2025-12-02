@@ -145,6 +145,11 @@
             icon: Cube01Icon,
         },
         {
+            href: `/h/${hackathonId}/team`,
+            label: "Team",
+            icon: Users01Icon,
+        },
+        {
             href: `/h/${hackathonId}/check-in`,
             label: "Event Check-In",
             icon: QrCode01Icon,

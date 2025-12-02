@@ -158,6 +158,178 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/hackathons/{slug}/teams": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List all teams in a hackathon */
+		get: operations["list_teams"];
+		put?: never;
+		/** Create a new team */
+		post: operations["create_team"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/invites/{invite_id}": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Respond to a team invite */
+		post: operations["respond_to_invite"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/my-team": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get current user's team and pending invites */
+		get: operations["get_my_team"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/search-participants": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Search participants to invite (those not in a team) */
+		get: operations["search_participants"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get a specific team's details */
+		get: operations["get_team"];
+		/** Update team details (leader only) */
+		put: operations["update_team"];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}/invite": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Invite a user to the team */
+		post: operations["invite_member"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}/leave": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Leave a team */
+		post: operations["leave_team"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}/request": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Request to join a team */
+		post: operations["request_to_join"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}/requests": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get join requests for a team (leader only) */
+		get: operations["get_join_requests"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/hackathons/{slug}/teams/{team_id}/requests/{request_id}": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Respond to a join request (leader only) */
+		post: operations["respond_to_request"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -179,6 +351,10 @@ export interface components {
 			slug: string;
 			start_date: string;
 		};
+		CreateTeamRequest: {
+			description?: string | null;
+			name: string;
+		};
 		HackathonInfo: {
 			description?: string | null;
 			/** Format: date-time */
@@ -190,8 +366,34 @@ export interface components {
 			/** Format: date-time */
 			start_date: string;
 		};
+		InviteMemberRequest: {
+			/** Format: int32 */
+			user_id: number;
+		};
+		JoinRequestRequest: {
+			message?: string | null;
+		};
+		JoinRequestResponse: {
+			/** Format: date-time */
+			created_at: string;
+			/** Format: int32 */
+			id: number;
+			message?: string | null;
+			status: string;
+			user_email: string;
+			/** Format: int32 */
+			user_id: number;
+			user_name: string;
+		};
 		LoginQuery: {
 			redirect_uri?: string | null;
+		};
+		MyTeamResponse: {
+			pending_invites: components["schemas"]["TeamInviteResponse"][];
+			team?: null | components["schemas"]["TeamResponse"];
+		};
+		RespondToRequestRequest: {
+			accept: boolean;
 		};
 		SaveApplicationRequest: {
 			form_data: unknown;
@@ -206,6 +408,55 @@ export interface components {
 			/** Format: date-time */
 			submitted_at: string;
 			success: boolean;
+		};
+		TeamInviteResponse: {
+			/** Format: date-time */
+			created_at: string;
+			/** Format: int32 */
+			id: number;
+			invited_by_name: string;
+			status: string;
+			/** Format: int32 */
+			team_id: number;
+			team_name: string;
+		};
+		TeamListItem: {
+			description?: string | null;
+			/** Format: int32 */
+			id: number;
+			/** Format: int32 */
+			max_members: number;
+			/** Format: int32 */
+			member_count: number;
+			name: string;
+		};
+		TeamMemberInfo: {
+			email: string;
+			/** Format: int32 */
+			id: number;
+			is_leader: boolean;
+			name: string;
+			/** Format: int32 */
+			user_id: number;
+		};
+		TeamResponse: {
+			/** Format: date-time */
+			created_at: string;
+			description?: string | null;
+			/** Format: int32 */
+			id: number;
+			is_leader: boolean;
+			is_member: boolean;
+			/** Format: int32 */
+			max_members: number;
+			/** Format: int32 */
+			member_count: number;
+			members: components["schemas"]["TeamMemberInfo"][];
+			name: string;
+		};
+		UpdateTeamRequest: {
+			description?: string | null;
+			name?: string | null;
 		};
 		UploadUrlRequest: {
 			content_type: string;
@@ -593,6 +844,555 @@ export interface operations {
 				content?: never;
 			};
 			/** @description Hackathon not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	list_teams: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of teams */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["TeamListItem"][];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	create_team: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["CreateTeamRequest"];
+			};
+		};
+		responses: {
+			/** @description Team created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["TeamResponse"];
+				};
+			};
+			/** @description User already in a team */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	respond_to_invite: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Invite ID */
+				invite_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["RespondToRequestRequest"];
+			};
+		};
+		responses: {
+			/** @description Response recorded */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Already in a team or team full */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Invite not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	get_my_team: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description User's team info */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["MyTeamResponse"];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	search_participants: {
+		parameters: {
+			query: {
+				/** @description Search query */
+				q: string;
+			};
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of participants */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["TeamMemberInfo"][];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	get_team: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Team details */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["TeamResponse"];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description No access to this hackathon */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Team not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	update_team: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["UpdateTeamRequest"];
+			};
+		};
+		responses: {
+			/** @description Team updated */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["TeamResponse"];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not team leader */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Team not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	invite_member: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["InviteMemberRequest"];
+			};
+		};
+		responses: {
+			/** @description Invite sent */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description User already in a team or team full */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not team member */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description User not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	leave_team: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Left team */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Cannot leave as only leader */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not a member */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Team not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	request_to_join: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["JoinRequestRequest"];
+			};
+		};
+		responses: {
+			/** @description Request sent */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Already in a team or team full */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Team not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	get_join_requests: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of join requests */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["JoinRequestResponse"][];
+				};
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not team leader */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	respond_to_request: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Hackathon slug */
+				slug: string;
+				/** @description Team ID */
+				team_id: number;
+				/** @description Request ID */
+				request_id: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["RespondToRequestRequest"];
+			};
+		};
+		responses: {
+			/** @description Response recorded */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Team is full */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not authenticated */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Not team leader */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Request not found */
 			404: {
 				headers: {
 					[name: string]: unknown;

@@ -27,6 +27,7 @@ mod config;
 mod docs;
 mod entities;
 mod hackathons;
+mod teams;
 
 use config::Config;
 use docs::ApiDoc;
@@ -94,6 +95,47 @@ pub async fn create_app(app_state: AppState) -> Result<Router, BoxError> {
         .route(
             "/api/hackathons/{slug}/application/upload-url",
             post(applications::handlers::get_upload_url),
+        )
+        // Teams routes
+        .route(
+            "/api/hackathons/{slug}/teams",
+            get(teams::handlers::list_teams).post(teams::handlers::create_team),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/my-team",
+            get(teams::handlers::get_my_team),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/search-participants",
+            get(teams::handlers::search_participants),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/invites/{invite_id}",
+            post(teams::handlers::respond_to_invite),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}",
+            get(teams::handlers::get_team).put(teams::handlers::update_team),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}/leave",
+            post(teams::handlers::leave_team),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}/request",
+            post(teams::handlers::request_to_join),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}/requests",
+            get(teams::handlers::get_join_requests),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}/requests/{request_id}",
+            post(teams::handlers::respond_to_request),
+        )
+        .route(
+            "/api/hackathons/{slug}/teams/{team_id}/invite",
+            post(teams::handlers::invite_member),
         )
         .route(
             "/api/hackathons",

@@ -4,5 +4,9 @@ pub mod prelude;
 
 pub mod applications;
 pub mod hackathons;
+pub mod team_invites;
+pub mod team_join_requests;
+pub mod team_members;
+pub mod teams;
 pub mod user_hackathon_roles;
 pub mod users;

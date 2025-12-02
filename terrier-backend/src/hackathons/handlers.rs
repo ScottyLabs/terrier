@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 
 use crate::{
     AppState,
-    auth::extractors::{HackathonRole, RequireGlobalAdmin},
+    auth::extractors::{ApplicantRole, RequireGlobalAdmin},
     entities::{hackathons, prelude::*},
 };
 
@@ -73,7 +73,7 @@ pub struct UserRoleResponse {
     ),
     tag = "Hackathons"
 )]
-pub async fn get_user_role(role: HackathonRole) -> Result<Json<UserRoleResponse>, StatusCode> {
+pub async fn get_user_role(role: ApplicantRole) -> Result<Json<UserRoleResponse>, StatusCode> {
     Ok(Json(UserRoleResponse { role: role.role }))
 }
 

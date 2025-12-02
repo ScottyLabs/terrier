@@ -55,11 +55,13 @@
                         {disabled}
                         onchange={() => toggleOption(option)}
                     />
-                    <div class="h-5 w-5 rounded-md border-2 border-gray-300 bg-slate-100 transition-colors
+                    <div
+                        class="h-5 w-5 rounded-md border-2 border-gray-300 bg-slate-100 transition-colors
                         peer-checked:bg-gray-700 peer-checked:border-gray-700
                         peer-focus:ring-2 peer-focus:ring-blue-300 peer-focus:ring-offset-1
                         peer-disabled:cursor-not-allowed
-                        group-hover:border-gray-400"></div>
+                        group-hover:border-gray-400"
+                    ></div>
                     <svg
                         class="absolute top-0.5 left-0.5 h-4 w-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
                         fill="none"
@@ -67,7 +69,11 @@
                         stroke="currentColor"
                         stroke-width="3"
                     >
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M5 13l4 4L19 7"
+                        />
                     </svg>
                 </div>
                 <span class="text-gray-700">{option}</span>

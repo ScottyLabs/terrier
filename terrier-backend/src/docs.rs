@@ -6,7 +6,7 @@ use utoipa::{
     },
 };
 
-use crate::{applications, auth, hackathons};
+use crate::{applications, auth, hackathons, teams};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -21,6 +21,18 @@ use crate::{applications, auth, hackathons};
         applications::handlers::save_application,
         applications::handlers::submit_application,
         applications::handlers::get_upload_url,
+        teams::handlers::list_teams,
+        teams::handlers::get_my_team,
+        teams::handlers::get_team,
+        teams::handlers::create_team,
+        teams::handlers::update_team,
+        teams::handlers::leave_team,
+        teams::handlers::request_to_join,
+        teams::handlers::get_join_requests,
+        teams::handlers::respond_to_request,
+        teams::handlers::invite_member,
+        teams::handlers::respond_to_invite,
+        teams::handlers::search_participants,
     ),
     components(schemas(
         auth::handlers::LoginQuery,
@@ -34,12 +46,24 @@ use crate::{applications, auth, hackathons};
         applications::handlers::SubmitApplicationResponse,
         applications::handlers::UploadUrlRequest,
         applications::handlers::UploadUrlResponse,
+        teams::handlers::TeamMemberInfo,
+        teams::handlers::TeamResponse,
+        teams::handlers::TeamListItem,
+        teams::handlers::JoinRequestResponse,
+        teams::handlers::TeamInviteResponse,
+        teams::handlers::MyTeamResponse,
+        teams::handlers::CreateTeamRequest,
+        teams::handlers::UpdateTeamRequest,
+        teams::handlers::JoinRequestRequest,
+        teams::handlers::InviteMemberRequest,
+        teams::handlers::RespondToRequestRequest,
     )),
     modifiers(&SecurityAddon),
     tags(
         (name = "Hackathons", description = "Hackathon endpoints"),
         (name = "Authentication", description = "Authentication endpoints"),
-        (name = "Applications", description = "Application form endpoints")
+        (name = "Applications", description = "Application form endpoints"),
+        (name = "Teams", description = "Team management endpoints")
     ),
     info(
         title = "Terrier API",

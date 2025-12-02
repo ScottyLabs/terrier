@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 
 use crate::{
     AppState,
-    auth::extractors::HackathonRole,
+    auth::extractors::ApplicantRole,
     entities::{applications, prelude::Applications},
 };
 
@@ -50,7 +50,7 @@ pub struct UploadUrlResponse {
 )]
 pub async fn get_upload_url(
     State(state): State<AppState>,
-    role: HackathonRole,
+    role: ApplicantRole,
     Json(payload): Json<UploadUrlRequest>,
 ) -> Result<Json<UploadUrlResponse>, StatusCode> {
     use http::Method;
@@ -134,7 +134,7 @@ pub async fn get_upload_url(
 )]
 pub async fn get_application(
     State(state): State<AppState>,
-    role: HackathonRole,
+    role: ApplicantRole,
 ) -> Result<Json<ApplicationResponse>, StatusCode> {
     let application = Applications::find()
         .filter(applications::Column::UserId.eq(role.user_id))
@@ -183,7 +183,7 @@ pub struct SaveApplicationResponse {
 )]
 pub async fn save_application(
     State(state): State<AppState>,
-    role: HackathonRole,
+    role: ApplicantRole,
     Json(payload): Json<SaveApplicationRequest>,
 ) -> Result<Json<SaveApplicationResponse>, StatusCode> {
     let now = Utc::now().naive_utc();
@@ -271,7 +271,7 @@ pub struct SubmitApplicationResponse {
 )]
 pub async fn submit_application(
     State(state): State<AppState>,
-    role: HackathonRole,
+    role: ApplicantRole,
 ) -> Result<Json<SubmitApplicationResponse>, StatusCode> {
     let now = Utc::now().naive_utc();
 
