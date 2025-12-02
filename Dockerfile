@@ -10,15 +10,19 @@ RUN cargo chef prepare --recipe-path recipe.json
 # Build dependencies - this layer is cached when dependencies don't change
 FROM chef AS builder
 
+# Install wasm target and dioxus-cli for fullstack build
+RUN rustup target add wasm32-unknown-unknown
+RUN cargo install dioxus-cli
+
 # Build dependencies (cached layer)
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/dioxus-forms /app/dioxus-forms
 COPY --from=planner /app/migration /app/migration
 RUN cargo chef cook --release --features server --recipe-path recipe.json
 
-# Copy source and build application
+# Copy source and build application with dx
 COPY . .
-RUN cargo build --release --features server
+RUN dx build --release --features server
 
 # Runtime image
 FROM debian:bookworm-slim AS runtime
@@ -31,9 +35,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the binary from builder
-COPY --from=builder /app/target/release/terrier /usr/local/bin/terrier
+# Copy the dist directory (binary + public assets) from builder
+COPY --from=builder /app/dist /app
 
 EXPOSE 3000
 
-CMD ["terrier"]
+CMD ["/app/terrier"]
