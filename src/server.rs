@@ -5,6 +5,7 @@ use axum_oidc::{
 };
 use dioxus::prelude::{DioxusRouterExt, ServeConfig};
 use http::Uri;
+use migration::{Migrator, MigratorTrait};
 use openidconnect::{ClientId, ClientSecret};
 use sea_orm::Database;
 use tower::ServiceBuilder;
@@ -42,6 +43,13 @@ pub async fn setup() {
         .await
         .expect("Failed to connect to database");
     tracing::info!("Database connected successfully");
+
+    // Run database migrations
+    tracing::info!("Running database migrations...");
+    Migrator::up(&db, None)
+        .await
+        .expect("Failed to run database migrations");
+    tracing::info!("Database migrations completed successfully");
 
     // Set up Redis connection
     let redis_config = RedisConfig::from_url(&config.redis_url).expect("Invalid Redis URL");

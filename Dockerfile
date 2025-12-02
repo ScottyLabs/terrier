@@ -13,6 +13,7 @@ FROM chef AS builder
 # Build dependencies (cached layer)
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/dioxus-forms /app/dioxus-forms
+COPY --from=planner /app/migration /app/migration
 RUN cargo chef cook --release --features server --recipe-path recipe.json
 
 # Copy source and build application
