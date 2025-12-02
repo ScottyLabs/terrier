@@ -1,5 +1,5 @@
 # Use cargo-chef for dependency caching
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-bookworm AS chef
 WORKDIR /app
 
 # Prepare the dependency recipe
