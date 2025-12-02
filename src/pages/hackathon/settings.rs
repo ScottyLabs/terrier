@@ -232,6 +232,10 @@ pub fn HackathonSettings(slug: String) -> Element {
                     SettingsTab::Participation => {
                         let max_team_size_for_save = max_team_size_field.clone();
                         let max_team_size_for_validation = max_team_size_field.clone();
+                        let mut max_team_size_for_input = max_team_size_field.clone();
+                        let mut max_team_size_for_blur = max_team_size_field.clone();
+                        let max_team_size_for_display = max_team_size_field.clone();
+                        let max_team_size_for_error = max_team_size_field.clone();
                         let name_field2 = form_fields.name.clone();
                         let desc_field2 = form_fields.description.clone();
                         rsx! {
@@ -297,19 +301,19 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         r#type: "number",
                                         name: "max_team_size",
                                         min: "1",
-                                        value: "{max_team_size_field.value.read()}",
+                                        value: "{max_team_size_for_display.value.read()}",
                                         oninput: move |evt| {
                                             if let Ok(num) = evt.value().parse::<i32>() {
-                                                max_team_size_field.value.set(num);
+                                                max_team_size_for_input.value.set(num);
                                             }
                                         },
                                         onblur: move |_| {
-                                            max_team_size_field.mark_touched();
-                                            max_team_size_field.validate();
+                                            max_team_size_for_blur.mark_touched();
+                                            max_team_size_for_blur.validate();
                                         },
                                     }
-                                    if max_team_size_field.is_touched() {
-                                        if let Some(error) = max_team_size_field.error.read().as_ref() {
+                                    if max_team_size_for_error.is_touched() {
+                                        if let Some(error) = max_team_size_for_error.error.read().as_ref() {
                                             span { class: "text-sm text-status-danger-foreground", "{error}" }
                                         }
                                     }
@@ -322,12 +326,14 @@ pub fn HackathonSettings(slug: String) -> Element {
                     }
                     SettingsTab::Application => {
                         let mut is_active = use_signal(|| hackathon.read().is_active);
-                        // Detect current preset from form_config
-                        let initial_preset = hackathon.read().form_config.as_ref()
+                        let initial_preset = hackathon
+                            .read()
+                            .form_config
+                            .as_ref()
                             .and_then(|config| {
-                                // Check if it matches tartanhacks preset by checking a unique field
-                                if let Ok(schema) = serde_json::from_value::<crate::schemas::FormSchema>(config.clone()) {
-                                    // Check for tartanhacks-specific characteristics
+                                if let Ok(schema) = serde_json::from_value::<
+                                    crate::schemas::FormSchema,
+                                >(config.clone()) {
                                     if schema.fields.iter().any(|f| f.id == "mlh_code_of_conduct") {
                                         return Some("tartanhacks".to_string());
                                     }
