@@ -180,8 +180,11 @@ impl FromRequestParts<AppState> for ApplicantRole {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        tracing::info!("ApplicantRole extractor called for path: {:?}", parts.uri.path());
-        
+        tracing::info!(
+            "ApplicantRole extractor called for path: {:?}",
+            parts.uri.path()
+        );
+
         // Extract hackathon slug from path - use HashMap to handle routes with multiple params
         let Path(params) = parts
             .extract::<Path<HashMap<String, String>>>()
@@ -207,14 +210,10 @@ impl FromRequestParts<AppState> for ApplicantRole {
                 StatusCode::UNAUTHORIZED
             })?;
 
-        let email = claims
-            .0
-            .email()
-            .map(|e| e.to_string())
-            .ok_or_else(|| {
-                tracing::error!("No email in claims");
-                StatusCode::UNAUTHORIZED
-            })?;
+        let email = claims.0.email().map(|e| e.to_string()).ok_or_else(|| {
+            tracing::error!("No email in claims");
+            StatusCode::UNAUTHORIZED
+        })?;
 
         tracing::info!("Got email: {}", email);
 
