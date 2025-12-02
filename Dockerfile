@@ -18,11 +18,14 @@ RUN cargo install dioxus-cli
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/dioxus-forms /app/dioxus-forms
 COPY --from=planner /app/migration /app/migration
+
+# Cook dependencies for both WASM client and server
+RUN cargo chef cook --release --target wasm32-unknown-unknown --recipe-path recipe.json
 RUN cargo chef cook --release --features server --recipe-path recipe.json
 
 # Copy source and build application with dx
 COPY . .
-RUN dx build --release --platform fullstack --features server
+RUN dx build --release --platform server --features server
 
 # Runtime image
 FROM debian:bookworm-slim AS runtime
