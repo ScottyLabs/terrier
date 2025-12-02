@@ -304,12 +304,6 @@
   .ml-1 {
     margin-left: calc(var(--spacing) * 1);
   }
-  .line-clamp-1 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-  }
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
@@ -428,9 +422,6 @@
   .w-\[405px\] {
     width: 405px;
   }
-  .w-fit {
-    width: fit-content;
-  }
   .w-full {
     width: 100%;
   }
@@ -451,9 +442,6 @@
   }
   .grow {
     flex-grow: 1;
-  }
-  .cursor-not-allowed {
-    cursor: not-allowed;
   }
   .cursor-pointer {
     cursor: pointer;
@@ -521,9 +509,6 @@
   .gap-9 {
     gap: calc(var(--spacing) * 9);
   }
-  .gap-10 {
-    gap: calc(var(--spacing) * 10);
-  }
   .gap-12 {
     gap: calc(var(--spacing) * 12);
   }
@@ -552,11 +537,6 @@
   .divide-stroke-neutral-1 {
     :where(& > :not(:last-child)) {
       border-color: var(--color-stroke-neutral-1);
-    }
-  }
-  .divide-stroke-neutral-2 {
-    :where(& > :not(:last-child)) {
-      border-color: var(--color-stroke-neutral-2);
     }
   }
   .truncate {
@@ -645,9 +625,6 @@
   }
   .bg-foreground-neutral-primary {
     background-color: var(--color-foreground-neutral-primary);
-  }
-  .bg-foreground-neutral-tertiary {
-    background-color: var(--color-foreground-neutral-tertiary);
   }
   .bg-status-danger-foreground {
     background-color: var(--color-status-danger-foreground);
@@ -986,13 +963,6 @@
       }
     }
   }
-  .hover\:bg-foreground-neutral-secondary {
-    &:hover {
-      @media (hover: hover) {
-        background-color: var(--color-foreground-neutral-secondary);
-      }
-    }
-  }
   .hover\:text-blue-800 {
     &:hover {
       @media (hover: hover) {
@@ -1000,24 +970,10 @@
       }
     }
   }
-  .hover\:text-foreground-neutral-secondary {
-    &:hover {
-      @media (hover: hover) {
-        color: var(--color-foreground-neutral-secondary);
-      }
-    }
-  }
   .hover\:text-foreground-neutral-tertiary {
     &:hover {
       @media (hover: hover) {
         color: var(--color-foreground-neutral-tertiary);
-      }
-    }
-  }
-  .hover\:opacity-80 {
-    &:hover {
-      @media (hover: hover) {
-        opacity: 80%;
       }
     }
   }
