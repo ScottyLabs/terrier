@@ -44,6 +44,7 @@ utoipa = { version = "5.4.0", features = [
 ], optional = true }
 utoipa-axum = { version = "0.2.0", optional = true }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"], optional = true }
+migration = { path = "migration", optional = true }
 gloo-timers = { version = "0.3.0", features = ["futures"] }
 
 [features]
@@ -69,4 +70,5 @@ server = [
     "dep:utoipa",
     "dep:utoipa-axum",
     "dep:utoipa-swagger-ui",
+    "dep:migration",
 ]
