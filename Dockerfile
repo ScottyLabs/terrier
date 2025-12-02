@@ -22,7 +22,7 @@ RUN cargo chef cook --release --features server --recipe-path recipe.json
 
 # Copy source and build application with dx
 COPY . .
-RUN dx build --release --features server
+RUN dx build --release --platform fullstack --features server
 
 # Runtime image
 FROM debian:bookworm-slim AS runtime
