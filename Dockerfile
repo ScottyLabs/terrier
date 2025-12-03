@@ -18,8 +18,7 @@ COPY --from=planner /app/migration /app/migration
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Install dioxus-cli
-RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
-    cargo binstall dioxus-cli -y --force
+RUN cargo install dioxus-cli --locked
 
 # Copy source and build
 COPY . .
