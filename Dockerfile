@@ -10,19 +10,20 @@ RUN cargo chef prepare --recipe-path recipe.json
 # Build stage
 FROM chef AS builder
 
-# Install wasm target and dioxus-cli
-RUN rustup target add wasm32-unknown-unknown
-RUN cargo install dioxus-cli
-
 # Build dependencies
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/dioxus-forms /app/dioxus-forms
 COPY --from=planner /app/migration /app/migration
-RUN cargo chef cook --release --features server --recipe-path recipe.json
+
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Install dioxus-cli
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
+    cargo binstall dioxus-cli -y --force
 
 # Copy source and build
 COPY . .
-RUN dx build --release --platform server --features server
+RUN dx bundle --platform web --release
 
 # Runtime image
 FROM debian:bookworm-slim AS runtime
