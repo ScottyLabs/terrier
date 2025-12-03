@@ -6,8 +6,10 @@ use dioxus_free_icons::{
 
 use crate::{
     auth::{APPLICANTS_ROLES, hooks::use_require_access_or_redirect},
-    components::{ApplicationModal, Button, Dropdown, DropdownOption, PersonCard, TabSwitcher},
-    hackathons::handlers::applications::{accept_applications, get_all_applications, reject_applications, ApplicationWithUser},
+    components::{ApplicationModal, Button, ButtonSize, Dropdown, DropdownOption, PersonCard, TabSwitcher},
+    hackathons::handlers::applications::{
+        ApplicationWithUser, accept_applications, get_all_applications, reject_applications,
+    },
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -76,9 +78,10 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         || app.user_email.to_lowercase().contains(&query);
 
                     // CMU students filter
-                    let is_cmu_filter_active = selected_filters().contains(&"cmu_students".to_string());
-                    let matches_cmu_filter = !is_cmu_filter_active
-                        || app.user_email.ends_with("@andrew.cmu.edu");
+                    let is_cmu_filter_active =
+                        selected_filters().contains(&"cmu_students".to_string());
+                    let matches_cmu_filter =
+                        !is_cmu_filter_active || app.user_email.ends_with("@andrew.cmu.edu");
 
                     matches_search && matches_cmu_filter
                 })
@@ -146,7 +149,7 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         }
                     }
 
-                    Button { "Approve All" }
+                    Button { size: ButtonSize::Compact, "Approve All" }
                 }
 
                 // Application list

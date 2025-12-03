@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use super::{Button, ButtonVariant};
+use super::{Button, ButtonVariant, ButtonSize};
 
 #[component]
 pub fn PersonCard(
@@ -20,10 +20,15 @@ pub fn PersonCard(
             }
             div { class: "flex items-center gap-3",
                 if let Some(handler) = on_view {
-                    Button { onclick: move |_| handler.call(()), "View" }
+                    Button {
+                        size: ButtonSize::Compact,
+                        onclick: move |_| handler.call(()),
+                        "View"
+                    }
                 }
                 if let Some(handler) = on_deny {
                     Button {
+                        size: ButtonSize::Compact,
                         variant: ButtonVariant::Danger,
                         onclick: move |_| handler.call(()),
                         "Deny"
@@ -31,6 +36,7 @@ pub fn PersonCard(
                 }
                 if let Some(handler) = on_approve {
                     Button {
+                        size: ButtonSize::Compact,
                         variant: ButtonVariant::Success,
                         onclick: move |_| handler.call(()),
                         "Approve"

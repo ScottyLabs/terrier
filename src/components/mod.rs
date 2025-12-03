@@ -17,7 +17,7 @@ mod view_team_modal;
 
 pub use application_modal::ApplicationModal;
 pub use application_status::{ApplicationStatus, ApplicationStatusVariant};
-pub use button::{Button, ButtonVariant, ButtonWithIcon};
+pub use button::{Button, ButtonSize, ButtonVariant, ButtonWithIcon};
 pub use create_team_modal::CreateTeamModal;
 pub use dropdown::{Dropdown, DropdownOption};
 pub use form_inputs::{Checkbox, CheckboxGroup, FormSelectOption, RadioGroup, Select};

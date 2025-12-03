@@ -2,6 +2,7 @@
 
 pub use super::applications::Entity as Applications;
 pub use super::hackathons::Entity as Hackathons;
+pub use super::team_invitations::Entity as TeamInvitations;
 pub use super::team_join_requests::Entity as TeamJoinRequests;
 pub use super::teams::Entity as Teams;
 pub use super::user_hackathon_roles::Entity as UserHackathonRoles;

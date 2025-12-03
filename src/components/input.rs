@@ -8,7 +8,7 @@ pub enum InputHeight {
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputVariant {
-    Default,
+    Primary,
     Secondary,
 }
 
@@ -16,11 +16,11 @@ pub enum InputVariant {
 pub fn NumberInput(
     label: String,
     value: Signal<i32>,
-    #[props(default = InputVariant::Default)] variant: InputVariant,
+    #[props(default = InputVariant::Primary)] variant: InputVariant,
     name: Option<String>,
 ) -> Element {
     let bg_class = match variant {
-        InputVariant::Default => "bg-background-brandNeutral-secondary",
+        InputVariant::Primary => "bg-background-brandNeutral-secondary",
         InputVariant::Secondary => "bg-background-neutral-primary",
     };
 
@@ -53,7 +53,7 @@ pub fn Input(
     placeholder: Option<String>,
     value: Signal<String>,
     #[props(default = InputHeight::Default)] height: InputHeight,
-    #[props(default = InputVariant::Default)] variant: InputVariant,
+    #[props(default = InputVariant::Primary)] variant: InputVariant,
     #[props(default = "text".to_string())] input_type: String,
     name: Option<String>,
     id: Option<String>,
@@ -68,7 +68,7 @@ pub fn Input(
     };
 
     let bg_class = match variant {
-        InputVariant::Default => "bg-background-brandNeutral-secondary",
+        InputVariant::Primary => "bg-background-brandNeutral-secondary",
         InputVariant::Secondary => "bg-background-neutral-primary",
     };
 

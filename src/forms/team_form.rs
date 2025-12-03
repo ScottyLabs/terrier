@@ -25,6 +25,14 @@ impl TeamFormFields {
         }
     }
 
+    pub fn with_values(name: String, description: Option<String>) -> Self {
+        Self {
+            name: use_form_field(name)
+                .with_validator(validators::required("Team name is required")),
+            description: use_form_field(description.unwrap_or_default()),
+        }
+    }
+
     pub fn validate_all(&mut self) -> bool {
         self.name.validate()
     }

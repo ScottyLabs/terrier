@@ -14,7 +14,6 @@ pub fn ApplicationStatus(
     application_status: Resource<Option<String>>,
 ) -> Element {
     let mut is_loading = use_signal(|| false);
-    let mut error_message = use_signal(|| None::<String>);
 
     let slug_for_team = hackathon_slug.clone();
     let slug_for_unsubmit = hackathon_slug.clone();
@@ -39,15 +38,10 @@ pub fn ApplicationStatus(
                         "Thank you for submitting your application! We'll review it and get back to you soon."
                     }
 
-                    if let Some(error) = error_message() {
-                        div { class: "mb-4 p-4 bg-status-danger-background text-status-danger-foreground rounded-lg",
-                            "{error}"
-                        }
-                    }
-
                     div { class: "flex gap-3 w-full",
                         Button {
                             variant: ButtonVariant::Tertiary,
+                            class: "flex-1",
                             onclick: move |_| {
                                 let nav = navigator();
                                 nav.push(format!("/h/{}/team", slug_for_team));
@@ -55,28 +49,31 @@ pub fn ApplicationStatus(
                             "Find a Team"
                         }
                         Button {
-                            variant: ButtonVariant::Inverse,
+                            variant: ButtonVariant::Default,
+                            class: "flex-1",
                             disabled: is_loading(),
                             onclick: move |_| {
-                                    let slug = slug_for_unsubmit.clone();
-                                    spawn(async move {
-                                        is_loading.set(true);
-                                        error_message.set(None);
-                                        match crate::hackathons::handlers::applications::unsubmit_application(
-                                                slug.clone(),
-                                            )
-                                            .await
-                                        {
-                                            Ok(_) => {
-                                                application_status.restart();
-                                                is_loading.set(false);
-                                            }
-                                            Err(e) => {
-                                                error_message.set(Some(format!("Failed to unsubmit: {}", e)));
-                                                is_loading.set(false);
-                                            }
+                                let slug = slug_for_unsubmit.clone();
+                                spawn(async move {
+                                    is_loading.set(true);
+                                    match crate::hackathons::handlers::applications::unsubmit_application(
+                                            slug.clone(),
+                                        )
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            application_status.restart();
+                                            is_loading.set(false);
                                         }
-                                    });
+                                        Err(e) => {
+                                            let error_msg = format!("Failed to unsubmit: {}", e);
+                                            let _ = dioxus::document::eval(
+                                                &format!("alert('{}')", error_msg.replace("'", "\\'")),
+                                            );
+                                            is_loading.set(false);
+                                        }
+                                    }
+                                });
                             },
                             "Unsubmit"
                         }
@@ -101,21 +98,15 @@ pub fn ApplicationStatus(
                         "Congratulations! You've been accepted. Please confirm your attendance below to see the dashboard."
                     }
 
-                    if let Some(error) = error_message() {
-                        div { class: "mb-4 p-4 bg-status-danger-background text-status-danger-foreground rounded-lg",
-                            "{error}"
-                        }
-                    }
-
                     div { class: "flex gap-3 w-full",
                         Button {
                             variant: ButtonVariant::Tertiary,
+                            class: "flex-1",
                             disabled: is_loading(),
                             onclick: move |_| {
                                 let slug = slug_for_decline.clone();
                                 spawn(async move {
                                     is_loading.set(true);
-                                    error_message.set(None);
                                     match crate::hackathons::handlers::applications::decline_attendance(
                                             slug.clone(),
                                         )
@@ -126,7 +117,10 @@ pub fn ApplicationStatus(
                                             is_loading.set(false);
                                         }
                                         Err(e) => {
-                                            error_message.set(Some(format!("Failed to decline: {}", e)));
+                                            let error_msg = format!("Failed to decline: {}", e);
+                                            let _ = dioxus::document::eval(
+                                                &format!("alert('{}')", error_msg.replace("'", "\\'")),
+                                            );
                                             is_loading.set(false);
                                         }
                                     }
@@ -139,13 +133,13 @@ pub fn ApplicationStatus(
                             }
                         }
                         Button {
-                            variant: ButtonVariant::Inverse,
+                            variant: ButtonVariant::Default,
+                            class: "flex-1",
                             disabled: is_loading(),
                             onclick: move |_| {
                                 let slug = slug_for_confirm.clone();
                                 spawn(async move {
                                     is_loading.set(true);
-                                    error_message.set(None);
                                     match crate::hackathons::handlers::applications::confirm_attendance(
                                             slug.clone(),
                                         )
@@ -156,7 +150,10 @@ pub fn ApplicationStatus(
                                             is_loading.set(false);
                                         }
                                         Err(e) => {
-                                            error_message.set(Some(format!("Failed to confirm: {}", e)));
+                                            let error_msg = format!("Failed to confirm: {}", e);
+                                            let _ = dioxus::document::eval(
+                                                &format!("alert('{}')", error_msg.replace("'", "\\'")),
+                                            );
                                             is_loading.set(false);
                                         }
                                     }

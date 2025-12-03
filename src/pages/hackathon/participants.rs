@@ -101,7 +101,7 @@ pub fn HackathonParticipants(slug: String) -> Element {
                         }
                     }
 
-                    Button { "Approve All" }
+                    Button { size: ButtonSize::Compact, "Approve All" }
                 }
 
                 // Application list

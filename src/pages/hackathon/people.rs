@@ -6,7 +6,9 @@ use dioxus_free_icons::{
 
 use crate::{
     auth::{HackathonRole, HackathonRoleType, PEOPLE_ROLES, hooks::use_require_access_or_redirect},
-    components::{ButtonWithIcon, Dropdown, DropdownOption, PeopleModal, PersonCard, TabSwitcher},
+    components::{
+        ButtonSize, ButtonWithIcon, Dropdown, DropdownOption, PeopleModal, PersonCard, TabSwitcher,
+    },
     hackathons::handlers::people::{
         HackathonPerson, get_hackathon_people, remove_hackathon_person,
     },
@@ -178,7 +180,7 @@ pub fn HackathonPeople(slug: String) -> Element {
                         }
                     }
 
-                    ButtonWithIcon::<LdLink> { icon: LdLink, "Create Account Link" }
+                    ButtonWithIcon::<LdLink> { icon: LdLink, size: ButtonSize::Compact, "Create Account Link" }
                 }
 
                 // People list
