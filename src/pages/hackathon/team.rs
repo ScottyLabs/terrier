@@ -1,7 +1,7 @@
 use crate::auth::{TEAM_ROLES, hooks::use_require_access_or_redirect};
 use crate::components::{
-    Button, ButtonVariant, ButtonWithIcon, CreateTeamModal, JoinRequestModal, TabSwitcher,
-    ViewTeamModal,
+    Button, ButtonSize, ButtonVariant, ButtonWithIcon, CreateTeamModal, JoinRequestModal,
+    TabSwitcher, ViewTeamModal,
 };
 use crate::hackathons::HackathonInfo;
 use crate::hackathons::handlers::teams::{
@@ -28,8 +28,6 @@ pub fn HackathonTeam(slug: String) -> Element {
 
     let _hackathon = use_context::<Signal<HackathonInfo>>();
     let mut search_query = use_signal(|| String::new());
-    let error_message = use_signal(|| None::<String>);
-    let mut success_message = use_signal(|| None::<String>);
     let active_tab = use_signal(|| MyTeamTab::Current);
 
     // Modal states
@@ -98,19 +96,6 @@ pub fn HackathonTeam(slug: String) -> Element {
     rsx! {
         div { class: "flex flex-col gap-14 pt-[60px]",
 
-            // Success/Error messages
-            if let Some(error) = error_message() {
-                div { class: "p-4 bg-status-danger-background text-status-danger-foreground rounded-lg border border-status-danger-foreground",
-                    "{error}"
-                }
-            }
-
-            if let Some(success) = success_message() {
-                div { class: "p-4 bg-status-success-background text-status-success-foreground rounded-lg border border-status-success-foreground",
-                    "{success}"
-                }
-            }
-
             // My Team Section
             if has_team {
                 div { class: "flex flex-col gap-7",
@@ -126,13 +111,14 @@ pub fn HackathonTeam(slug: String) -> Element {
                                 if can_leave { Some(rsx! {
                                     ButtonWithIcon {
                                         icon: dioxus_free_icons::icons::ld_icons::LdLogOut,
+                                        size: ButtonSize::Compact,
                                         variant: ButtonVariant::Outline,
                                         onclick: move |_| {
                                             let slug = slug_for_leave.clone();
                                             spawn(async move {
                                                 match leave_team(slug).await {
                                                     Ok(_) => {
-                                                        success_message.set(Some("Left team successfully".to_string()));
+                                                        let _ = dioxus::document::eval("alert('Left team successfully')");
                                                         my_team.restart();
                                                         all_teams.restart();
                                                     }
@@ -181,6 +167,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                     div { class: "absolute top-6 right-6",
                                         ButtonWithIcon {
                                             icon: dioxus_free_icons::icons::ld_icons::LdPencil,
+                                            size: ButtonSize::Compact,
                                             variant: ButtonVariant::Outline,
                                             onclick: move |_| {
                                                 let _ = dioxus::document::eval("alert('Edit team functionality coming soon!')");
@@ -205,12 +192,14 @@ pub fn HackathonTeam(slug: String) -> Element {
 
                                     // Tabs
                                     if team.is_owner {
-                                        TabSwitcher {
-                                            active_tab,
-                                            tabs: vec![
-                                                (MyTeamTab::Current, "Current".to_string()),
-                                                (MyTeamTab::Requests, "Requests".to_string()),
-                                            ],
+                                        div {
+                                            TabSwitcher {
+                                                active_tab,
+                                                tabs: vec![
+                                                    (MyTeamTab::Current, "Current".to_string()),
+                                                    (MyTeamTab::Requests, "Requests".to_string()),
+                                                ],
+                                            }
                                         }
                                     }
 
@@ -284,6 +273,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                     div { class: "absolute top-7 right-6",
                                         ButtonWithIcon {
                                             icon: dioxus_free_icons::icons::ld_icons::LdUserPlus,
+                                            size: ButtonSize::Compact,
                                             variant: ButtonVariant::Outline,
                                             onclick: move |_| {
                                                 let _ = dioxus::document::eval(
@@ -309,6 +299,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     if !has_team {
                         ButtonWithIcon {
                             icon: LdPlus,
+                            size: ButtonSize::Compact,
                             variant: ButtonVariant::Default,
                             onclick: move |_| show_create_modal.set(true),
                             "Create New Team"
@@ -414,7 +405,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     JoinRequestModal {
                         on_close: move |_| {
                             show_join_request_modal.set(None);
-                            success_message.set(Some("Join request sent!".to_string()));
+                            let _ = dioxus::document::eval("alert('Join request sent!')");
                         },
                         slug,
                         team_id,
@@ -430,7 +421,7 @@ pub fn HackathonTeam(slug: String) -> Element {
 fn TeamListItemComponent(team: TeamListItem, on_view: EventHandler<i32>) -> Element {
     rsx! {
         div { class: "py-3 flex items-center justify-between",
-            // Left: Team name and description
+            // Team name and description
             div { class: "flex flex-col gap-1 shrink-0",
                 p { class: "text-base font-medium leading-6 text-foreground-neutral-primary",
                     "{team.name}"
@@ -451,13 +442,9 @@ fn TeamListItemComponent(team: TeamListItem, on_view: EventHandler<i32>) -> Elem
 
             // Full badge and Details button
             div { class: "flex items-center gap-3 shrink-0",
-                if team.is_full {
-                    span { class: "px-2 py-1 text-xs bg-status-danger-background text-status-danger-foreground rounded-md",
-                        "Full"
-                    }
-                }
                 Button {
-                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::Compact,
+                    variant: ButtonVariant::Primary,
                     onclick: move |_| on_view.call(team.id),
                     "Details"
                 }

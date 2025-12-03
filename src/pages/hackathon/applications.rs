@@ -4,7 +4,7 @@ use dioxus_free_icons::{
     icons::ld_icons::{LdChevronDown, LdSearch},
 };
 
-use crate::components::{Button, ButtonVariant, Dropdown, DropdownOption, TabSwitcher};
+use crate::components::{Button, ButtonVariant, ButtonSize, Dropdown, DropdownOption, TabSwitcher};
 
 #[derive(Clone, Copy, PartialEq)]
 enum ParticipantTab {
@@ -101,7 +101,7 @@ pub fn HackathonApplications(slug: String) -> Element {
                         }
                     }
 
-                    Button { "Approve All" }
+                    Button { size: ButtonSize::Compact, "Approve All" }
                 }
 
                 // Application list

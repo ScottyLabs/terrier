@@ -40,6 +40,10 @@ use utoipa::OpenApi;
         crate::hackathons::handlers::teams::get_users_without_team,
         crate::hackathons::handlers::teams::leave_team,
         crate::hackathons::handlers::teams::get_team_details,
+        crate::hackathons::handlers::teams::send_invitation,
+        crate::hackathons::handlers::teams::get_my_invitations,
+        crate::hackathons::handlers::teams::accept_invitation,
+        crate::hackathons::handlers::teams::decline_invitation,
         // Auth
         crate::auth::handlers::get_current_user,
     ),
@@ -72,6 +76,8 @@ use utoipa::OpenApi;
             crate::hackathons::handlers::teams::JoinTeamRequest,
             crate::hackathons::handlers::teams::JoinRequestResponse,
             crate::hackathons::handlers::teams::UserWithoutTeam,
+            crate::hackathons::handlers::teams::SendInvitationRequest,
+            crate::hackathons::handlers::teams::InvitationResponse,
             // Auth
             crate::auth::UserInfo,
         )
