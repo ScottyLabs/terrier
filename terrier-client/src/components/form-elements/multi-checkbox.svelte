@@ -7,9 +7,23 @@
     export let onInput: (value: string) => void = () => {};
     export let options: string[] = [];
 
-    // Parse comma-separated string to array
+    // Parse value to array - handles both comma-separated strings and JSON arrays
     function getSelectedOptions(): string[] {
         if (!value) return [];
+        
+        // Try to parse as JSON array first (e.g., '["Option1","Option2"]')
+        if (value.startsWith("[")) {
+            try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter((v) => typeof v === "string" && v.trim() !== "");
+                }
+            } catch {
+                // Not valid JSON, fall through to comma-separated parsing
+            }
+        }
+        
+        // Otherwise treat as comma-separated string
         return value.split(",").filter((v) => v.trim() !== "");
     }
 
