@@ -50,13 +50,20 @@ pub fn HackathonForm(
     fields: HackathonFormFields,
     banner_url: Signal<Option<String>>,
     banner_file: Signal<Option<(Vec<u8>, String)>>,
+    background_url: Signal<Option<String>>,
+    background_file: Signal<Option<(Vec<u8>, String)>>,
     on_submit: EventHandler<FormEvent>,
     submit_label: String,
 ) -> Element {
-    let mut selected_file = use_signal(|| None::<String>);
+    let mut selected_banner_file = use_signal(|| None::<String>);
+    let mut selected_background_file = use_signal(|| None::<String>);
 
     let on_remove_banner = move |_| {
         banner_url.set(None);
+    };
+
+    let on_remove_background = move |_| {
+        background_url.set(None);
     };
 
     let (name_value, name_oninput, name_onblur) = use_field_bind(&fields.name);
@@ -174,7 +181,7 @@ pub fn HackathonForm(
                     label { class: "text-base font-medium text-foreground-neutral-primary",
                         "Banner Image "
                         span { class: "text-sm font-normal text-foreground-neutral-secondary",
-                            "(max 2MB)"
+                            "(max 10 MB)"
                         }
                     }
 
@@ -204,7 +211,7 @@ pub fn HackathonForm(
                                     let files = evt.files();
                                     if let Some(file) = files.first() {
                                         let file_name = file.name().to_string();
-                                        selected_file.set(Some(file_name.clone()));
+                                        selected_banner_file.set(Some(file_name.clone()));
                                         let content_type = file_name
                                             .split('.')
                                             .last()
@@ -241,7 +248,7 @@ pub fn HackathonForm(
                                 Icon { width: 18, height: 18, icon: LdFileText }
                                 "Change banner"
                             }
-                            if let Some(file) = selected_file() {
+                            if let Some(file) = selected_banner_file() {
                                 div { class: "text-sm text-foreground-neutral-secondary",
                                     "New file selected: {file}"
                                 }
@@ -259,7 +266,7 @@ pub fn HackathonForm(
                                     let files = evt.files();
                                     if let Some(file) = files.first() {
                                         let file_name = file.name().to_string();
-                                        selected_file.set(Some(file_name.clone()));
+                                        selected_banner_file.set(Some(file_name.clone()));
                                         let content_type = file_name
                                             .split('.')
                                             .last()
@@ -296,7 +303,143 @@ pub fn HackathonForm(
                                 Icon { width: 20, height: 20, icon: LdFileText }
                                 "Choose file"
                             }
-                            if let Some(file) = selected_file() {
+                            if let Some(file) = selected_banner_file() {
+                                div { class: "text-sm text-foreground-neutral-secondary",
+                                    "Selected: {file}"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Background upload
+                div { class: "flex flex-col gap-2",
+                    label { class: "text-base font-medium text-foreground-neutral-primary",
+                        "Background Image "
+                        span { class: "text-sm font-normal text-foreground-neutral-secondary",
+                            "(max 10 MB)"
+                        }
+                    }
+
+                    if let Some(url) = background_url() {
+                        div { class: "flex flex-col gap-2",
+                            div { class: "relative w-40 aspect-video rounded-lg overflow-hidden border border-border-neutral-primary",
+                                img {
+                                    src: url,
+                                    class: "w-full h-full object-cover",
+                                }
+                                div { class: "absolute top-2 right-2",
+                                    ButtonWithIcon {
+                                        icon: LdTrash2,
+                                        variant: ButtonVariant::Danger,
+                                        onclick: on_remove_background,
+                                    }
+                                }
+                            }
+                            // Allow changing background
+                            input {
+                                r#type: "file",
+                                name: "background",
+                                accept: "image/*",
+                                id: "background-upload",
+                                class: "hidden",
+                                onchange: move |evt| async move {
+                                    let files = evt.files();
+                                    if let Some(file) = files.first() {
+                                        let file_name = file.name().to_string();
+                                        selected_background_file.set(Some(file_name.clone()));
+                                        let content_type = file_name
+                                            .split('.')
+                                            .last()
+                                            .map(|ext| match ext {
+                                                "jpg" | "jpeg" => "image/jpeg",
+                                                "png" => "image/png",
+                                                "webp" => "image/webp",
+                                                "gif" => "image/gif",
+                                                _ => "image/jpeg",
+                                            })
+                                            .unwrap_or("image/jpeg")
+                                            .to_string();
+                                        dioxus_logger::tracing::info!(
+                                            "Reading file: {} with content_type: {}", file_name, content_type
+                                        );
+                                        match file.read_bytes().await {
+                                            Ok(bytes) => {
+                                                let vec = bytes.to_vec();
+                                                dioxus_logger::tracing::info!(
+                                                    "File read successfully: {} bytes", vec.len()
+                                                );
+                                                background_file.set(Some((vec, content_type)));
+                                            }
+                                            Err(e) => {
+                                                dioxus_logger::tracing::error!("Failed to read file: {:?}", e);
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                            label {
+                                r#for: "background-upload",
+                                class: "flex items-center justify-center gap-2 h-10 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                Icon { width: 18, height: 18, icon: LdFileText }
+                                "Change background"
+                            }
+                            if let Some(file) = selected_background_file() {
+                                div { class: "text-sm text-foreground-neutral-secondary",
+                                    "New file selected: {file}"
+                                }
+                            }
+                        }
+                    } else {
+                        div { class: "flex flex-col gap-2",
+                            input {
+                                r#type: "file",
+                                name: "background",
+                                accept: "image/*",
+                                id: "background-upload",
+                                class: "hidden",
+                                onchange: move |evt| async move {
+                                    let files = evt.files();
+                                    if let Some(file) = files.first() {
+                                        let file_name = file.name().to_string();
+                                        selected_background_file.set(Some(file_name.clone()));
+                                        let content_type = file_name
+                                            .split('.')
+                                            .last()
+                                            .map(|ext| match ext {
+                                                "jpg" | "jpeg" => "image/jpeg",
+                                                "png" => "image/png",
+                                                "webp" => "image/webp",
+                                                "gif" => "image/gif",
+                                                _ => "image/jpeg",
+                                            })
+                                            .unwrap_or("image/jpeg")
+                                            .to_string();
+                                        dioxus_logger::tracing::info!(
+                                            "Reading file: {} with content_type: {}", file_name, content_type
+                                        );
+                                        match file.read_bytes().await {
+                                            Ok(bytes) => {
+                                                let vec = bytes.to_vec();
+                                                dioxus_logger::tracing::info!(
+                                                    "File read successfully: {} bytes", vec.len()
+                                                );
+                                                background_file.set(Some((vec, content_type)));
+                                            }
+                                            Err(e) => {
+                                                dioxus_logger::tracing::error!("Failed to read file: {:?}", e);
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                            label {
+                                r#for: "background-upload",
+                                class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                Icon { width: 20, height: 20, icon: LdFileText }
+                                "Choose file"
+                            }
+                            if let Some(file) = selected_background_file() {
                                 div { class: "text-sm text-foreground-neutral-secondary",
                                     "Selected: {file}"
                                 }

@@ -1,6 +1,6 @@
 pub mod applications;
 pub mod create_hackathon;
-pub use create_hackathon::{CreateHackathonRequest, create_hackathon, upload_banner};
+pub use create_hackathon::{CreateHackathonRequest, create_hackathon, upload_background, upload_banner};
 pub mod file_upload;
 pub mod form_config;
 pub use form_config::set_form_config;

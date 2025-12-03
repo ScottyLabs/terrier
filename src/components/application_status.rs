@@ -12,6 +12,7 @@ pub fn ApplicationStatus(
     variant: ApplicationStatusVariant,
     hackathon_slug: String,
     application_status: Resource<Option<String>>,
+    application_refresh_trigger: Signal<u32>,
 ) -> Element {
     let mut is_loading = use_signal(|| false);
 
@@ -63,6 +64,8 @@ pub fn ApplicationStatus(
                                     {
                                         Ok(_) => {
                                             application_status.restart();
+                                            let current = *application_refresh_trigger.read();
+                                            application_refresh_trigger.set(current + 1);
                                             is_loading.set(false);
                                         }
                                         Err(e) => {
@@ -114,6 +117,8 @@ pub fn ApplicationStatus(
                                     {
                                         Ok(_) => {
                                             application_status.restart();
+                                            let current = *application_refresh_trigger.read();
+                                            application_refresh_trigger.set(current + 1);
                                             is_loading.set(false);
                                         }
                                         Err(e) => {
@@ -147,7 +152,13 @@ pub fn ApplicationStatus(
                                     {
                                         Ok(_) => {
                                             application_status.restart();
+                                            let current = *application_refresh_trigger.read();
+                                            application_refresh_trigger.set(current + 1);
                                             is_loading.set(false);
+
+                                            // Redirect to dashboard after successful confirmation
+                                            let nav = navigator();
+                                            nav.push(crate::Route::HackathonDashboard { slug });
                                         }
                                         Err(e) => {
                                             let error_msg = format!("Failed to confirm: {}", e);

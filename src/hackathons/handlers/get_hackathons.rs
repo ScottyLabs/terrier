@@ -43,6 +43,7 @@ pub async fn get_hackathons() -> Result<Vec<HackathonInfo>, ServerFnError> {
             is_active: h.is_active,
             max_team_size: h.max_team_size,
             banner_url: h.banner_url,
+            background_url: h.background_url,
             updated_at: h.updated_at,
             form_config: h.form_config,
         })
@@ -89,6 +90,7 @@ pub async fn get_hackathon_by_slug(slug: String) -> Result<Option<HackathonInfo>
         is_active: h.is_active,
         max_team_size: h.max_team_size,
         banner_url: h.banner_url,
+        background_url: h.background_url,
         form_config: h.form_config,
         updated_at: h.updated_at,
     }))

@@ -18,6 +18,7 @@ pub struct HackathonInfo {
     pub is_active: bool,
     pub max_team_size: i32,
     pub banner_url: Option<String>,
+    pub background_url: Option<String>,
     pub updated_at: NaiveDateTime,
     pub form_config: Option<serde_json::Value>,
 }
