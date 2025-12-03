@@ -1,21 +1,22 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{Icon, icons::ld_icons::LdSearch};
 
-use super::{Button, ButtonVariant, ModalBase};
+use super::{Button, ButtonVariant, ButtonSize, ModalBase};
 use crate::hackathons::handlers::teams::{
-    UserWithoutTeam, get_users_without_team, send_invitation, SendInvitationRequest,
+    SendInvitationRequest, UserWithoutTeam, get_users_without_team, send_invitation,
 };
 
 #[component]
 pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
     let mut search_query = use_signal(|| String::new());
-    let mut selected_user = use_signal(|| None::<UserWithoutTeam>);
     let mut is_sending = use_signal(|| false);
     let mut error_message = use_signal(|| None::<String>);
 
+    let slug_for_resource = slug.clone();
+
     // Fetch users without team
     let mut users_resource = use_resource(move || {
-        let slug = slug.clone();
+        let slug = slug_for_resource.clone();
         let search = search_query();
         async move {
             let result: Result<Vec<UserWithoutTeam>, _> = get_users_without_team(
@@ -31,36 +32,8 @@ pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
         }
     });
 
-    let on_send_invitation = move |user: UserWithoutTeam| {
-        spawn({
-            let slug = slug.clone();
-            async move {
-                is_sending.set(true);
-                error_message.set(None);
-
-                let req = SendInvitationRequest {
-                    user_id: user.id,
-                    message: None,
-                };
-
-                match send_invitation(slug, req).await {
-                    Ok(_) => {
-                        on_close.call(());
-                    }
-                    Err(e) => {
-                        error_message.set(Some(e.to_string()));
-                        is_sending.set(false);
-                    }
-                }
-            }
-        });
-    };
-
     rsx! {
-        ModalBase {
-            on_close,
-            width: "600px",
-            max_height: "80vh",
+        ModalBase { on_close, width: "600px", max_height: "80vh",
 
             div { class: "p-7 flex flex-col h-full",
                 // Header
@@ -115,8 +88,7 @@ pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
                                     for user in users {
                                         div {
                                             key: "{user.id}",
-                                            class: "flex items-center justify-between p-4 bg-background-neutral-secondary-enabled rounded-lg hover:bg-background-neutral-subtle cursor-pointer",
-                                            onclick: move |_| selected_user.set(Some(user.clone())),
+                                            class: "flex items-center justify-between p-4 bg-background-neutral-primary rounded-lg",
                                             div { class: "flex items-center gap-3",
                                                 if let Some(picture) = &user.picture {
                                                     img {
@@ -132,18 +104,39 @@ pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
                                                     p { class: "text-sm font-semibold text-foreground-neutral-primary",
                                                         {user.name.clone().unwrap_or_else(|| "Unknown".to_string())}
                                                     }
-                                                    p { class: "text-xs text-foreground-neutral-secondary",
-                                                        "{user.email}"
-                                                    }
+                                                    p { class: "text-xs text-foreground-neutral-secondary", "{user.email}" }
                                                 }
                                             }
                                             Button {
+                                                size: ButtonSize::Compact,
                                                 variant: ButtonVariant::Primary,
                                                 disabled: is_sending(),
-                                                onclick: move |_| {
-                                                    on_send_invitation(user.clone());
+                                                onclick: {
+                                                    let slug = slug.clone();
+                                                    let user = user.clone();
+                                                    move |_| {
+                                                        let slug = slug.clone();
+                                                        let user = user.clone();
+                                                        spawn(async move {
+                                                            is_sending.set(true);
+                                                            error_message.set(None);
+                                                            let req = SendInvitationRequest {
+                                                                user_id: user.id,
+                                                                message: None,
+                                                            };
+                                                            match send_invitation(slug, req).await {
+                                                                Ok(_) => {
+                                                                    on_close.call(());
+                                                                }
+                                                                Err(e) => {
+                                                                    error_message.set(Some(e.to_string()));
+                                                                    is_sending.set(false);
+                                                                }
+                                                            }
+                                                        });
+                                                    }
                                                 },
-                                                if is_sending() && selected_user().as_ref().map(|u| u.id) == Some(user.id) {
+                                                if is_sending() {
                                                     "Sending..."
                                                 } else {
                                                     "Invite"

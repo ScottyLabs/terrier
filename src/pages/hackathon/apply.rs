@@ -1,7 +1,7 @@
 use crate::{
     auth::{APPLY_ROLES, HackathonRole, hooks::use_require_access_or_redirect},
     components::{
-        ApplicationStatus, ApplicationStatusVariant, Button, Checkbox, CheckboxGroup,
+        ApplicationStatus, ApplicationStatusVariant, Button, CheckboxGroup,
         FormSelectOption, Input, InputHeight, InputVariant, RadioGroup, SaveStatus,
         SaveStatusIndicator, Select,
     },
@@ -22,6 +22,7 @@ pub fn HackathonApply(slug: String) -> Element {
 
     let hackathon = use_context::<Signal<HackathonInfo>>();
     let role = use_context::<Option<HackathonRole>>();
+    let application_refresh_trigger = use_context::<Signal<u32>>();
 
     // Check if user has already submitted an application
     let slug_clone = slug.clone();
@@ -62,18 +63,27 @@ pub fn HackathonApply(slug: String) -> Element {
                         variant: ApplicationStatusVariant::Accepted,
                         hackathon_slug: slug.clone(),
                         application_status,
+                        application_refresh_trigger,
                     }
                 } else if let Some(Some(status)) = application_status.read().as_ref() {
                     // User has submitted an application
-                    if status == "pending" || status == "accepted" || status == "rejected" {
+                    if status == "accepted" {
+                        ApplicationStatus {
+                            variant: ApplicationStatusVariant::Accepted,
+                            hackathon_slug: slug.clone(),
+                            application_status,
+                            application_refresh_trigger,
+                        }
+                    } else if status == "pending" || status == "rejected" {
                         ApplicationStatus {
                             variant: ApplicationStatusVariant::Submitted,
                             hackathon_slug: slug.clone(),
                             application_status,
+                            application_refresh_trigger,
                         }
                     } else if let Some(schema) = form_schema() {
                         // Draft or other status, show form
-                        ApplicationForm { schema, application_status }
+                        ApplicationForm { schema, application_status, application_refresh_trigger }
                     } else {
                         div { class: "text-center py-12",
                             h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
@@ -86,7 +96,7 @@ pub fn HackathonApply(slug: String) -> Element {
                     }
                 } else if let Some(schema) = form_schema() {
                     // No application yet, show form
-                    ApplicationForm { schema, application_status }
+                    ApplicationForm { schema, application_status, application_refresh_trigger }
                 } else {
                     div { class: "text-center py-12",
                         h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
@@ -103,7 +113,7 @@ pub fn HackathonApply(slug: String) -> Element {
 }
 
 #[component]
-fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<String>>) -> Element {
+fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<String>>, application_refresh_trigger: Signal<u32>) -> Element {
     let hackathon = use_context::<Signal<HackathonInfo>>();
     let _nav = navigator();
 
@@ -218,6 +228,10 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
 
                     // Reload application status to show submitted view
                     application_status.restart();
+
+                    // Trigger sidebar refresh
+                    let current = *application_refresh_trigger.read();
+                    application_refresh_trigger.set(current + 1);
                 }
                 Err(e) => {
                     error_message.set(Some(format!("Failed to submit application: {}", e)));
@@ -337,36 +351,29 @@ fn FormFieldRenderer(
         }
     });
 
-    let should_show = || {
-        if let Some(condition) = &field_conditional {
-            let values = form_values.peek();
-            if let Some(parent_value) = values.get(&condition.field) {
-                // For single-select, check if value matches
-                if condition.value.contains(parent_value) {
-                    return true;
-                }
-
+    // Determine if field should be shown based on conditional
+    let should_show = if let Some(condition) = &field_conditional {
+        let values = form_values.read();
+        if let Some(parent_value) = values.get(&condition.field) {
+            // For single-select, check if value matches
+            if condition.value.contains(parent_value) {
+                true
+            } else {
                 // For multi-select (comma-separated), check if any value is present
                 let parent_values: Vec<&str> = parent_value.split(',').collect();
-                for cv in &condition.value {
-                    if parent_values.contains(&cv.as_str()) {
-                        return true;
-                    }
-                }
-                return false;
+                condition.value.iter().any(|cv| parent_values.contains(&cv.as_str()))
             }
-            return false;
+        } else {
+            false
         }
+    } else {
         true // No condition means always show
     };
 
-    if !should_show() {
-        return rsx! {
-            div { style: "display: none;" }
-        };
-    }
-
     rsx! {
+        if !should_show {
+            div { style: "display: none;" }
+        } else {
         div { class: "flex flex-col gap-2",
             match field_type.clone() {
                 FieldType::Text { placeholder, .. }
@@ -525,26 +532,43 @@ fn FormFieldRenderer(
                         }
                     }
                 }
-                FieldType::Checkbox => {
+                FieldType::Checkbox { option } => {
                     rsx! {
-                        Checkbox {
-                            label: field_label,
-                            value,
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            onchange: move |new_value: String| {
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
-                                    }
+                        div { class: "flex flex-col gap-2",
+                            label {
+                                class: "text-base font-medium text-foreground-neutral-primary mb-2",
+                                "{field_label}"
+                                if field_required {
+                                    span { class: "text-status-danger-foreground ml-1", "*" }
                                 }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                            }
+                            label { class: "flex items-center gap-2 cursor-pointer",
+                                input {
+                                    id: field_id,
+                                    name: field_name,
+                                    r#type: "checkbox",
+                                    required: field_required,
+                                    checked: value() == "true",
+                                    onchange: move |evt| {
+                                        let new_value = if evt.checked() { "true".to_string() } else { "false".to_string() };
+                                        value.set(new_value.clone());
+                                        {
+                                            let mut values = form_values.write();
+                                            if !new_value.is_empty() && new_value != "false" {
+                                                values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                            } else {
+                                                values.remove(&field_name_for_handlers);
+                                            }
+                                        }
+                                        let current = *autosave_trigger.peek();
+                                        autosave_trigger.set(current + 1);
+                                    },
+                                }
+                                span {
+                                    class: "text-base font-normal text-foreground-neutral-primary",
+                                    "{option.label}"
+                                }
+                            }
                         }
                     }
                 }
@@ -772,6 +796,7 @@ fn FormFieldRenderer(
                     }
                 }
             }
+        }
         }
     }
 }

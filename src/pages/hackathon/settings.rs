@@ -9,7 +9,7 @@ use crate::{
         HackathonInfo,
         handlers::{
             UpdateHackathonRequest, delete_banner, set_form_config, toggle_registration,
-            update_hackathon, upload_banner,
+            update_hackathon, upload_background, upload_banner,
         },
     },
 };
@@ -33,6 +33,8 @@ pub fn HackathonSettings(slug: String) -> Element {
 
     let mut banner_url = use_signal(|| hackathon.read().banner_url.clone());
     let mut banner_file = use_signal(|| None::<(Vec<u8>, String)>);
+    let mut background_url = use_signal(|| hackathon.read().background_url.clone());
+    let mut background_file = use_signal(|| None::<(Vec<u8>, String)>);
 
     // Create max team size field with validation
     let max_team_size_field = use_form_field(hackathon.read().max_team_size)
@@ -151,6 +153,8 @@ pub fn HackathonSettings(slug: String) -> Element {
                                 fields: form_fields,
                                 banner_url,
                                 banner_file,
+                                background_url,
+                                background_file,
                                 on_submit: move |evt: FormEvent| {
                                     evt.prevent_default();
                                     let slug_clone = slug.clone();
@@ -159,6 +163,7 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let desc_field_clean = desc_field.clone();
                                     let team_size_field_clean = team_size_field.clone();
                                     let banner_file_data = banner_file();
+                                    let background_file_data = background_file();
                                     let name_val = name_field.value.read().clone();
                                     let desc_val = desc_field.value.read().clone();
                                     let team_size_val = *team_size_field.value.read();
@@ -200,7 +205,7 @@ pub fn HackathonSettings(slug: String) -> Element {
                                                     }
                                                 } else if banner_url().is_none() && updated_info.banner_url.is_some()
                                                 {
-                                                    match delete_banner(slug_clone).await {
+                                                    match delete_banner(slug_clone.clone()).await {
                                                         Ok(_) => {
                                                             tracing::info!("Banner deleted successfully");
                                                             let mut h = hackathon.write();
@@ -211,6 +216,35 @@ pub fn HackathonSettings(slug: String) -> Element {
                                                 } else {
                                                     banner_url.set(updated_info.banner_url.clone());
                                                 }
+
+                                                // Handle background upload
+                                                if let Some((file_data, content_type)) = background_file_data {
+                                                    tracing::info!(
+                                                        "Background file data present, uploading new background. File size: {} bytes, content type: {}",
+                                                        file_data.len(), content_type
+                                                    );
+                                                    match upload_background(slug_clone.clone(), file_data, content_type)
+                                                        .await
+                                                    {
+                                                        Ok(url) => {
+                                                            tracing::info!("New background uploaded successfully: {}", url);
+                                                            background_url.set(Some(url.clone()));
+                                                            background_file.set(None);
+                                                            let mut h = hackathon.write();
+                                                            h.background_url = Some(url);
+                                                        }
+                                                        Err(e) => {
+                                                            tracing::error!("Failed to upload background: {:?}", e);
+                                                            let error_msg = format!("Background upload failed: {}", e);
+                                                            let _ = document::eval(
+                                                                &format!("alert('{}')", error_msg.replace("'", "\\'")),
+                                                            );
+                                                        }
+                                                    }
+                                                } else {
+                                                    background_url.set(updated_info.background_url.clone());
+                                                }
+
                                                 save_status.set(SaveStatus::Saved);
                                                 let _ = document::eval("alert('Settings saved!')");
                                             }

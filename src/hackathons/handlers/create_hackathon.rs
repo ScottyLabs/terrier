@@ -118,6 +118,7 @@ pub async fn create_hackathon(req: CreateHackathonRequest) -> Result<HackathonIn
         is_active: hackathon.is_active,
         max_team_size: hackathon.max_team_size,
         banner_url: hackathon.banner_url,
+        background_url: hackathon.background_url,
         updated_at: hackathon.updated_at,
         form_config: hackathon.form_config,
     })
@@ -267,4 +268,155 @@ async fn upload_banner_impl(
         .map_err(|e| format!("Failed to update banner URL: {}", e))?;
 
     Ok(banner_url)
+}
+
+/// Upload a background image for a hackathon
+#[cfg_attr(feature = "server", utoipa::path(
+    put,
+    path = "/api/hackathons/{slug}/background",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    responses(
+        (status = 200, description = "Background uploaded successfully", body = String),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Hackathon not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "hackathons"
+))]
+#[put("/api/hackathons/:slug/background", user: SyncedUser)]
+pub async fn upload_background(
+    slug: String,
+    file_data: Vec<u8>,
+    content_type: String,
+) -> Result<String, ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    // Extract state from context
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Extract user from context
+    let user = FullstackContext::extract::<SyncedUser, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract user: {}", e)))?;
+
+    // Use shared implementation
+    upload_background_impl(&state, &slug, &user, file_data, content_type)
+        .await
+        .map_err(ServerFnError::new)
+}
+
+/// Shared implementation for background upload logic
+#[cfg(feature = "server")]
+async fn upload_background_impl(
+    state: &AppState,
+    slug: &str,
+    user: &SyncedUser,
+    file_data: Vec<u8>,
+    content_type: String,
+) -> Result<String, String> {
+    use minio::s3::args::{PutObjectArgs, RemoveObjectArgs};
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+    use std::io::Cursor;
+
+    // Fetch hackathon by slug
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| format!("Failed to fetch hackathon: {}", e))?
+        .ok_or_else(|| "Hackathon not found".to_string())?;
+
+    // Check if user is global admin or hackathon admin
+    let is_global_admin = state
+        .config
+        .admin_emails
+        .contains(&user.0.email.to_lowercase());
+
+    let user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| format!("Failed to fetch user role: {}", e))?;
+
+    let is_hackathon_admin = user_role
+        .as_ref()
+        .map(|r| r.role == "admin")
+        .unwrap_or(false);
+
+    if !is_global_admin && !is_hackathon_admin {
+        return Err("Admin access required".to_string());
+    }
+
+    // Delete old background if exists
+    if let Some(old_url) = &hackathon.background_url {
+        tracing::info!("Deleting old background: {}", old_url);
+        let url_parts: Vec<&str> = old_url.split('/').collect();
+        if url_parts.len() >= 2 {
+            let object_key = url_parts[url_parts.len() - 2..].join("/");
+
+            if let Ok(remove_args) = RemoveObjectArgs::new(&state.config.minio_bucket, &object_key)
+            {
+                let _ = state.s3.remove_object(&remove_args).await;
+                tracing::info!("Old background deleted: {}", object_key);
+            }
+        }
+    }
+
+    // Upload new background
+    let extension = match content_type.as_str() {
+        "image/jpeg" | "image/jpg" => "jpg",
+        "image/png" => "png",
+        "image/webp" => "webp",
+        "image/gif" => "gif",
+        _ => "jpg",
+    };
+
+    let object_key = format!("{}/background.{}", slug, extension);
+    tracing::info!(
+        "Uploading background: key={}, type={}, size={}",
+        object_key,
+        content_type,
+        file_data.len()
+    );
+
+    let file_size = file_data.len();
+    let mut cursor = Cursor::new(file_data);
+    let mut put_args = PutObjectArgs::new(
+        &state.config.minio_bucket,
+        &object_key,
+        &mut cursor,
+        Some(file_size),
+        None,
+    )
+    .map_err(|e| format!("Failed to create put args: {}", e))?;
+
+    put_args.content_type = content_type.as_str();
+
+    state
+        .s3
+        .put_object(&mut put_args)
+        .await
+        .map_err(|e| format!("Failed to upload to MinIO: {}", e))?;
+
+    let background_url = format!(
+        "{}/{}/{}",
+        state.config.minio_public_endpoint, state.config.minio_bucket, object_key
+    );
+
+    // Update hackathon with background URL
+    let mut active_hackathon: crate::entities::hackathons::ActiveModel = hackathon.into();
+    active_hackathon.background_url = Set(Some(background_url.clone()));
+    active_hackathon.updated_at = Set(Utc::now().naive_utc());
+    active_hackathon
+        .update(&state.db)
+        .await
+        .map_err(|e| format!("Failed to update background URL: {}", e))?;
+
+    Ok(background_url)
 }

@@ -35,9 +35,19 @@ pub fn HackathonLayout(slug: String) -> Element {
             let hackathon_signal = use_context_provider(|| Signal::new(hackathon.clone()));
             use_context_provider(|| role.cloned());
 
+            // Provide a refresh trigger for application status
+            let application_refresh_trigger = use_context_provider(|| Signal::new(0u32));
+
             rsx! {
-                div { class: "flex flex-row p-7 gap-9 h-screen",
-                    Sidebar { slug, hackathon_signal, role: role.cloned() }
+                div {
+                    class: "flex flex-row p-7 gap-9 h-screen bg-cover bg-center bg-no-repeat",
+                    style: if let Some(bg_url) = &hackathon.background_url { format!("background-image: url('{}')", bg_url) } else { String::new() },
+                    Sidebar {
+                        slug,
+                        hackathon_signal,
+                        role: role.cloned(),
+                        application_refresh_trigger,
+                    }
                     main { class: "flex-1 overflow-y-auto", Outlet::<Route> {} }
                 }
             }

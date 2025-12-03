@@ -1,9 +1,13 @@
 use dioxus::prelude::*;
 
-use crate::hackathons::HackathonInfo;
+use crate::{auth::{DASHBOARD_ROLES, hooks::use_require_access_or_redirect}, hackathons::HackathonInfo};
 
 #[component]
 pub fn HackathonDashboard(slug: String) -> Element {
+    if let Some(no_access) = use_require_access_or_redirect(DASHBOARD_ROLES) {
+        return no_access;
+    }
+
     let _hackathon = use_context::<Signal<HackathonInfo>>();
 
     rsx! {

@@ -5,6 +5,7 @@ use utoipa::OpenApi;
     paths(
         // Hackathons
         crate::hackathons::handlers::create_hackathon::create_hackathon,
+        crate::hackathons::handlers::create_hackathon::upload_background,
         crate::hackathons::handlers::create_hackathon::upload_banner,
         crate::hackathons::handlers::get_hackathons::get_hackathons,
         crate::hackathons::handlers::get_hackathons::get_hackathon_by_slug,

@@ -23,6 +23,7 @@ pub struct Model {
     pub max_team_size: i32,
     pub banner_url: Option<String>,
     pub form_config: Option<Json>,
+    pub background_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

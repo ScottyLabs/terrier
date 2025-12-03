@@ -68,6 +68,14 @@ pub fn has_access(role: &HackathonRole, allowed: &[HackathonRoleType]) -> bool {
 }
 
 // Centralized role definitions for hackathon pages
+pub const DASHBOARD_ROLES: &[HackathonRoleType] = &[
+    HackathonRoleType::Participant,
+    HackathonRoleType::Judge,
+    HackathonRoleType::Sponsor,
+    HackathonRoleType::Organizer,
+    HackathonRoleType::Admin,
+];
+
 pub const APPLICANTS_ROLES: &[HackathonRoleType] = &[HackathonRoleType::Admin];
 
 pub const PEOPLE_ROLES: &[HackathonRoleType] =

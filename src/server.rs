@@ -1,4 +1,4 @@
-use axum::{Extension, Router, middleware, response::IntoResponse, routing::get};
+use axum::{Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get};
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
     handle_oidc_redirect,
@@ -94,14 +94,18 @@ pub async fn setup() {
                 tracing::info!("MinIO bucket already exists: {}", config.minio_bucket);
             }
 
-            // Set bucket policy to allow public read access to banner files
+            // Set bucket policy to allow public read access to banner, background, and resume files
             let policy = serde_json::json!({
                 "Version": "2012-10-17",
                 "Statement": [{
                     "Effect": "Allow",
                     "Principal": {"AWS": ["*"]},
                     "Action": ["s3:GetObject"],
-                    "Resource": [format!("arn:aws:s3:::{}/*/banner.*", config.minio_bucket)]
+                    "Resource": [
+                        format!("arn:aws:s3:::{}/*/banner.*", config.minio_bucket),
+                        format!("arn:aws:s3:::{}/*/background.*", config.minio_bucket),
+                        format!("arn:aws:s3:::{}/*/resumes/*", config.minio_bucket)
+                    ]
                 }]
             })
             .to_string();
@@ -214,7 +218,9 @@ pub async fn setup() {
         .layer(Extension(app_state.clone()));
 
     // Create the main router with API routes and Dioxus app
-    let router = api_router.merge(dioxus_router);
+    let router = api_router
+        .merge(dioxus_router)
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)); // 10 MB limit for file uploads
 
     // Get address from CLI config or default to localhost:8080
     let address = dioxus::cli_config::fullstack_address_or_localhost();

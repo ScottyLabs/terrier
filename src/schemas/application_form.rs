@@ -36,7 +36,9 @@ pub enum FieldType {
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder: Option<String>,
     },
-    Checkbox,
+    Checkbox {
+        option: SelectOption,
+    },
     CheckboxGroup {
         options: Vec<SelectOption>,
     },

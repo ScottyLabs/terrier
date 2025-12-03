@@ -6,7 +6,7 @@ use dioxus_free_icons::{
 
 use crate::{
     auth::{APPLICANTS_ROLES, hooks::use_require_access_or_redirect},
-    components::{ApplicationModal, Button, ButtonSize, Dropdown, DropdownOption, PersonCard, TabSwitcher},
+    components::{ApplicationModal, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, ModalBase, PersonCard, TabSwitcher},
     hackathons::handlers::applications::{
         ApplicationWithUser, accept_applications, get_all_applications, reject_applications,
     },
@@ -29,6 +29,7 @@ pub fn HackathonApplicants(slug: String) -> Element {
     let active_tab = use_signal(|| ApplicantTab::Individuals);
     let mut search_query = use_signal(|| String::new());
     let mut selected_application = use_signal(|| None::<ApplicationWithUser>);
+    let mut show_approve_all_modal = use_signal(|| false);
 
     // Fetch applications
     let mut applications_resource = use_resource({
@@ -90,6 +91,26 @@ pub fn HackathonApplicants(slug: String) -> Element {
         })
     });
 
+    // Calculate pending applications in filtered list
+    let pending_count = filtered_applications
+        .as_ref()
+        .map(|apps| {
+            apps.iter()
+                .filter(|app| app.status == "pending")
+                .count()
+        })
+        .unwrap_or(0);
+
+    let pending_application_ids: Vec<i32> = filtered_applications
+        .as_ref()
+        .map(|apps| {
+            apps.iter()
+                .filter(|app| app.status == "pending")
+                .map(|app| app.id)
+                .collect()
+        })
+        .unwrap_or_default();
+
     rsx! {
         div { class: "flex flex-col h-full",
             h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary pt-11 pb-7",
@@ -149,7 +170,12 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         }
                     }
 
-                    Button { size: ButtonSize::Compact, "Approve All" }
+                    Button {
+                        size: ButtonSize::Compact,
+                        disabled: pending_count == 0,
+                        onclick: move |_| show_approve_all_modal.set(true),
+                        "Approve All"
+                    }
                 }
 
                 // Application list
@@ -242,6 +268,53 @@ pub fn HackathonApplicants(slug: String) -> Element {
                             }
                         },
                     }
+                }
+            }
+        }
+
+        // Approve All confirmation modal
+        if show_approve_all_modal() {
+            {
+                let person_text = if pending_count == 1 { "person" } else { "people" };
+                rsx! {
+                    ModalBase {
+                        on_close: move |_| show_approve_all_modal.set(false),
+                        width: "500px",
+                        max_height: "auto",
+
+                        div { class: "p-7",
+                            h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
+                                "Approve All Applications"
+                            }
+                            p { class: "text-base text-foreground-neutral-secondary mb-6",
+                                "Are you sure you want to admit {pending_count} {person_text}?"
+                            }
+                    div { class: "flex gap-3 justify-end",
+                        Button {
+                            variant: ButtonVariant::Tertiary,
+                            onclick: move |_| show_approve_all_modal.set(false),
+                            "Cancel"
+                        }
+                        Button {
+                            variant: ButtonVariant::Default,
+                            onclick: {
+                                let slug = slug.clone();
+                                let ids = pending_application_ids.clone();
+                                move |_| {
+                                    show_approve_all_modal.set(false);
+                                    let slug = slug.clone();
+                                    let ids = ids.clone();
+                                    spawn(async move {
+                                        let _ = accept_applications(slug, ids).await;
+                                        applications_resource.restart();
+                                    });
+                                }
+                            },
+                            "Approve {pending_count}"
+                        }
+                    }
+                }
+            }
                 }
             }
         }

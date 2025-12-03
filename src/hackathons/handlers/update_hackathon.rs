@@ -99,6 +99,7 @@ pub async fn update_hackathon(
         is_active: hackathon.is_active,
         max_team_size: hackathon.max_team_size,
         banner_url: hackathon.banner_url,
+        background_url: hackathon.background_url,
         updated_at: hackathon.updated_at,
         form_config: hackathon.form_config,
     })

@@ -133,33 +133,6 @@ pub fn tartanhacks_preset() -> FormSchema {
                     value: vec!["self_describe".to_string()],
                 }),
             },
-            FormField {
-                id: "transgender".to_string(),
-                field_type: FieldType::Radio {
-                    options: vec![
-                        SelectOption {
-                            label: "Yes".to_string(),
-                            value: "yes".to_string(),
-                        },
-                        SelectOption {
-                            label: "No".to_string(),
-                            value: "no".to_string(),
-                        },
-                        SelectOption {
-                            label: "Prefer not to say".to_string(),
-                            value: "prefer_not_to_say".to_string(),
-                        },
-                    ],
-                },
-                label: "Do you identify as transgender?".to_string(),
-                name: "transgender".to_string(),
-                required: true,
-                help_text: None,
-                default_value: None,
-                order: next_order(),
-                section: Some("Personal Information".to_string()),
-                conditional: None,
-            },
             // Race and Ethnicity
             FormField {
                 id: "race_ethnicity".to_string(),
@@ -284,7 +257,7 @@ pub fn tartanhacks_preset() -> FormSchema {
                 label: "School".to_string(),
                 name: "school".to_string(),
                 required: true,
-                help_text: None,
+                help_text: Some("Please write out the full name with no abbreviations".to_string()),
                 default_value: None,
                 order: next_order(),
                 section: Some("Academic Information".to_string()),
@@ -470,14 +443,14 @@ pub fn tartanhacks_preset() -> FormSchema {
                     file_path: "{hackathon_slug}/applications/{user_oidc_sub}/resume".to_string(),
                     validation: Some(FileValidation {
                         accept: Some(".pdf,.doc,.docx".to_string()),
-                        max_size: Some(2 * 1024 * 1024), // 2MB
+                        max_size: Some(10 * 1024 * 1024), // 10MB
                         multiple: false,
                     }),
                 },
                 label: "Resume".to_string(),
                 name: "resume".to_string(),
                 required: true,
-                help_text: Some("Please upload your resume (max 2MB)".to_string()),
+                help_text: Some("Please upload your resume (max 10 MB)".to_string()),
                 default_value: None,
                 order: next_order(),
                 section: Some("Portfolio Information".to_string()),
@@ -663,8 +636,13 @@ pub fn tartanhacks_preset() -> FormSchema {
             },
             FormField {
                 id: "will_use_hardware".to_string(),
-                field_type: FieldType::Checkbox,
-                label: "Will you use hardware?".to_string(),
+                field_type: FieldType::Checkbox {
+                    option: SelectOption {
+                        label: "I will use hardware at this event".to_string(),
+                        value: "true".to_string(),
+                    },
+                },
+                label: "Hardware Usage".to_string(),
                 name: "will_use_hardware".to_string(),
                 required: false,
                 help_text: None,
@@ -676,8 +654,13 @@ pub fn tartanhacks_preset() -> FormSchema {
             // Travel
             FormField {
                 id: "travel_reimbursement".to_string(),
-                field_type: FieldType::Checkbox,
-                label: "Would you like to apply for travel reimbursement?".to_string(),
+                field_type: FieldType::Checkbox {
+                    option: SelectOption {
+                        label: "I would like to apply for travel reimbursement".to_string(),
+                        value: "true".to_string(),
+                    },
+                },
+                label: "Travel Reimbursement".to_string(),
                 name: "travel_reimbursement".to_string(),
                 required: false,
                 help_text: None,
@@ -685,6 +668,24 @@ pub fn tartanhacks_preset() -> FormSchema {
                 order: next_order(),
                 section: Some("Travel".to_string()),
                 conditional: None,
+            },
+            FormField {
+                id: "travel_location".to_string(),
+                field_type: FieldType::Text {
+                    placeholder: Some("e.g., New York, NY".to_string()),
+                    validation: None,
+                },
+                label: "Where are you traveling from?".to_string(),
+                name: "travel_location".to_string(),
+                required: true,
+                help_text: None,
+                default_value: None,
+                order: next_order(),
+                section: Some("Travel".to_string()),
+                conditional: Some(FieldCondition {
+                    field: "travel_reimbursement".to_string(),
+                    value: vec!["true".to_string()],
+                }),
             },
             FormField {
                 id: "diversity_statement".to_string(),
@@ -708,6 +709,50 @@ pub fn tartanhacks_preset() -> FormSchema {
                 default_value: None,
                 order: next_order(),
                 section: Some("Additional Notes".to_string()),
+                conditional: None,
+            },
+            // Sponsor Information
+            FormField {
+                id: "us_work_authorization".to_string(),
+                field_type: FieldType::Select {
+                    options: vec![
+                        SelectOption {
+                            label: "I am a US citizen".to_string(),
+                            value: "us_citizen".to_string(),
+                        },
+                        SelectOption {
+                            label: "I will need employer sponsorship at some point in the future".to_string(),
+                            value: "will_need_sponsorship".to_string(),
+                        },
+                        SelectOption {
+                            label: "I will NOT need employer sponsorship at some point in the future".to_string(),
+                            value: "no_sponsorship_needed".to_string(),
+                        },
+                    ],
+                    placeholder: Some("Select your work authorization status".to_string()),
+                },
+                label: "US Work Authorization".to_string(),
+                name: "us_work_authorization".to_string(),
+                required: false,
+                help_text: None,
+                default_value: None,
+                order: next_order(),
+                section: Some("Sponsor Information".to_string()),
+                conditional: None,
+            },
+            FormField {
+                id: "work_location_preferences".to_string(),
+                field_type: FieldType::Text {
+                    placeholder: None,
+                    validation: None,
+                },
+                label: "Work Location Preferences".to_string(),
+                name: "work_location_preferences".to_string(),
+                required: false,
+                help_text: None,
+                default_value: None,
+                order: next_order(),
+                section: Some("Sponsor Information".to_string()),
                 conditional: None,
             },
             // Consent
@@ -748,8 +793,13 @@ pub fn tartanhacks_preset() -> FormSchema {
             },
             FormField {
                 id: "sponsor_info".to_string(),
-                field_type: FieldType::Checkbox,
-                label: "Authorize to send info to sponsors".to_string(),
+                field_type: FieldType::Checkbox {
+                    option: SelectOption {
+                        label: "I authorize TartanHacks to send my information to sponsors".to_string(),
+                        value: "true".to_string(),
+                    },
+                },
+                label: "Sponsor Information Authorization".to_string(),
                 name: "sponsor_info".to_string(),
                 required: false,
                 help_text: None,
