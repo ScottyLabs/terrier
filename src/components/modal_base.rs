@@ -12,7 +12,8 @@ pub fn ModalBase(
     rsx! {
         // Backdrop
         div {
-            class: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50",
+            class: "fixed inset-0 flex items-center justify-center z-50",
+            style: "background-color: rgba(0, 0, 0, 0.5);",
             onclick: move |_| on_close.call(()),
 
             // Modal container
@@ -21,16 +22,14 @@ pub fn ModalBase(
                 style: "width: {width};",
                 onclick: move |e| e.stop_propagation(),
 
-                // Close button
-                div { class: "flex justify-end p-2",
-                    button {
-                        class: "text-foreground-neutral-primary hover:text-foreground-neutral-tertiary transition-colors",
-                        onclick: move |_| on_close.call(()),
-                        Icon {
-                            width: 24,
-                            height: 24,
-                            icon: LdX,
-                        }
+                // Close button (absolutely positioned)
+                button {
+                    class: "absolute top-7 right-7 text-foreground-neutral-primary hover:text-foreground-neutral-tertiary transition-colors z-10",
+                    onclick: move |_| on_close.call(()),
+                    Icon {
+                        width: 24,
+                        height: 24,
+                        icon: LdX,
                     }
                 }
 

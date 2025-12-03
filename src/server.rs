@@ -158,7 +158,7 @@ pub async fn setup() {
 
     tracing::info!("OIDC client configured successfully");
 
-    // OIDC login Layer
+    // OIDC login layer
     let oidc_login_service = ServiceBuilder::new()
         .layer(axum::error_handling::HandleErrorLayer::new(
             |e: MiddlewareError| async {
@@ -168,7 +168,7 @@ pub async fn setup() {
         ))
         .layer(OidcLoginLayer::<EmptyAdditionalClaims>::new());
 
-    // OIDC auth Layer
+    // OIDC auth layer
     let oidc_auth_service = ServiceBuilder::new()
         .layer(axum::error_handling::HandleErrorLayer::new(
             |e: MiddlewareError| async {

@@ -254,7 +254,7 @@ async fn upload_banner_impl(
 
     let banner_url = format!(
         "{}/{}/{}",
-        state.config.minio_endpoint, state.config.minio_bucket, object_key
+        state.config.minio_public_endpoint, state.config.minio_bucket, object_key
     );
 
     // Update hackathon with banner URL

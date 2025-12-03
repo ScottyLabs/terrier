@@ -35,7 +35,7 @@ pub fn HackathonSettings(slug: String) -> Element {
     let mut banner_file = use_signal(|| None::<(Vec<u8>, String)>);
 
     // Create max team size field with validation
-    let mut max_team_size_field = use_form_field(hackathon.read().max_team_size)
+    let max_team_size_field = use_form_field(hackathon.read().max_team_size)
         .with_validator(validators::min_value(1, "Max team size must be at least 1"));
 
     // Create form fields with initial values

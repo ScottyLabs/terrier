@@ -5,6 +5,7 @@ mod m20251201_023320_create_teams_tables;
 mod m20251201_044615_add_hackathon_banner_url;
 mod m20251201_165412_add_hackathon_form_config;
 mod m20251201_165433_create_applications_table;
+mod m20251203_041138_create_team_join_requests;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251201_044615_add_hackathon_banner_url::Migration),
             Box::new(m20251201_165412_add_hackathon_form_config::Migration),
             Box::new(m20251201_165433_create_applications_table::Migration),
+            Box::new(m20251203_041138_create_team_join_requests::Migration),
         ]
     }
 }

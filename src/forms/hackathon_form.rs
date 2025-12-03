@@ -17,7 +17,7 @@ pub struct HackathonFormFields {
 
 impl PartialEq for HackathonFormFields {
     fn eq(&self, other: &Self) -> bool {
-        // Compare by reference - each form instance is unique
+        // Compare by reference, each form instance is unique
         std::ptr::eq(self, other)
     }
 }

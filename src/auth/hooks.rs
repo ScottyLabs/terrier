@@ -114,33 +114,14 @@ async fn get_hackathon_role(slug: String) -> Result<Option<HackathonRole>, Serve
             slug: hackathon.slug,
         })),
         None => {
-            // No role found, assign "applicant" role and create team
-            use sea_orm::{ActiveModelTrait, Set, ActiveValue::NotSet};
-            use chrono::Utc;
+            // No role found, assign "applicant"
+            use sea_orm::{ActiveModelTrait, Set};
 
-            // Create personal team first
-            let team_name = format!("{}'s Team", user.name.clone().unwrap_or_else(|| "My".to_string()));
-
-            let new_team = crate::entities::teams::ActiveModel {
-                id: NotSet,
-                hackathon_id: Set(hackathon.id),
-                name: Set(team_name),
-                description: Set(None),
-                created_at: Set(Utc::now().naive_utc()),
-                updated_at: Set(Utc::now().naive_utc()),
-            };
-
-            let created_team = new_team
-                .insert(&state.db)
-                .await
-                .map_err(|e| ServerFnError::new(format!("Failed to create team: {}", e)))?;
-
-            // Create applicant role with team
             let new_role = crate::entities::user_hackathon_roles::ActiveModel {
                 user_id: Set(user.id),
                 hackathon_id: Set(hackathon.id),
                 role: Set("applicant".to_string()),
-                team_id: Set(Some(created_team.id)),
+                team_id: Set(None),
                 ..Default::default()
             };
 
