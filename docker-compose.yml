@@ -2,6 +2,8 @@ services:
   postgres:
     container_name: postgres
     image: docker.io/library/postgres:17
+    networks:
+      - terrier-network
     environment:
       POSTGRES_DB: terrier
       POSTGRES_USER: terrier
@@ -19,6 +21,8 @@ services:
   valkey:
     container_name: valkey
     image: docker.io/valkey/valkey:8-alpine
+    networks:
+      - terrier-network
     volumes:
       - valkey_data:/data
     ports:
@@ -32,6 +36,8 @@ services:
   minio:
     container_name: minio
     image: docker.io/minio/minio:latest
+    networks:
+      - terrier-network
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-terrier}
@@ -50,6 +56,8 @@ services:
   pgadmin:
     container_name: pgadmin
     image: docker.io/dpage/pgadmin4:latest
+    networks:
+      - terrier-network
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@terrier.local}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
@@ -67,10 +75,12 @@ services:
   terrier:
     container_name: terrier
     image: ghcr.io/scottylabs/terrier-production:latest
+    networks:
+      - terrier-network
     env_file:
       - .env
     ports:
-      - "${TERRIER_PORT:-3000}:3000"
+      - "${TERRIER_PORT:-3000}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,6 +88,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+
+networks:
+  terrier-network:
+    driver: bridge
 
 volumes:
   postgres_data:

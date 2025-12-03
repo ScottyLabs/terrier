@@ -32,7 +32,12 @@ use utoipa::OpenApi;
         crate::hackathons::handlers::teams::get_my_team,
         crate::hackathons::handlers::teams::get_all_teams,
         crate::hackathons::handlers::teams::update_team,
-        crate::hackathons::handlers::teams::join_team,
+        crate::hackathons::handlers::teams::create_team,
+        crate::hackathons::handlers::teams::request_join_team,
+        crate::hackathons::handlers::teams::get_join_requests,
+        crate::hackathons::handlers::teams::accept_join_request,
+        crate::hackathons::handlers::teams::reject_join_request,
+        crate::hackathons::handlers::teams::get_users_without_team,
         crate::hackathons::handlers::teams::leave_team,
         crate::hackathons::handlers::teams::get_team_details,
         // Auth
@@ -63,7 +68,10 @@ use utoipa::OpenApi;
             crate::hackathons::handlers::teams::TeamMemberData,
             crate::hackathons::handlers::teams::TeamListItem,
             crate::hackathons::handlers::teams::UpdateTeamRequest,
+            crate::hackathons::handlers::teams::CreateTeamRequest,
             crate::hackathons::handlers::teams::JoinTeamRequest,
+            crate::hackathons::handlers::teams::JoinRequestResponse,
+            crate::hackathons::handlers::teams::UserWithoutTeam,
             // Auth
             crate::auth::UserInfo,
         )

@@ -7,6 +7,7 @@ pub enum ButtonVariant {
     Default,
     Secondary,
     Tertiary,
+    Outline,
     Inverse,
     Danger,
     Success,
@@ -24,6 +25,7 @@ pub fn Button(
         ButtonVariant::Default => "bg-foreground-neutral-primary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
         ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
+        ButtonVariant::Outline => "bg-transparent border border-stroke-neutral-1",
         ButtonVariant::Inverse => "bg-foreground-neutral-primary",
         ButtonVariant::Danger => "bg-status-danger-foreground",
         ButtonVariant::Success => "bg-status-success-foreground",
@@ -32,14 +34,20 @@ pub fn Button(
     let text_class = match variant {
         ButtonVariant::Secondary => "text-foreground-neutral-secondary",
         ButtonVariant::Tertiary => "text-foreground-neutral-primary",
+        ButtonVariant::Outline => "text-foreground-neutral-primary",
         ButtonVariant::Inverse => "text-background-neutral-primary",
         _ => "text-white",
+    };
+
+    let size_class = match variant {
+        ButtonVariant::Outline => "px-4 py-2 text-xs leading-4 font-medium",
+        _ => "px-5 py-3.5 text-sm leading-5 font-semibold",
     };
 
     rsx! {
         button {
             r#type: "{button_type}",
-            class: "px-5 py-3.5 {bg_class} {text_class} font-semibold text-sm leading-5 rounded-[100px] cursor-pointer",
+            class: "{size_class} {bg_class} {text_class} rounded-[100px] cursor-pointer",
             onclick: move |evt| {
                 if let Some(handler) = onclick {
                     handler.call(evt);
@@ -64,6 +72,7 @@ pub fn ButtonWithIcon<I: IconShape + Clone + PartialEq + 'static>(
         ButtonVariant::Default => "bg-foreground-neutral-primary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
         ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
+        ButtonVariant::Outline => "bg-transparent border border-stroke-neutral-1",
         ButtonVariant::Inverse => "bg-foreground-neutral-primary",
         ButtonVariant::Danger => "bg-status-danger-foreground",
         ButtonVariant::Success => "bg-status-success-foreground",
@@ -72,14 +81,20 @@ pub fn ButtonWithIcon<I: IconShape + Clone + PartialEq + 'static>(
     let text_class = match variant {
         ButtonVariant::Secondary => "text-foreground-neutral-secondary",
         ButtonVariant::Tertiary => "text-foreground-neutral-primary",
+        ButtonVariant::Outline => "text-foreground-neutral-primary",
         ButtonVariant::Inverse => "text-background-neutral-primary",
         _ => "text-white",
+    };
+
+    let size_class = match variant {
+        ButtonVariant::Outline => "px-4 py-2 text-xs leading-4 font-medium gap-1.5",
+        _ => "px-5 py-3.5 text-sm leading-5 font-semibold gap-2",
     };
 
     rsx! {
         button {
             r#type: "{button_type}",
-            class: "px-5 py-3.5 {bg_class} {text_class} font-semibold text-sm leading-5 rounded-[100px] cursor-pointer flex gap-2 items-center",
+            class: "{size_class} {bg_class} {text_class} rounded-[100px] cursor-pointer flex items-center",
             onclick: move |evt| {
                 if let Some(handler) = onclick {
                     handler.call(evt);
@@ -87,11 +102,18 @@ pub fn ButtonWithIcon<I: IconShape + Clone + PartialEq + 'static>(
             },
             disabled: disabled,
             Icon {
-                width: 20,
-                height: 20,
+                width: match variant {
+                    ButtonVariant::Outline => 16,
+                    _ => 20,
+                },
+                height: match variant {
+                    ButtonVariant::Outline => 16,
+                    _ => 20,
+                },
                 icon,
                 class: match variant {
                     ButtonVariant::Secondary => "text-foreground-neutral-secondary",
+                    ButtonVariant::Outline => "text-foreground-neutral-primary",
                     _ => "text-white",
                 },
             }

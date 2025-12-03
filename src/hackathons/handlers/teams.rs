@@ -43,8 +43,38 @@ pub struct UpdateTeamRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct CreateTeamRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 pub struct JoinTeamRequest {
     pub team_id: i32,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct JoinRequestResponse {
+    pub id: i32,
+    pub team_id: i32,
+    pub user_id: i32,
+    pub user_name: Option<String>,
+    pub user_email: String,
+    pub user_picture: Option<String>,
+    pub message: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct UserWithoutTeam {
+    pub id: i32,
+    pub name: Option<String>,
+    pub email: String,
+    pub picture: Option<String>,
 }
 
 #[cfg(feature = "server")]
@@ -53,7 +83,7 @@ use crate::auth::middleware::SyncedUser;
 use chrono::Utc;
 #[cfg(feature = "server")]
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
     QueryOrder, Set,
 };
 
@@ -282,7 +312,7 @@ pub async fn update_team(slug: String, req: UpdateTeamRequest) -> Result<(), Ser
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    // Verify user is the team owner (first member - ordered by ID)
+    // Verify user is the team owner
     let members_roles = crate::entities::prelude::UserHackathonRoles::find()
         .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
         .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
@@ -321,25 +351,101 @@ pub async fn update_team(slug: String, req: UpdateTeamRequest) -> Result<(), Ser
     Ok(())
 }
 
-/// Join a team
+/// Create a new team
 #[cfg_attr(feature = "server", utoipa::path(
     post,
-    path = "/api/hackathons/{slug}/team/join",
+    path = "/api/hackathons/{slug}/team/create",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    request_body = CreateTeamRequest,
+    responses(
+        (status = 200, description = "Team created successfully"),
+        (status = 400, description = "User already in a team"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Hackathon not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "teams"
+))]
+#[post("/api/hackathons/:slug/team/create", user: SyncedUser)]
+pub async fn create_team(slug: String, req: CreateTeamRequest) -> Result<(), ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Fetch hackathon
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Check if user is already in a team
+    let user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
+
+    let Some(role) = user_role else {
+        return Err(ServerFnError::new("User not registered for this hackathon"));
+    };
+
+    if role.team_id.is_some() {
+        return Err(ServerFnError::new("You are already in a team"));
+    }
+
+    // Create team
+    let new_team = crate::entities::teams::ActiveModel {
+        hackathon_id: Set(hackathon.id),
+        name: Set(req.name),
+        description: Set(req.description),
+        created_at: Set(Utc::now().naive_utc()),
+        updated_at: Set(Utc::now().naive_utc()),
+        ..Default::default()
+    };
+
+    let created_team = new_team
+        .insert(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to create team: {}", e)))?;
+
+    // Add user to team
+    let mut role: crate::entities::user_hackathon_roles::ActiveModel = role.into();
+    role.team_id = Set(Some(created_team.id));
+
+    role.update(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to join team: {}", e)))?;
+
+    Ok(())
+}
+
+/// Request to join a team
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/team/request-join",
     params(
         ("slug" = String, Path, description = "Hackathon slug")
     ),
     request_body = JoinTeamRequest,
     responses(
-        (status = 200, description = "Successfully joined team"),
-        (status = 400, description = "Team is full or user already in team"),
+        (status = 200, description = "Join request created successfully"),
+        (status = 400, description = "Team is full or user already in team or request already exists"),
         (status = 401, description = "Unauthorized"),
         (status = 404, description = "Hackathon or team not found"),
         (status = 500, description = "Server error")
     ),
     tag = "teams"
 ))]
-#[post("/api/hackathons/:slug/team/join", user: SyncedUser)]
-pub async fn join_team(slug: String, req: JoinTeamRequest) -> Result<(), ServerFnError> {
+#[post("/api/hackathons/:slug/team/request-join", user: SyncedUser)]
+pub async fn request_join_team(slug: String, req: JoinTeamRequest) -> Result<(), ServerFnError> {
     use crate::AppState;
     use dioxus::fullstack::{FullstackContext, extract::State};
 
@@ -394,15 +500,415 @@ pub async fn join_team(slug: String, req: JoinTeamRequest) -> Result<(), ServerF
         return Err(ServerFnError::new("Team is full"));
     }
 
+    // Check if user already has a pending request for this team
+    let existing_request = crate::entities::prelude::TeamJoinRequests::find()
+        .filter(crate::entities::team_join_requests::Column::TeamId.eq(req.team_id))
+        .filter(crate::entities::team_join_requests::Column::UserId.eq(user.0.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to check existing request: {}", e)))?;
+
+    if existing_request.is_some() {
+        return Err(ServerFnError::new("You already have a pending request for this team"));
+    }
+
+    // Create join request
+    let new_request = crate::entities::team_join_requests::ActiveModel {
+        team_id: Set(req.team_id),
+        user_id: Set(user.0.id),
+        message: Set(req.message),
+        ..Default::default()
+    };
+
+    new_request
+        .insert(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to create join request: {}", e)))?;
+
+    Ok(())
+}
+
+/// Get pending join requests for user's team (owner only)
+#[cfg_attr(feature = "server", utoipa::path(
+    get,
+    path = "/api/hackathons/{slug}/team/requests",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    responses(
+        (status = 200, description = "Join requests retrieved successfully", body = Vec<JoinRequestResponse>),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Only team owner can view requests"),
+        (status = 404, description = "Hackathon not found or user not in team"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "teams"
+))]
+#[get("/api/hackathons/:slug/team/requests", user: SyncedUser)]
+pub async fn get_join_requests(slug: String) -> Result<Vec<JoinRequestResponse>, ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Fetch hackathon
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Get user's team_id
+    let user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+
+    let team_id = user_role
+        .team_id
+        .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
+
+    // Verify user is the team owner
+    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+
+    if members_roles.is_empty() {
+        return Err(ServerFnError::new("Team not found"));
+    }
+
+    // First member is the owner
+    if members_roles[0].user_id != user.0.id {
+        return Err(ServerFnError::new(
+            "Only team owner can view join requests",
+        ));
+    }
+
+    // Fetch join requests for this team
+    let requests = crate::entities::prelude::TeamJoinRequests::find()
+        .filter(crate::entities::team_join_requests::Column::TeamId.eq(team_id))
+        .order_by_desc(crate::entities::team_join_requests::Column::CreatedAt)
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch join requests: {}", e)))?;
+
+    let mut result = Vec::new();
+    for request in requests {
+        let request_user = crate::entities::prelude::Users::find_by_id(request.user_id)
+            .one(&state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch user: {}", e)))?
+            .ok_or_else(|| ServerFnError::new("Request user not found"))?;
+
+        result.push(JoinRequestResponse {
+            id: request.id,
+            team_id: request.team_id,
+            user_id: request.user_id,
+            user_name: request_user.name,
+            user_email: request_user.email,
+            user_picture: request_user.picture,
+            message: request.message,
+            created_at: request.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        });
+    }
+
+    Ok(result)
+}
+
+/// Accept a join request (owner only)
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/team/requests/{request_id}/accept",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug"),
+        ("request_id" = i32, Path, description = "Join request ID")
+    ),
+    responses(
+        (status = 200, description = "Join request accepted successfully"),
+        (status = 400, description = "Team is full or user already in team"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Only team owner can accept requests"),
+        (status = 404, description = "Request not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "teams"
+))]
+#[post("/api/hackathons/:slug/team/requests/:request_id/accept", user: SyncedUser)]
+pub async fn accept_join_request(slug: String, request_id: i32) -> Result<(), ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Fetch hackathon
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Fetch join request
+    let join_request = crate::entities::prelude::TeamJoinRequests::find_by_id(request_id)
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch join request: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Join request not found"))?;
+
+    // Get user's team_id and verify they're the owner
+    let user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+
+    let team_id = user_role
+        .team_id
+        .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
+
+    if team_id != join_request.team_id {
+        return Err(ServerFnError::new("This request is not for your team"));
+    }
+
+    // Verify user is the team owner
+    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+
+    if members_roles.is_empty() {
+        return Err(ServerFnError::new("Team not found"));
+    }
+
+    // First member is the owner
+    if members_roles[0].user_id != user.0.id {
+        return Err(ServerFnError::new(
+            "Only team owner can accept join requests",
+        ));
+    }
+
+    // Check if team is full
+    if members_roles.len() >= hackathon.max_team_size as usize {
+        return Err(ServerFnError::new("Team is full"));
+    }
+
+    // Get the requesting user's role
+    let requesting_user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(join_request.user_id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch requesting user role: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Requesting user not registered for this hackathon"))?;
+
+    // Check if user already in a team
+    if requesting_user_role.team_id.is_some() {
+        return Err(ServerFnError::new("User is already in a team"));
+    }
+
     // Add user to team
-    let mut role: crate::entities::user_hackathon_roles::ActiveModel = role.into();
-    role.team_id = Set(Some(req.team_id));
+    let mut role: crate::entities::user_hackathon_roles::ActiveModel = requesting_user_role.into();
+    role.team_id = Set(Some(team_id));
 
     role.update(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to join team: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to add user to team: {}", e)))?;
+
+    // Delete the join request
+    let request_to_delete: crate::entities::team_join_requests::ActiveModel = join_request.into();
+    request_to_delete
+        .delete(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to delete join request: {}", e)))?;
 
     Ok(())
+}
+
+/// Reject a join request (owner only)
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/team/requests/{request_id}/reject",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug"),
+        ("request_id" = i32, Path, description = "Join request ID")
+    ),
+    responses(
+        (status = 200, description = "Join request rejected successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Only team owner can reject requests"),
+        (status = 404, description = "Request not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "teams"
+))]
+#[post("/api/hackathons/:slug/team/requests/:request_id/reject", user: SyncedUser)]
+pub async fn reject_join_request(slug: String, request_id: i32) -> Result<(), ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Fetch hackathon
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Fetch join request
+    let join_request = crate::entities::prelude::TeamJoinRequests::find_by_id(request_id)
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch join request: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Join request not found"))?;
+
+    // Get user's team_id and verify they're the owner
+    let user_role = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+
+    let team_id = user_role
+        .team_id
+        .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
+
+    if team_id != join_request.team_id {
+        return Err(ServerFnError::new("This request is not for your team"));
+    }
+
+    // Verify user is the team owner
+    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+
+    if members_roles.is_empty() {
+        return Err(ServerFnError::new("Team not found"));
+    }
+
+    // First member is the owner
+    if members_roles[0].user_id != user.0.id {
+        return Err(ServerFnError::new(
+            "Only team owner can reject join requests",
+        ));
+    }
+
+    // Delete the join request
+    let request_to_delete: crate::entities::team_join_requests::ActiveModel = join_request.into();
+    request_to_delete
+        .delete(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to delete join request: {}", e)))?;
+
+    Ok(())
+}
+
+/// Get users without a team for invitations
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/users-without-team",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    request_body = Option<String>,
+    responses(
+        (status = 200, description = "Users retrieved successfully", body = Vec<UserWithoutTeam>),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Hackathon not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "teams"
+))]
+#[post("/api/hackathons/:slug/users-without-team", user: SyncedUser)]
+pub async fn get_users_without_team(
+    slug: String,
+    search: Option<String>,
+) -> Result<Vec<UserWithoutTeam>, ServerFnError> {
+    use crate::AppState;
+    use dioxus::fullstack::{FullstackContext, extract::State};
+
+    let State(state) = FullstackContext::extract::<State<AppState>, _>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+
+    // Fetch hackathon
+    let hackathon = crate::entities::prelude::Hackathons::find()
+        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+
+    // Get all user roles for this hackathon where team_id is null
+    let roles = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .filter(crate::entities::user_hackathon_roles::Column::TeamId.is_null())
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch roles: {}", e)))?;
+
+    let mut result = Vec::new();
+    for role in roles {
+        let user_entity = crate::entities::prelude::Users::find_by_id(role.user_id)
+            .one(&state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch user: {}", e)))?
+            .ok_or_else(|| ServerFnError::new("User not found"))?;
+
+        // Apply search filter if provided
+        if let Some(ref search_term) = search {
+            if !search_term.is_empty() {
+                let name_match = user_entity
+                    .name
+                    .as_ref()
+                    .map(|n| n.to_lowercase().contains(&search_term.to_lowercase()))
+                    .unwrap_or(false);
+                let email_match = user_entity
+                    .email
+                    .to_lowercase()
+                    .contains(&search_term.to_lowercase());
+
+                if !name_match && !email_match {
+                    continue;
+                }
+            }
+        }
+
+        result.push(UserWithoutTeam {
+            id: user_entity.id,
+            name: user_entity.name,
+            email: user_entity.email,
+            picture: user_entity.picture,
+        });
+    }
+
+    Ok(result)
 }
 
 /// Leave current team
@@ -451,18 +957,33 @@ pub async fn leave_team(slug: String) -> Result<(), ServerFnError> {
         return Err(ServerFnError::new("You are not in a team"));
     };
 
-    // Check if user is the only member
-    let member_count = crate::entities::prelude::UserHackathonRoles::find()
+    // Get all team members to check if user is owner
+    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
         .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
         .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .count(&state.db)
+        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
+        .all(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to count members: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
 
-    if member_count <= 1 {
+    let member_count = members_roles.len();
+    let is_owner = !members_roles.is_empty() && members_roles[0].user_id == user.0.id;
+
+    // Owner can only leave if they're the only member
+    // Non-owners can leave anytime
+    if is_owner && member_count > 1 {
         return Err(ServerFnError::new(
-            "Cannot leave team: you are the only member",
+            "Cannot leave team: as the team owner, you can only leave if you're the only member. Transfer ownership or have other members leave first.",
         ));
+    }
+
+    // If user is the only member, delete the team
+    if member_count == 1 {
+        // Delete the team
+        crate::entities::prelude::Teams::delete_by_id(team_id)
+            .exec(&state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to delete team: {}", e)))?;
     }
 
     // Remove user from team
@@ -520,7 +1041,7 @@ pub async fn get_team_details(slug: String, team_id: i32) -> Result<TeamData, Se
         return Err(ServerFnError::new("Team does not belong to this hackathon"));
     }
 
-    // Fetch all team members (ordered by ID to ensure first member is owner)
+    // Fetch all team members, ordered by ID
     let members_roles = crate::entities::prelude::UserHackathonRoles::find()
         .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
         .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))

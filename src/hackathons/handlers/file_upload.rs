@@ -148,7 +148,7 @@ pub async fn upload_application_file(
     // Generate public URL
     let file_url = format!(
         "{}/{}/{}",
-        state.config.minio_endpoint, state.config.minio_bucket, file_path
+        state.config.minio_public_endpoint, state.config.minio_bucket, file_path
     );
 
     Ok(FileUploadResponse {
