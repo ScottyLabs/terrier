@@ -333,32 +333,18 @@ pub async fn update_team(slug: String, req: UpdateTeamRequest) -> Result<(), Ser
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    // Verify user is the team owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
-
-    if members_roles.is_empty() {
-        return Err(ServerFnError::new("Team not found"));
-    }
-
-    // First member is the owner
-    if members_roles[0].user_id != user.0.id {
-        return Err(ServerFnError::new(
-            "Only team owner can update team details",
-        ));
-    }
-
-    // Update team
+    // Fetch team and verify user is the owner
     let team = crate::entities::prelude::Teams::find_by_id(team_id)
         .one(&state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
         .ok_or_else(|| ServerFnError::new("Team not found"))?;
+
+    if team.owner_id != user.0.id {
+        return Err(ServerFnError::new(
+            "Only team owner can update team details",
+        ));
+    }
 
     let mut team: crate::entities::teams::ActiveModel = team.into();
     team.name = Set(req.name);
@@ -427,6 +413,7 @@ pub async fn create_team(slug: String, req: CreateTeamRequest) -> Result<(), Ser
         hackathon_id: Set(hackathon.id),
         name: Set(req.name),
         description: Set(req.description),
+        owner_id: Set(user.0.id),
         created_at: Set(Utc::now().naive_utc()),
         updated_at: Set(Utc::now().naive_utc()),
         ..Default::default()
@@ -595,21 +582,14 @@ pub async fn get_join_requests(slug: String) -> Result<Vec<JoinRequestResponse>,
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    // Verify user is the team owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
+    // Fetch team and verify user is the owner
+    let team = crate::entities::prelude::Teams::find_by_id(team_id)
+        .one(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
 
-    if members_roles.is_empty() {
-        return Err(ServerFnError::new("Team not found"));
-    }
-
-    // First member is the owner
-    if members_roles[0].user_id != user.0.id {
+    if team.owner_id != user.0.id {
         return Err(ServerFnError::new(
             "Only team owner can view join requests",
         ));
@@ -705,25 +685,26 @@ pub async fn accept_join_request(slug: String, request_id: i32) -> Result<(), Se
         return Err(ServerFnError::new("This request is not for your team"));
     }
 
-    // Verify user is the team owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
+    // Fetch team and verify user is the owner
+    let team = crate::entities::prelude::Teams::find_by_id(team_id)
+        .one(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
 
-    if members_roles.is_empty() {
-        return Err(ServerFnError::new("Team not found"));
-    }
-
-    // First member is the owner
-    if members_roles[0].user_id != user.0.id {
+    if team.owner_id != user.0.id {
         return Err(ServerFnError::new(
             "Only team owner can accept join requests",
         ));
     }
+
+    // Fetch team members to check if team is full
+    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
+        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
+        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        .all(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
 
     // Check if team is full
     if members_roles.len() >= hackathon.max_team_size as usize {
@@ -820,21 +801,14 @@ pub async fn reject_join_request(slug: String, request_id: i32) -> Result<(), Se
         return Err(ServerFnError::new("This request is not for your team"));
     }
 
-    // Verify user is the team owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
+    // Fetch team and verify user is the owner
+    let team = crate::entities::prelude::Teams::find_by_id(team_id)
+        .one(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
 
-    if members_roles.is_empty() {
-        return Err(ServerFnError::new("Team not found"));
-    }
-
-    // First member is the owner
-    if members_roles[0].user_id != user.0.id {
+    if team.owner_id != user.0.id {
         return Err(ServerFnError::new(
             "Only team owner can reject join requests",
         ));
@@ -978,17 +952,22 @@ pub async fn leave_team(slug: String) -> Result<(), ServerFnError> {
         return Err(ServerFnError::new("You are not in a team"));
     };
 
-    // Get all team members to check if user is owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
+    // Fetch team to check ownership
+    let team = crate::entities::prelude::Teams::find_by_id(team_id)
+        .one(&state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
+
+    let is_owner = team.owner_id == user.0.id;
+
+    // Get team member count
+    let member_count = crate::entities::prelude::UserHackathonRoles::find()
         .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
         .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
+        .count(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
-
-    let member_count = members_roles.len();
-    let is_owner = !members_roles.is_empty() && members_roles[0].user_id == user.0.id;
+        .map_err(|e| ServerFnError::new(format!("Failed to count members: {}", e)))? as usize;
 
     // Owner can only leave if they're the only member
     // Non-owners can leave anytime
@@ -1157,20 +1136,13 @@ pub async fn send_invitation(
         .ok_or_else(|| ServerFnError::new("You must be in a team to send invitations"))?;
 
     // Verify sender is the team owner
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .order_by_asc(crate::entities::user_hackathon_roles::Column::Id)
-        .all(&state.db)
+    let team = crate::entities::prelude::Teams::find_by_id(team_id)
+        .one(&state.db)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
 
-    if members_roles.is_empty() {
-        return Err(ServerFnError::new("Team not found"));
-    }
-
-    // First member is the owner
-    if members_roles[0].user_id != user.0.id {
+    if team.owner_id != user.0.id {
         return Err(ServerFnError::new(
             "Only team owner can send invitations",
         ));

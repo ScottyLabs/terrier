@@ -31,6 +31,8 @@ pub enum Relation {
     TeamInvitations,
     #[sea_orm(has_many = "super::team_join_requests::Entity")]
     TeamJoinRequests,
+    #[sea_orm(has_many = "super::teams::Entity")]
+    Teams,
     #[sea_orm(has_many = "super::user_hackathon_roles::Entity")]
     UserHackathonRoles,
 }
@@ -50,6 +52,12 @@ impl Related<super::team_invitations::Entity> for Entity {
 impl Related<super::team_join_requests::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TeamJoinRequests.def()
+    }
+}
+
+impl Related<super::teams::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Teams.def()
     }
 }
 

@@ -16,6 +16,7 @@ pub struct Model {
     pub description: Option<String>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
+    pub owner_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -34,6 +35,14 @@ pub enum Relation {
     TeamJoinRequests,
     #[sea_orm(has_many = "super::user_hackathon_roles::Entity")]
     UserHackathonRoles,
+    #[sea_orm(
+        belongs_to = "super::users::Entity",
+        from = "Column::OwnerId",
+        to = "super::users::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Restrict"
+    )]
+    Users,
 }
 
 impl Related<super::hackathons::Entity> for Entity {
@@ -57,6 +66,12 @@ impl Related<super::team_join_requests::Entity> for Entity {
 impl Related<super::user_hackathon_roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserHackathonRoles.def()
+    }
+}
+
+impl Related<super::users::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Users.def()
     }
 }
 
