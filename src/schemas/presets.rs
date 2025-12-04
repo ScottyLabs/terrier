@@ -758,11 +758,11 @@ pub fn tartanhacks_preset() -> FormSchema {
             // Consent
             FormField {
                 id: "code_of_conduct".to_string(),
-                field_type: FieldType::Radio {
-                    options: vec![SelectOption {
+                field_type: FieldType::Checkbox {
+                    option: SelectOption {
                         label: "I agree to abide by the TartanHacks Code of Conduct".to_string(),
-                        value: "agree".to_string(),
-                    }],
+                        value: "true".to_string(),
+                    },
                 },
                 label: "THX Code of Conduct".to_string(),
                 name: "code_of_conduct".to_string(),
@@ -775,12 +775,11 @@ pub fn tartanhacks_preset() -> FormSchema {
             },
             FormField {
                 id: "media_release".to_string(),
-                field_type: FieldType::Radio {
-                    options: vec![SelectOption {
-                        label: "I consent to being photographed/recorded at TartanHacks"
-                            .to_string(),
-                        value: "agree".to_string(),
-                    }],
+                field_type: FieldType::Checkbox {
+                    option: SelectOption {
+                        label: "I consent to being photographed/recorded at TartanHacks".to_string(),
+                        value: "true".to_string(),
+                    },
                 },
                 label: "Media release".to_string(),
                 name: "media_release".to_string(),
