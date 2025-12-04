@@ -21,6 +21,7 @@ use utoipa::OpenApi;
         crate::hackathons::handlers::applications::reject_applications,
         crate::hackathons::handlers::applications::decline_attendance,
         crate::hackathons::handlers::applications::confirm_attendance,
+        crate::hackathons::handlers::applications::undo_confirmation,
         crate::hackathons::handlers::file_upload::upload_application_file,
         crate::hackathons::handlers::file_upload::delete_application_file,
         // People

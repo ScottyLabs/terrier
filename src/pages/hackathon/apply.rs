@@ -67,7 +67,14 @@ pub fn HackathonApply(slug: String) -> Element {
                     }
                 } else if let Some(Some(status)) = application_status.read().as_ref() {
                     // User has submitted an application
-                    if status == "accepted" {
+                    if status == "confirmed" {
+                        ApplicationStatus {
+                            variant: ApplicationStatusVariant::Confirmed,
+                            hackathon_slug: slug.clone(),
+                            application_status,
+                            application_refresh_trigger,
+                        }
+                    } else if status == "accepted" {
                         ApplicationStatus {
                             variant: ApplicationStatusVariant::Accepted,
                             hackathon_slug: slug.clone(),
@@ -128,7 +135,7 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
 
     // If application submitted, let parent render ApplicationStatus
     if let Some(Some(status)) = application_status.read().as_ref() {
-        if status == "pending" || status == "accepted" || status == "rejected" {
+        if status == "pending" || status == "accepted" || status == "rejected" || status == "confirmed" {
             return rsx! {
                 div { class: "flex items-center justify-center py-12",
                     p { class: "text-foreground-neutral-primary", "Loading..." }
