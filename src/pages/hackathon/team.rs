@@ -34,9 +34,7 @@ pub fn HackathonTeam(slug: String) -> Element {
     // Check if user has submitted application
     let application_resource = use_resource(move || {
         let slug = slug_for_app_check.clone();
-        async move {
-            get_application(slug).await.ok()
-        }
+        async move { get_application(slug).await.ok() }
     });
 
     // If application is not submitted (status == "draft" or doesn't exist), redirect to apply page
@@ -60,7 +58,9 @@ pub fn HackathonTeam(slug: String) -> Element {
                 });
                 return rsx! {
                     div { class: "flex items-center justify-center h-full",
-                        p { class: "text-foreground-neutral-primary", "Please submit your application first..." }
+                        p { class: "text-foreground-neutral-primary",
+                            "Please submit your application first..."
+                        }
                     }
                 };
             }
@@ -393,12 +393,13 @@ pub fn HackathonTeam(slug: String) -> Element {
                     match &*all_teams.read() {
                         Some(Some(teams)) => {
                             let invitations = my_invitations.read();
-                            let has_invitations = !has_team && invitations.as_ref()
-                                .and_then(|i| i.as_ref())
-                                .map(|i| !i.is_empty())
-                                .unwrap_or(false);
+                            let has_invitations = !has_team
+                                && invitations
+                                    .as_ref()
+                                    .and_then(|i| i.as_ref())
+                                    .map(|i| !i.is_empty())
+                                    .unwrap_or(false);
                             let is_empty = teams.is_empty() && !has_invitations;
-
                             rsx! {
                                 if is_empty {
                                     div { class: "text-center text-foreground-neutral-tertiary", "No teams found" }
@@ -425,14 +426,14 @@ pub fn HackathonTeam(slug: String) -> Element {
                                         // Then show all teams (excluding teams with invitations)
                                         {
                                             let invitation_team_ids: Vec<i32> = if !has_team {
-                                                invitations.as_ref()
+                                                invitations
+                                                    .as_ref()
                                                     .and_then(|inv| inv.as_ref())
                                                     .map(|invs| invs.iter().map(|i| i.team_id).collect())
                                                     .unwrap_or_default()
                                             } else {
                                                 Vec::new()
                                             };
-
                                             rsx! {
                                                 for team_item in teams.iter().filter(|t| !invitation_team_ids.contains(&t.id)) {
                                                     TeamListItemComponent {
@@ -446,7 +447,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                                     }
                                 }
                             }
-                        },
+                        }
                         Some(None) => rsx! {
                             div { class: "text-center text-foreground-neutral-tertiary", "Error loading teams" }
                         },
@@ -639,6 +640,7 @@ fn JoinRequestCard(
             }
             div { class: "flex items-center gap-2",
                 Button {
+                    size: ButtonSize::Compact,
                     variant: ButtonVariant::Danger,
                     onclick: move |_| {
                         let slug = slug_for_reject.clone();
@@ -660,6 +662,7 @@ fn JoinRequestCard(
                     "Reject"
                 }
                 Button {
+                    size: ButtonSize::Compact,
                     variant: ButtonVariant::Success,
                     onclick: move |_| {
                         let slug = slug_for_accept.clone();
@@ -712,7 +715,9 @@ fn InvitationCard(
                         "\"{message}\""
                     }
                 }
-                p { class: "text-xs text-foreground-neutral-secondary", "Invited {invitation.created_at}" }
+                p { class: "text-xs text-foreground-neutral-secondary",
+                    "Invited {invitation.created_at}"
+                }
             }
 
             // Accept/Decline buttons

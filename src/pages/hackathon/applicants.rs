@@ -6,10 +6,17 @@ use dioxus_free_icons::{
 
 use crate::{
     auth::{APPLICANTS_ROLES, hooks::use_require_access_or_redirect},
-    components::{ApplicationModal, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, ModalBase, PersonCard, TabSwitcher},
-    hackathons::handlers::applications::{
-        ApplicationWithUser, accept_applications, get_all_applications, reject_applications,
+    components::{
+        ApplicationModal, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, ModalBase,
+        PersonCard, TabSwitcher,
     },
+    hackathons::{
+        HackathonInfo,
+        handlers::applications::{
+            ApplicationWithUser, accept_applications, get_all_applications, reject_applications,
+        },
+    },
+    schemas::FormSchema,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -23,6 +30,17 @@ pub fn HackathonApplicants(slug: String) -> Element {
     if let Some(no_access) = use_require_access_or_redirect(APPLICANTS_ROLES) {
         return no_access;
     }
+
+    let hackathon = use_context::<Signal<HackathonInfo>>();
+
+    // Parse form schema from hackathon config
+    let form_schema = use_memo(move || {
+        hackathon
+            .read()
+            .form_config
+            .as_ref()
+            .and_then(|config| serde_json::from_value::<FormSchema>(config.clone()).ok())
+    });
 
     let mut filter_open = use_signal(|| false);
     let mut selected_filters = use_signal(|| vec![]);
@@ -94,11 +112,7 @@ pub fn HackathonApplicants(slug: String) -> Element {
     // Calculate pending applications in filtered list
     let pending_count = filtered_applications
         .as_ref()
-        .map(|apps| {
-            apps.iter()
-                .filter(|app| app.status == "pending")
-                .count()
-        })
+        .map(|apps| apps.iter().filter(|app| app.status == "pending").count())
         .unwrap_or(0);
 
     let pending_application_ids: Vec<i32> = filtered_applications
@@ -237,36 +251,39 @@ pub fn HackathonApplicants(slug: String) -> Element {
 
         // Application modal
         if let Some(app) = selected_application() {
-            {
-                let app_id = app.id;
-                rsx! {
-                    ApplicationModal {
-                        user_name: app.user_name.unwrap_or_else(|| "Unknown".to_string()),
-                        user_email: app.user_email,
-                        form_data: app.form_data,
-                        on_close: move |_| selected_application.set(None),
-                        on_deny: {
-                            let slug = slug.clone();
-                            move |_| {
-                                selected_application.set(None);
+            if let Some(schema) = form_schema() {
+                {
+                    let app_id = app.id;
+                    rsx! {
+                        ApplicationModal {
+                            user_name: app.user_name.unwrap_or_else(|| "Unknown".to_string()),
+                            user_email: app.user_email,
+                            form_data: app.form_data,
+                            form_schema: schema,
+                            on_close: move |_| selected_application.set(None),
+                            on_deny: {
                                 let slug = slug.clone();
-                                spawn(async move {
-                                    let _ = reject_applications(slug, vec![app_id]).await;
-                                    applications_resource.restart();
-                                });
-                            }
-                        },
-                        on_approve: {
-                            let slug = slug.clone();
-                            move |_| {
-                                selected_application.set(None);
+                                move |_| {
+                                    selected_application.set(None);
+                                    let slug = slug.clone();
+                                    spawn(async move {
+                                        let _ = reject_applications(slug, vec![app_id]).await;
+                                        applications_resource.restart();
+                                    });
+                                }
+                            },
+                            on_approve: {
                                 let slug = slug.clone();
-                                spawn(async move {
-                                    let _ = accept_applications(slug, vec![app_id]).await;
-                                    applications_resource.restart();
-                                });
-                            }
-                        },
+                                move |_| {
+                                    selected_application.set(None);
+                                    let slug = slug.clone();
+                                    spawn(async move {
+                                        let _ = accept_applications(slug, vec![app_id]).await;
+                                        applications_resource.restart();
+                                    });
+                                }
+                            },
+                        }
                     }
                 }
             }
@@ -289,32 +306,32 @@ pub fn HackathonApplicants(slug: String) -> Element {
                             p { class: "text-base text-foreground-neutral-secondary mb-6",
                                 "Are you sure you want to admit {pending_count} {person_text}?"
                             }
-                    div { class: "flex gap-3 justify-end",
-                        Button {
-                            variant: ButtonVariant::Tertiary,
-                            onclick: move |_| show_approve_all_modal.set(false),
-                            "Cancel"
-                        }
-                        Button {
-                            variant: ButtonVariant::Default,
-                            onclick: {
-                                let slug = slug.clone();
-                                let ids = pending_application_ids.clone();
-                                move |_| {
-                                    show_approve_all_modal.set(false);
-                                    let slug = slug.clone();
-                                    let ids = ids.clone();
-                                    spawn(async move {
-                                        let _ = accept_applications(slug, ids).await;
-                                        applications_resource.restart();
-                                    });
+                            div { class: "flex gap-3 justify-end",
+                                Button {
+                                    variant: ButtonVariant::Tertiary,
+                                    onclick: move |_| show_approve_all_modal.set(false),
+                                    "Cancel"
                                 }
-                            },
-                            "Approve {pending_count}"
+                                Button {
+                                    variant: ButtonVariant::Default,
+                                    onclick: {
+                                        let slug = slug.clone();
+                                        let ids = pending_application_ids.clone();
+                                        move |_| {
+                                            show_approve_all_modal.set(false);
+                                            let slug = slug.clone();
+                                            let ids = ids.clone();
+                                            spawn(async move {
+                                                let _ = accept_applications(slug, ids).await;
+                                                applications_resource.restart();
+                                            });
+                                        }
+                                    },
+                                    "Approve {pending_count}"
+                                }
+                            }
                         }
                     }
-                }
-            }
                 }
             }
         }
