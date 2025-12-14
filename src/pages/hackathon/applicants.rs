@@ -174,7 +174,7 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         size: ButtonSize::Compact,
                         disabled: pending_count == 0,
                         onclick: move |_| show_approve_all_modal.set(true),
-                        "Approve All"
+                        "Approve All ({pending_count})"
                     }
                 }
 
