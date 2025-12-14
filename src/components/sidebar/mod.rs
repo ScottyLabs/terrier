@@ -9,8 +9,9 @@ use dioxus_free_icons::icons::ld_icons::{
 use crate::{
     Route,
     auth::{
-        APPLICANTS_ROLES, APPLY_ROLES, CHECKIN_ROLES, DASHBOARD_ROLES, HackathonRole, HackathonRoleType,
-        PEOPLE_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES, SUBMISSION_ROLES, TEAM_ROLES, has_access,
+        APPLICANTS_ROLES, APPLY_ROLES, CHECKIN_ROLES, DASHBOARD_ROLES, HackathonRole,
+        HackathonRoleType, PEOPLE_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES, SUBMISSION_ROLES,
+        TEAM_ROLES, has_access,
     },
     components::{Header, HeaderSize},
     hackathons::handlers::applications::get_application,
@@ -24,6 +25,8 @@ pub fn Sidebar(
     role: Option<HackathonRole>,
     application_refresh_trigger: Signal<u32>,
 ) -> Element {
+    let is_mobile = use_context::<Signal<bool>>();
+
     let has = |allowed: &[HackathonRoleType]| {
         role.as_ref()
             .map(|r| has_access(r, allowed))
@@ -35,10 +38,10 @@ pub fn Sidebar(
     let application_resource = use_resource(move || {
         let slug = slug_for_app.clone();
         let _ = application_refresh_trigger.read();
-        async move {
-            get_application(slug).await.ok()
-        }
+        async move { get_application(slug).await.ok() }
     });
+
+    let mut menu_open = use_signal(|| false);
 
     // Check if user has submitted application (status != "draft")
     let has_submitted_application = application_resource
@@ -49,19 +52,51 @@ pub fn Sidebar(
         .unwrap_or(false);
 
     rsx! {
-        aside { class: "bg-background-neutral-primary h-[calc(100vh-3rem)] flex flex-col gap-8 items-start p-4 rounded-[20px] shadow-[0px_2px_16px_0px_rgba(0,0,0,0.1)] w-60",
-            // Header section with logo and hackathon name
-            div { class: "flex flex-col gap-3 items-start w-full",
-                div { class: "flex gap-1.5 items-center w-full",
-                    Header { size: HeaderSize::Small }
+        aside {
+            class: format!(
+                "bg-background-neutral-primary flex flex-col gap-8 items-start {}",
+                if *is_mobile.read() {
+                    "h-fit w-screen"
+                } else {
+                    "h-[calc(100vh-3rem)] w-60 p-4 rounded-[20px] shadow-[0px_2px_16px_0px_rgba(0,0,0,0.1)]"
+                },
+            ),
+            div { class: "flex justify-between items-center w-full p-[16px]",
+                // Header section with logo and hackathon name
+                div {
+                    class: format!(
+                        "flex flex-col gap-3 items-start {}",
+                        if *is_mobile.read() { "w-auto" } else { "w-full" },
+                    ),
+                    if !*is_mobile.read() {
+                        div { class: "flex gap-1.5 items-center w-full",
+                            Header { size: HeaderSize::Small }
+                        }
+                    }
+                    p { class: "font-medium text-xl leading-7 text-foreground-neutral-primary w-full",
+                        "{hackathon_signal.read().name}"
+                    }
                 }
-                p { class: "font-medium text-xl leading-7 text-foreground-neutral-primary w-full",
-                    "{hackathon_signal.read().name}"
+
+                // Hamburger menu for mobile
+                if *is_mobile.read() {
+                    button {
+                        onclick: move |_| {
+                            menu_open.toggle();
+                            web_sys::console::log_1(&"Menu toggled".into());
+                        },
+                        class: "bg-background-neutral-secondary-enabled",
+                        "🍔"
+                    }
                 }
             }
 
             // Navigation items
-            nav { class: "flex flex-col gap-1 items-start w-full",
+            nav {
+                class: format!(
+                    "flex flex-col gap-1 items-start w-full {}",
+                    if *is_mobile.read() && !*menu_open.read() { "hidden" } else { "" },
+                ),
                 if has(DASHBOARD_ROLES) {
                     SidebarItem {
                         label: "Dashboard".to_string(),
@@ -152,7 +187,7 @@ pub fn Sidebar(
 
             // Settings button at bottom
             if has(SETTINGS_ROLES) {
-                div { class: "mt-auto w-full",
+                div { class: format!("mt-auto w-full {}", if *is_mobile.read() { "hidden" } else { "" }),
                     SidebarItem {
                         label: "Settings".to_string(),
                         icon: LdSettings,
