@@ -79,7 +79,7 @@ in
         Group = cfg.group;
         WorkingDirectory = "${cfg.package}";
         EnvironmentFile = cfg.environmentFile;
-        ExecStart = "${cfg.package}/bin/terrier";
+        ExecStart = "${cfg.package}/terrier";
         Restart = "on-failure";
         RestartSec = "10s";
 
