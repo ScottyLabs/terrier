@@ -1,4 +1,6 @@
-use axum::{Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get};
+use axum::{
+    Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get,
+};
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
     handle_oidc_redirect,
@@ -6,7 +8,7 @@ use axum_oidc::{
 use dioxus::prelude::{DioxusRouterExt, ServeConfig};
 use http::Uri;
 use migration::{Migrator, MigratorTrait};
-use openidconnect::{ClientId, ClientSecret};
+use openidconnect::{ClientId, ClientSecret, IssuerUrl, Scope};
 use sea_orm::Database;
 use tower::ServiceBuilder;
 use tower_sessions::{
@@ -144,7 +146,14 @@ pub async fn setup() {
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    // OIDC client
+    // Initialize OIDC client
+    let scopes = vec![
+        Scope::new("openid".into()),
+        Scope::new("email".into()),
+        Scope::new("profile".into()),
+    ];
+
+    let issuer_url = IssuerUrl::new(app_state.config.oidc_issuer.clone()).expect("valid IssuerUrl");
     let redirect_url = format!("{}/auth/callback", app_state.config.api_url);
 
     let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
@@ -154,8 +163,8 @@ pub async fn setup() {
         .with_client_secret(ClientSecret::new(
             app_state.config.oidc_client_secret.clone(),
         ))
-        .with_scopes(["openid", "email", "profile"].into_iter())
-        .discover(app_state.config.oidc_issuer.clone())
+        .with_scopes(scopes)
+        .discover(issuer_url)
         .await
         .expect("Failed to discover OIDC provider")
         .build();
