@@ -53,25 +53,6 @@ services:
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    container_name: pgadmin
-    image: docker.io/dpage/pgadmin4:latest
-    networks:
-      - terrier-network
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@terrier.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_ALLOW_SPECIAL_EMAIL_DOMAINS: "local"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    ports:
-      - "8081:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
   terrier:
     container_name: terrier
     image: ghcr.io/scottylabs/terrier-production:latest
@@ -96,8 +77,6 @@ networks:
 volumes:
   postgres_data:
     name: postgres_data
-  pgadmin_data:
-    name: pgadmin_data
   valkey_data:
     name: valkey_data
   minio_data:
