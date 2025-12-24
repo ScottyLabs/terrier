@@ -2,13 +2,6 @@
 
 This is for people who want to deploy Terrier in production.
 
-## Prerequisites
-
-- **PostgreSQL 17+** - Primary database
-- **Redis/Valkey** - Session storage and caching
-- **MinIO** - S3-compatible object storage for file uploads
-- **Reverse proxy** (nginx, Caddy, etc.) - SSL termination
-
 ## Deployment Options
 
 Choose one of the following deployment methods:
