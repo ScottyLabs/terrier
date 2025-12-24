@@ -161,7 +161,10 @@ pub async fn submit_application(
 
     let application = if let Some(existing) = existing_application {
         // Check if already submitted
-        if existing.status == "pending" || existing.status == "accepted" || existing.status == "rejected" {
+        if existing.status == "pending"
+            || existing.status == "accepted"
+            || existing.status == "rejected"
+        {
             return Err(ServerFnError::new(
                 "Application has already been submitted and cannot be modified",
             ));
@@ -303,9 +306,7 @@ pub async fn get_all_applications(slug: String) -> Result<Vec<ApplicationWithUse
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Admin or organizer access required",
-        ));
+        return Err(ServerFnError::new("Admin or organizer access required"));
     }
 
     // Fetch all applications with user information
@@ -400,9 +401,7 @@ pub async fn accept_applications(
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Requires admin or organizer role",
-        ));
+        return Err(ServerFnError::new("Requires admin or organizer role"));
     }
 
     // Update all applications to accepted status
@@ -484,9 +483,7 @@ pub async fn reject_applications(
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Requires admin or organizer role",
-        ));
+        return Err(ServerFnError::new("Requires admin or organizer role"));
     }
 
     // Update all applications to rejected status

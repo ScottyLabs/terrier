@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::{
-    Icon,
-    icons::ld_icons::LdExternalLink,
-};
+use dioxus_free_icons::{Icon, icons::ld_icons::LdExternalLink};
 
 use super::{Button, ButtonVariant, ModalBase};
 

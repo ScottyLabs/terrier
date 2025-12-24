@@ -9,8 +9,9 @@ use dioxus_free_icons::icons::ld_icons::{
 use crate::{
     Route,
     auth::{
-        APPLICANTS_ROLES, APPLY_ROLES, CHECKIN_ROLES, DASHBOARD_ROLES, HackathonRole, HackathonRoleType,
-        PEOPLE_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES, SUBMISSION_ROLES, TEAM_ROLES, has_access,
+        APPLICANTS_ROLES, APPLY_ROLES, CHECKIN_ROLES, DASHBOARD_ROLES, HackathonRole,
+        HackathonRoleType, PEOPLE_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES, SUBMISSION_ROLES,
+        TEAM_ROLES, has_access,
     },
     components::{Header, HeaderSize},
     hackathons::handlers::applications::get_application,
@@ -35,9 +36,7 @@ pub fn Sidebar(
     let application_resource = use_resource(move || {
         let slug = slug_for_app.clone();
         let _ = application_refresh_trigger.read();
-        async move {
-            get_application(slug).await.ok()
-        }
+        async move { get_application(slug).await.ok() }
     });
 
     // Check if user has submitted application (status != "draft")

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::{Button, ButtonVariant, Input, InputHeight, InputVariant, ModalBase};
-use crate::hackathons::handlers::teams::{request_join_team, JoinTeamRequest};
+use crate::hackathons::handlers::teams::{JoinTeamRequest, request_join_team};
 
 #[component]
 pub fn JoinRequestModal(
@@ -81,6 +81,7 @@ pub fn JoinRequestModal(
 
                     div { class: "flex items-center justify-end gap-3",
                         Button {
+                            button_type: "button".to_string(),
                             variant: ButtonVariant::Secondary,
                             onclick: move |_| on_close.call(()),
                             "Cancel"

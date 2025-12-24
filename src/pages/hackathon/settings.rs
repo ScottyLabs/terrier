@@ -360,6 +360,7 @@ pub fn HackathonSettings(slug: String) -> Element {
                     }
                     SettingsTab::Application => {
                         let mut is_active = use_signal(|| hackathon.read().is_active);
+                        let has_form = hackathon.read().form_config.is_some();
                         let initial_preset = hackathon
                             .read()
                             .form_config
@@ -372,7 +373,8 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         return Some("tartanhacks".to_string());
                                     }
                                 }
-                                None
+                                // If a form exists but we can't identify it, use "custom"
+                                Some("custom".to_string())
                             })
                             .unwrap_or_else(|| "none".to_string());
                         let preset_for_selected = initial_preset.clone();
@@ -446,9 +448,12 @@ pub fn HackathonSettings(slug: String) -> Element {
                                             },
                                             option { value: "none", "Select a preset" }
                                             option { value: "tartanhacks", "TartanHacks" }
+                                            if has_form {
+                                                option { value: "custom", disabled: true, "Custom / Unknown" }
+                                            }
                                         }
                                     }
-                                    if selected_preset() != "none" {
+                                    if selected_preset() != "none" && selected_preset() != "custom" {
                                         div { class: "flex gap-4",
                                             Button {
                                                 button_type: "button".to_string(),

@@ -61,12 +61,44 @@ pub fn HackathonApplicants(slug: String) -> Element {
         }
     });
 
-    // Only show filter on Individuals tab with CMU Students option only
-    let filter_options = vec![DropdownOption {
-        label: "CMU Students".to_string(),
-        value: "cmu_students".to_string(),
-        selected: selected_filters().contains(&"cmu_students".to_string()),
-    }];
+    // Filter options
+    let filter_options = vec![
+        DropdownOption {
+            label: "CMU Students".to_string(),
+            value: "cmu_students".to_string(),
+            selected: selected_filters().contains(&"cmu_students".to_string()),
+        },
+        DropdownOption {
+            label: "Draft".to_string(),
+            value: "status:draft".to_string(),
+            selected: selected_filters().contains(&"status:draft".to_string()),
+        },
+        DropdownOption {
+            label: "Pending".to_string(),
+            value: "status:pending".to_string(),
+            selected: selected_filters().contains(&"status:pending".to_string()),
+        },
+        DropdownOption {
+            label: "Accepted".to_string(),
+            value: "status:accepted".to_string(),
+            selected: selected_filters().contains(&"status:accepted".to_string()),
+        },
+        DropdownOption {
+            label: "Rejected".to_string(),
+            value: "status:rejected".to_string(),
+            selected: selected_filters().contains(&"status:rejected".to_string()),
+        },
+        DropdownOption {
+            label: "Confirmed".to_string(),
+            value: "status:confirmed".to_string(),
+            selected: selected_filters().contains(&"status:confirmed".to_string()),
+        },
+        DropdownOption {
+            label: "Declined".to_string(),
+            value: "status:declined".to_string(),
+            selected: selected_filters().contains(&"status:declined".to_string()),
+        },
+    ];
 
     let tabs = vec![
         (ApplicantTab::Individuals, "Individuals".to_string()),
@@ -102,7 +134,20 @@ pub fn HackathonApplicants(slug: String) -> Element {
                     let matches_cmu_filter =
                         !is_cmu_filter_active || app.user_email.ends_with("@andrew.cmu.edu");
 
-                    matches_search && matches_cmu_filter
+                    // Status filters
+                    let status_filters: Vec<String> = selected_filters()
+                        .iter()
+                        .filter(|f| f.starts_with("status:"))
+                        .map(|f| f.strip_prefix("status:").unwrap_or("").to_string())
+                        .collect();
+
+                    let matches_status_filter = if status_filters.is_empty() {
+                        true
+                    } else {
+                        status_filters.contains(&app.status)
+                    };
+
+                    matches_search && matches_cmu_filter && matches_status_filter
                 })
                 .cloned()
                 .collect::<Vec<_>>()
@@ -155,7 +200,7 @@ pub fn HackathonApplicants(slug: String) -> Element {
                             }
                         }
 
-                        // Filter button and dropdown (only on Individuals tab)
+                        // Filter button and dropdown
                         if show_filter {
                             div { class: "relative",
                                 button {

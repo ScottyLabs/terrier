@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::components::{Button, ButtonVariant};
+use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ApplicationStatusVariant {

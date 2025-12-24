@@ -35,10 +35,7 @@ pub struct SetFormConfigRequest {
     tag = "hackathons"
 ))]
 #[put("/api/hackathons/:slug/form-config", user: SyncedUser)]
-pub async fn set_form_config(
-    slug: String,
-    form_config: FormSchema,
-) -> Result<(), ServerFnError> {
+pub async fn set_form_config(slug: String, form_config: FormSchema) -> Result<(), ServerFnError> {
     use dioxus::fullstack::{FullstackContext, extract::State};
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -80,9 +77,7 @@ pub async fn set_form_config(
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Admin or organizer access required",
-        ));
+        return Err(ServerFnError::new("Admin or organizer access required"));
     }
 
     // Serialize form config to JSON

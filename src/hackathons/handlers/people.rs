@@ -69,9 +69,7 @@ pub async fn get_hackathon_people(slug: String) -> Result<Vec<HackathonPerson>, 
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Admin or organizer access required",
-        ));
+        return Err(ServerFnError::new("Admin or organizer access required"));
     }
 
     // Fetch all user-hackathon roles for this hackathon excluding applicants

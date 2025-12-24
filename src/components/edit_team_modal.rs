@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use super::ModalBase;
 use crate::forms::{TeamForm, TeamFormFields};
-use crate::hackathons::handlers::teams::{update_team, UpdateTeamRequest};
+use crate::hackathons::handlers::teams::{UpdateTeamRequest, update_team};
 
 #[component]
 pub fn EditTeamModal(

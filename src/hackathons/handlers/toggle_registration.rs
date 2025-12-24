@@ -61,9 +61,7 @@ pub async fn toggle_registration(slug: String) -> Result<bool, ServerFnError> {
         .unwrap_or(false);
 
     if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new(
-            "Admin or organizer access required",
-        ));
+        return Err(ServerFnError::new("Admin or organizer access required"));
     }
 
     // Toggle is_active

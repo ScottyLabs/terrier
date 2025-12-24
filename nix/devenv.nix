@@ -45,6 +45,7 @@
   git-hooks.hooks = {
     rustfmt.enable = true;
     clippy.enable = true;
+    nixfmt.enable = true;
   };
 
   processes.postgres.process-compose.disabled = true;
@@ -66,7 +67,7 @@
   enterShell = ''
     export DATABASE_URL="postgres:///terrier?host=$PGHOST"
     export REDIS_URL="redis+unix://$REDIS_UNIX_SOCKET"
-    
+
     echo ""
     echo "Services:"
     echo "  PostgreSQL: socket at $PGHOST"

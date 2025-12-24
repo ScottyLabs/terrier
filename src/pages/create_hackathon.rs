@@ -4,7 +4,9 @@ use crate::Route;
 use crate::auth::handlers::get_current_user;
 use crate::components::Header;
 use crate::forms::{HackathonForm, HackathonFormFields};
-use crate::hackathons::handlers::{CreateHackathonRequest, create_hackathon, upload_background, upload_banner};
+use crate::hackathons::handlers::{
+    CreateHackathonRequest, create_hackathon, upload_background, upload_banner,
+};
 
 #[component]
 pub fn CreateHackathon() -> Element {
@@ -64,7 +66,9 @@ pub fn CreateHackathon() -> Element {
 
                     // Upload background if present
                     if let Some((file_data, content_type)) = background_file_data {
-                        match upload_background(hackathon.slug.clone(), file_data, content_type).await {
+                        match upload_background(hackathon.slug.clone(), file_data, content_type)
+                            .await
+                        {
                             Ok(_) => tracing::info!("Background uploaded successfully"),
                             Err(e) => tracing::error!("Failed to upload background: {:?}", e),
                         }

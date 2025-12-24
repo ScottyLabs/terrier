@@ -1,6 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::{auth::{DASHBOARD_ROLES, hooks::use_require_access_or_redirect}, hackathons::HackathonInfo};
+use crate::{
+    auth::{DASHBOARD_ROLES, hooks::use_require_access_or_redirect},
+    hackathons::HackathonInfo,
+};
 
 #[component]
 pub fn HackathonDashboard(slug: String) -> Element {

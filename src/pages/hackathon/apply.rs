@@ -1,9 +1,8 @@
 use crate::{
     auth::{APPLY_ROLES, HackathonRole, hooks::use_require_access_or_redirect},
     components::{
-        ApplicationStatus, ApplicationStatusVariant, Button, CheckboxGroup,
-        FormSelectOption, Input, InputHeight, InputVariant, RadioGroup, SaveStatus,
-        SaveStatusIndicator, Select,
+        ApplicationStatus, ApplicationStatusVariant, Button, CheckboxGroup, FormSelectOption,
+        Input, InputHeight, InputVariant, RadioGroup, SaveStatus, SaveStatusIndicator, Select,
     },
     hackathons::HackathonInfo,
     schemas::FormSchema,
@@ -120,7 +119,11 @@ pub fn HackathonApply(slug: String) -> Element {
 }
 
 #[component]
-fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<String>>, application_refresh_trigger: Signal<u32>) -> Element {
+fn ApplicationForm(
+    schema: FormSchema,
+    application_status: Resource<Option<String>>,
+    application_refresh_trigger: Signal<u32>,
+) -> Element {
     let hackathon = use_context::<Signal<HackathonInfo>>();
     let _nav = navigator();
 
@@ -135,7 +138,11 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
 
     // If application submitted, let parent render ApplicationStatus
     if let Some(Some(status)) = application_status.read().as_ref() {
-        if status == "pending" || status == "accepted" || status == "rejected" || status == "confirmed" {
+        if status == "pending"
+            || status == "accepted"
+            || status == "rejected"
+            || status == "confirmed"
+        {
             return rsx! {
                 div { class: "flex items-center justify-center py-12",
                     p { class: "text-foreground-neutral-primary", "Loading..." }
@@ -368,7 +375,10 @@ fn FormFieldRenderer(
             } else {
                 // For multi-select (comma-separated), check if any value is present
                 let parent_values: Vec<&str> = parent_value.split(',').collect();
-                condition.value.iter().any(|cv| parent_values.contains(&cv.as_str()))
+                condition
+                    .value
+                    .iter()
+                    .any(|cv| parent_values.contains(&cv.as_str()))
             }
         } else {
             false
@@ -610,30 +620,58 @@ fn FormFieldRenderer(
                     }
                 }
                 FieldType::Date => {
+                    // For signature_date field, restrict to today's date only
+                    let is_signature_date = field_name == "signature_date";
+                    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+                    // Auto-populate today's date if empty and it's signature_date
+                    if is_signature_date && value().is_empty() {
+                        use_effect(move || {
+                            value.set(today.clone());
+                            let mut values = form_values.write();
+                            values.insert(field_name.clone(), today.clone());
+                            let current = *autosave_trigger.peek();
+                            autosave_trigger.set(current + 1);
+                        });
+                    }
+
                     rsx! {
-                        Input {
-                            label: field_label,
-                            placeholder: None,
-                            value,
-                            variant: InputVariant::Primary,
-                            input_type: "date".to_string(),
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            help_text: field_help_text.clone(),
-                            oninput: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
-                                    }
+                        div { class: "flex flex-col gap-2",
+                            label {
+                                class: "text-base font-medium text-foreground-neutral-primary",
+                                r#for: "{field_id}",
+                                "{field_label}"
+                                if field_required {
+                                    span { class: "text-status-danger-foreground ml-1", "*" }
                                 }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                            }
+                            input {
+                                id: "{field_id}",
+                                name: "{field_name}",
+                                r#type: "date",
+                                class: "px-4 h-12 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem]",
+                                required: field_required,
+                                value: "{value}",
+                                min: if is_signature_date { today.clone() } else { String::new() },
+                                max: if is_signature_date { today.clone() } else { String::new() },
+                                oninput: move |evt| {
+                                    let new_value = evt.value();
+                                    value.set(new_value.clone());
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
+                                    }
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
+                            if let Some(help) = &field_help_text {
+                                p { class: "text-sm text-foreground-neutral-secondary", "{help}" }
+                            }
                         }
                     }
                 }

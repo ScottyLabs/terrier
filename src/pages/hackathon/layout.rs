@@ -1,8 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{
-    Route, auth::hooks::use_hackathon_role, components::Sidebar,
-};
+use crate::{Route, auth::hooks::use_hackathon_role, components::Sidebar};
 
 #[component]
 pub fn HackathonLayout(slug: String) -> Element {
@@ -13,9 +11,7 @@ pub fn HackathonLayout(slug: String) -> Element {
     // Fetch hackathon data
     let hackathon_resource = use_resource(move || {
         let s = slug_for_hackathon.clone();
-        async move {
-            crate::hackathons::handlers::get_hackathon_by_slug(s).await
-        }
+        async move { crate::hackathons::handlers::get_hackathon_by_slug(s).await }
     });
 
     // Fetch role
@@ -30,6 +26,23 @@ pub fn HackathonLayout(slug: String) -> Element {
         (Some(Ok(Some(hackathon))), Some(Ok(role_opt))) => {
             // Both loaded successfully
             let role = role_opt.as_ref();
+
+            // Redirect applicants to Apply page if they're on the dashboard
+            let current_route = use_route::<Route>();
+            if let Route::HackathonDashboard { slug: route_slug } = current_route {
+                if let Some(user_role) = role {
+                    if user_role == "applicant" {
+                        use_effect(move || {
+                            nav.push(Route::HackathonApply { slug: route_slug.clone() });
+                        });
+                        return rsx! {
+                            div { class: "flex items-center justify-center h-screen",
+                                p { class: "text-foreground-neutral-primary", "Redirecting..." }
+                            }
+                        };
+                    }
+                }
+            }
 
             // Provide context for child pages as a signal so it can be updated
             let hackathon_signal = use_context_provider(|| Signal::new(hackathon.clone()));

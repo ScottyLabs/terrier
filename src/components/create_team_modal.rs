@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use super::ModalBase;
 use crate::forms::{TeamForm, TeamFormFields};
-use crate::hackathons::handlers::teams::{create_team, CreateTeamRequest};
+use crate::hackathons::handlers::teams::{CreateTeamRequest, create_team};
 
 #[component]
 pub fn CreateTeamModal(on_close: EventHandler<()>, slug: String) -> Element {

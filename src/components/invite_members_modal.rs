@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{Icon, icons::ld_icons::LdSearch};
 
-use super::{Button, ButtonVariant, ButtonSize, ModalBase};
+use super::{Button, ButtonSize, ButtonVariant, ModalBase};
 use crate::hackathons::handlers::teams::{
     SendInvitationRequest, UserWithoutTeam, get_users_without_team, send_invitation,
 };

@@ -168,7 +168,8 @@ pub async fn delete_banner(slug: String) -> Result<(), ServerFnError> {
             let object_key = url_parts[url_parts.len() - 2..].join("/");
 
             use minio::s3::args::RemoveObjectArgs;
-            if let Ok(remove_args) = RemoveObjectArgs::new(&state.config.minio_bucket, &object_key) {
+            if let Ok(remove_args) = RemoveObjectArgs::new(&state.config.minio_bucket, &object_key)
+            {
                 state
                     .s3
                     .remove_object(&remove_args)

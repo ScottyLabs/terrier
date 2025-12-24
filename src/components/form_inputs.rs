@@ -43,7 +43,7 @@ pub fn Select(
                 },
                 option {
                     value: "",
-                    disabled: true,
+                    disabled: required,
                     selected: value().is_empty(),
                     "{placeholder_text}"
                 }
@@ -169,6 +169,14 @@ pub fn CheckboxGroup(
                                     r#type: "checkbox",
                                     name: "{field_name}[]",
                                     value: "{option_value}",
+                                    checked: {
+                                        let current = value();
+                                        if current.is_empty() {
+                                            false
+                                        } else {
+                                            current.split(',').any(|v| v == option_value.as_str())
+                                        }
+                                    },
                                     onchange: move |evt| {
                                         let current = value();
                                         let values: Vec<&str> = if current.is_empty() {
