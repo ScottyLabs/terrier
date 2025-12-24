@@ -27,7 +27,7 @@ pub fn use_require_access_or_redirect(
         .unwrap_or(false)
     {
         return Some(rsx! {
-            crate::pages::NoAccess {}
+            crate::ui::pages::NoAccess {}
         });
     }
 

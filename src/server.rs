@@ -196,8 +196,8 @@ pub async fn setup() {
         // Swagger UI for API documentation
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         // Protected routes
-        .route("/auth/login", get(auth::handlers::login))
-        .route("/auth/logout", get(auth::handlers::logout))
+        .route("/auth/login", get(crate::domain::auth::handlers::login))
+        .route("/auth/logout", get(crate::domain::auth::handlers::logout))
         // User sync middleware
         .layer(middleware::from_fn_with_state(
             app_state.clone(),

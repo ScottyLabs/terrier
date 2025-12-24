@@ -1,6 +1,5 @@
 #[cfg(feature = "server")]
 pub mod extractors;
-pub mod handlers;
 pub mod hooks;
 #[cfg(feature = "server")]
 pub mod middleware;
@@ -61,6 +60,15 @@ impl HackathonRole {
 
 pub fn has_access(role: &HackathonRole, allowed: &[HackathonRoleType]) -> bool {
     if let Some(rt) = role.role_type() {
+        allowed.contains(&rt)
+    } else {
+        false
+    }
+}
+
+/// Check if a role string matches any of the allowed role types
+pub fn has_role(role: &str, allowed: &[HackathonRoleType]) -> bool {
+    if let Some(rt) = HackathonRoleType::from_str(role) {
         allowed.contains(&rt)
     } else {
         false
