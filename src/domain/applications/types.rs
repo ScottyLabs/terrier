@@ -1,16 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-#[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
-#[cfg(feature = "server")]
-use chrono::Utc;
-#[cfg(feature = "server")]
-use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, Set};
-
-// ============================================================================
 // Application Data Types
-// ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
@@ -40,9 +31,7 @@ pub struct BulkUpdateApplicationsRequest {
     pub application_ids: Vec<i32>,
 }
 
-// ============================================================================
 // Form Schema Types
-// ============================================================================
 
 /// Represents different field types with their type-specific configuration
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]

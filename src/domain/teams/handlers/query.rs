@@ -2,7 +2,7 @@ use crate::domain::teams::types::*;
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
-use crate::auth::middleware::SyncedUser;
+use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
 #[cfg(feature = "server")]
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -24,62 +24,32 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 ))]
 #[get("/api/hackathons/:slug/teams/:team_id", user: SyncedUser)]
 pub async fn get_team_details(slug: String, team_id: i32) -> Result<TeamData, ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch team
-    let team = crate::entities::prelude::Teams::find_by_id(team_id)
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Team not found"))?;
+    let team_repo = TeamRepository::new(&ctx.state.db);
+    let team = team_repo.find_by_id(team_id).await?;
 
     if team.hackathon_id != hackathon.id {
         return Err(ServerFnError::new("Team does not belong to this hackathon"));
     }
 
     // Fetch all team members
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
-
-    let mut members = Vec::new();
-    for member_role in members_roles.iter() {
-        let member_user = crate::entities::prelude::Users::find_by_id(member_role.user_id)
-            .one(&state.db)
-            .await
-            .map_err(|e| ServerFnError::new(format!("Failed to fetch member: {}", e)))?
-            .ok_or_else(|| ServerFnError::new("Member user not found"))?;
-
-        members.push(TeamMemberData {
-            user_id: member_user.id,
-            name: member_user.name,
-            email: member_user.email,
-            picture: member_user.picture,
-        });
-    }
+    let mut members = team_repo.get_team_members(team_id, hackathon.id).await?;
 
     // Sort members so owner is first
     members.sort_by_key(|m| if m.user_id == team.owner_id { 0 } else { 1 });
 
     // Check if current user is a member or owner
-    let is_member = members.iter().any(|m| m.user_id == user.0.id);
-    let is_owner = team.owner_id == user.0.id;
+    let is_member = members.iter().any(|m| m.user_id == ctx.user.id);
+    let is_owner = team.owner_id == ctx.user.id;
 
     Ok(TeamData {
         id: team.id,
@@ -114,33 +84,25 @@ pub async fn get_users_without_team(
     slug: String,
     search: Option<String>,
 ) -> Result<Vec<UserWithoutTeam>, ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
-
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Get all user roles for this hackathon where team_id is null
     let roles = crate::entities::prelude::UserHackathonRoles::find()
         .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
         .filter(crate::entities::user_hackathon_roles::Column::TeamId.is_null())
-        .all(&state.db)
+        .all(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch roles: {}", e)))?;
 
     let mut result = Vec::new();
     for role in roles {
         let user_entity = crate::entities::prelude::Users::find_by_id(role.user_id)
-            .one(&state.db)
+            .one(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to fetch user: {}", e)))?
             .ok_or_else(|| ServerFnError::new("User not found"))?;

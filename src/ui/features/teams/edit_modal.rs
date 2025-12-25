@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 
 use crate::domain::teams::{UpdateTeamRequest, handlers::update_team};
 use crate::ui::features::teams::form::{TeamForm, TeamFormFields};
-use crate::ui::foundation::modals::ModalBase;
 use crate::ui::foundation::hooks::use_async_action;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn EditTeamModal(
@@ -20,6 +20,7 @@ pub fn EditTeamModal(
 
         let name = form_fields.name.value.read().clone();
         let description = form_fields.description.value.read().clone();
+        #[allow(clippy::clone_on_copy)]
         let mut action = action.clone();
 
         spawn({

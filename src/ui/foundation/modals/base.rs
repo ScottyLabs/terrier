@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{Icon, icons::ld_icons::LdX};
 
-/// Base modal component with backdrop, close button, and consistent styling
+/// Base modal component with backdrop and close button
 #[component]
 pub fn ModalBase(
     children: Element,
@@ -26,11 +26,7 @@ pub fn ModalBase(
                 button {
                     class: "absolute top-7 right-7 text-foreground-neutral-primary hover:text-foreground-neutral-tertiary transition-colors z-10",
                     onclick: move |_| on_close.call(()),
-                    Icon {
-                        width: 24,
-                        height: 24,
-                        icon: LdX,
-                    }
+                    Icon { width: 24, height: 24, icon: LdX }
                 }
 
                 // Content

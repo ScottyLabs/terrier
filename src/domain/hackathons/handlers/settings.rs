@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use crate::domain::applications::types::FormSchema;
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::{
+    AppState,
+    core::auth::{context::RequestContext, middleware::SyncedUser, permissions::Permissions},
+};
 #[cfg(feature = "server")]
 use chrono::Utc;
 #[cfg(feature = "server")]
@@ -34,53 +37,23 @@ pub struct SetFormConfigRequest {
 ))]
 #[post("/api/hackathons/:slug/toggle-registration", user: SyncedUser)]
 pub async fn toggle_registration(slug: String) -> Result<bool, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
-
-    // Check if user is global admin
-    let is_global_admin = state
-        .config
-        .admin_emails
-        .contains(&user.0.email.to_lowercase());
-
-    // Check user's role in this hackathon
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
-
-    let is_admin_or_organizer = user_role
-        .as_ref()
-        .map(|r| r.role == "admin" || r.role == "organizer")
-        .unwrap_or(false);
-
-    if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new("Admin or organizer access required"));
-    }
+    let hackathon = ctx.hackathon()?;
 
     // Toggle is_active
     let new_status = !hackathon.is_active;
-    let mut hackathon: crate::entities::hackathons::ActiveModel = hackathon.into();
+    let mut hackathon: crate::entities::hackathons::ActiveModel = hackathon.clone().into();
     hackathon.is_active = Set(new_status);
     hackathon.updated_at = Set(Utc::now().naive_utc());
 
     hackathon
-        .update(&state.db)
+        .update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to update hackathon: {}", e)))?;
 
@@ -107,61 +80,31 @@ pub async fn toggle_registration(slug: String) -> Result<bool, ServerFnError> {
 ))]
 #[put("/api/hackathons/:slug/form-config", user: SyncedUser)]
 pub async fn set_form_config(slug: String, form_config: FormSchema) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
-
     // Validate form schema
     form_config
         .validate()
         .map_err(|e| ServerFnError::new(format!("Invalid form schema: {}", e)))?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Check if user is global admin
-    let is_global_admin = state
-        .config
-        .admin_emails
-        .contains(&user.0.email.to_lowercase());
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
-    // Check user's role in this hackathon
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
-
-    let is_admin_or_organizer = user_role
-        .as_ref()
-        .map(|r| r.role == "admin" || r.role == "organizer")
-        .unwrap_or(false);
-
-    if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new("Admin or organizer access required"));
-    }
+    let hackathon = ctx.hackathon()?;
 
     // Serialize form config to JSON
     let form_config_json = serde_json::to_value(&form_config)
         .map_err(|e| ServerFnError::new(format!("Failed to serialize form config: {}", e)))?;
 
     // Update hackathon with form config
-    let mut hackathon: crate::entities::hackathons::ActiveModel = hackathon.into();
+    let mut hackathon: crate::entities::hackathons::ActiveModel = hackathon.clone().into();
     hackathon.form_config = Set(Some(form_config_json));
     hackathon.updated_at = Set(Utc::now().naive_utc());
 
     hackathon
-        .update(&state.db)
+        .update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to update hackathon: {}", e)))?;
 
@@ -184,8 +127,8 @@ pub async fn set_form_config(slug: String, form_config: FormSchema) -> Result<()
 ))]
 #[get("/api/hackathons/:slug/form-config")]
 pub async fn get_form_config(slug: String) -> Result<FormSchema, ServerFnError> {
+    use crate::domain::hackathons::repository::HackathonRepository;
     use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     // Extract state from context
     let State(state) = FullstackContext::extract::<State<AppState>, _>()
@@ -193,12 +136,8 @@ pub async fn get_form_config(slug: String) -> Result<FormSchema, ServerFnError> 
         .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
 
     // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon_repo = HackathonRepository::new(&state.db);
+    let hackathon = hackathon_repo.find_by_slug_or_error(&slug).await?;
 
     // Get form config
     let form_config_json = hackathon

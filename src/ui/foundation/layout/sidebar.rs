@@ -172,6 +172,7 @@ pub fn SidebarItem<I: IconShape + Clone + PartialEq + 'static>(
     let current_route = use_route::<Route>();
 
     // Check if this item's route matches the current route (ignoring slug values)
+    #[allow(clippy::match_like_matches_macro)]
     let is_active = match (&current_route, &to) {
         (Route::HackathonDashboard { .. }, Route::HackathonDashboard { .. }) => true,
         (Route::HackathonApplicants { .. }, Route::HackathonApplicants { .. }) => true,

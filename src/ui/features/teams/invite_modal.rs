@@ -6,8 +6,8 @@ use crate::domain::teams::{
     handlers::{get_users_without_team, send_invitation},
 };
 use crate::ui::foundation::components::{Button, ButtonSize, ButtonVariant};
-use crate::ui::foundation::modals::ModalBase;
 use crate::ui::foundation::hooks::use_async_action;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
@@ -119,6 +119,7 @@ pub fn InviteMembersModal(on_close: EventHandler<()>, slug: String) -> Element {
                                                     move |_| {
                                                         let slug = slug.clone();
                                                         let user = user.clone();
+                                                        #[allow(clippy::clone_on_copy)]
                                                         let mut action = action.clone();
                                                         spawn(async move {
                                                             action.set_loading(true);

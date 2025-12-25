@@ -23,7 +23,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{App, AppState, auth, config::Config, docs::ApiDoc};
+use crate::{App, AppState, config::Config, docs::ApiDoc};
 
 pub async fn setup() {
     // Initialize tracing
@@ -154,11 +154,11 @@ pub async fn setup() {
     ];
 
     let issuer_url = IssuerUrl::new(app_state.config.oidc_issuer.clone()).expect("valid IssuerUrl");
-    let redirect_url = format!("{}/auth/callback", app_state.config.api_url);
+    let redirect_url = format!("{}/auth/callback", app_state.config.app_base_url);
 
     let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
         .with_default_http_client()
-        .with_redirect_url(Uri::try_from(redirect_url).expect("valid API_URL"))
+        .with_redirect_url(Uri::try_from(redirect_url).expect("valid APP_BASE_URL"))
         .with_client_id(ClientId::new(app_state.config.oidc_client_id.clone()))
         .with_client_secret(ClientSecret::new(
             app_state.config.oidc_client_secret.clone(),
@@ -201,7 +201,7 @@ pub async fn setup() {
         // User sync middleware
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            auth::middleware::sync_user_middleware,
+            crate::core::auth::middleware::sync_user_middleware,
         ))
         .layer(oidc_login_service.clone())
         // Public routes
@@ -219,7 +219,7 @@ pub async fn setup() {
         .serve_dioxus_application(ServeConfig::default(), App)
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            auth::middleware::sync_user_middleware,
+            crate::core::auth::middleware::sync_user_middleware,
         ))
         .layer(oidc_login_service.clone())
         .layer(oidc_auth_service.clone())

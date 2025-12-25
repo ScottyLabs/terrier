@@ -2,7 +2,9 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
@@ -33,53 +35,22 @@ pub struct HackathonPerson {
 ))]
 #[get("/api/hackathons/:slug/people", user: SyncedUser)]
 pub async fn get_hackathon_people(slug: String) -> Result<Vec<HackathonPerson>, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::people::repository::UserRoleRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
-    // Check if user is global admin
-    let is_global_admin = state
-        .config
-        .admin_emails
-        .contains(&user.0.email.to_lowercase());
-
-    // Check user's role in this hackathon
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
-
-    let is_admin_or_organizer = user_role
-        .as_ref()
-        .map(|r| r.role == "admin" || r.role == "organizer")
-        .unwrap_or(false);
-
-    if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new("Admin or organizer access required"));
-    }
+    let hackathon = ctx.hackathon()?;
 
     // Fetch all user-hackathon roles for this hackathon excluding applicants
-    let roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .filter(crate::entities::user_hackathon_roles::Column::Role.ne("applicant"))
-        .find_also_related(crate::entities::prelude::Users)
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch roles: {}", e)))?;
+    let role_repo = UserRoleRepository::new(&ctx.state.db);
+    let roles = role_repo
+        .find_all_roles_for_hackathon_excluding_role(hackathon.id, "applicant")
+        .await?;
 
     let results = roles
         .into_iter()
@@ -97,5 +68,3 @@ pub async fn get_hackathon_people(slug: String) -> Result<Vec<HackathonPerson>, 
 
     Ok(results)
 }
-
-// Role management functions moved to roles.rs

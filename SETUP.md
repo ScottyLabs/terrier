@@ -21,7 +21,7 @@ Copy the example and configure for your environment:
 cp examples/.env.prod .env
 ```
 
-1. Update the `APP_URL`,  `API_URL`, and `MINIO_PUBLIC_ENDPOINT` values to match your deployment domain.
+1. Update the `APP_BASE_URL` and `MINIO_PUBLIC_ENDPOINT` values to match your deployment domain.
 
 2. Delete the "Unix sockets" section for the Redis and PostgreSQL configurations.
 

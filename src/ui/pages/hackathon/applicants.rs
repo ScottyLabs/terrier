@@ -8,9 +8,8 @@ use crate::{
     auth::{APPLICANTS_ROLES, hooks::use_require_access_or_redirect},
     domain::{
         applications::{
-            ApplicationWithUser,
             handlers::{accept_applications, get_all_applications, reject_applications},
-            types::FormSchema,
+            types::{ApplicationWithUser, FormSchema},
         },
         hackathons::types::HackathonInfo,
     },
@@ -20,7 +19,7 @@ use crate::{
             components::{
                 Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, TabSwitcher,
             },
-            modals::ModalBase,
+            modals::base::ModalBase,
         },
     },
 };

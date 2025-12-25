@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 
 use crate::domain::teams::{CreateTeamRequest, handlers::create_team};
 use crate::ui::features::teams::form::{TeamForm, TeamFormFields};
-use crate::ui::foundation::modals::ModalBase;
 use crate::ui::foundation::hooks::use_async_action;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn CreateTeamModal(on_close: EventHandler<()>, slug: String) -> Element {
@@ -15,6 +15,7 @@ pub fn CreateTeamModal(on_close: EventHandler<()>, slug: String) -> Element {
 
         let name = form_fields.name.value.read().clone();
         let description = form_fields.description.value.read().clone();
+        #[allow(clippy::clone_on_copy)]
         let mut action = action.clone();
 
         spawn({
@@ -46,10 +47,7 @@ pub fn CreateTeamModal(on_close: EventHandler<()>, slug: String) -> Element {
     };
 
     rsx! {
-        ModalBase {
-            on_close,
-            width: "600px",
-            max_height: "80vh",
+        ModalBase { on_close, width: "600px", max_height: "80vh",
 
             div { class: "p-7",
                 // Header
@@ -73,11 +71,7 @@ pub fn CreateTeamModal(on_close: EventHandler<()>, slug: String) -> Element {
                 TeamForm {
                     fields: form_fields,
                     on_submit,
-                    submit_label: if action.is_loading() {
-                        "Creating...".to_string()
-                    } else {
-                        "Create Team".to_string()
-                    },
+                    submit_label: if action.is_loading() { "Creating...".to_string() } else { "Create Team".to_string() },
                 }
             }
         }

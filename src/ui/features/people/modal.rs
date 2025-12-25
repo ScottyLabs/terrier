@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_free_icons::{Icon, icons::ld_icons::LdExternalLink};
 
 use crate::ui::foundation::components::{Button, ButtonVariant};
-use crate::ui::foundation::modals::ModalBase;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn PeopleModal(

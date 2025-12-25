@@ -16,7 +16,7 @@ use crate::ui::features::teams::{
 use crate::ui::foundation::components::{
     Button, ButtonSize, ButtonVariant, ButtonWithIcon, TabSwitcher,
 };
-use crate::ui::foundation::modals::ModalBase;
+use crate::ui::foundation::modals::base::ModalBase;
 use dioxus::{logger::tracing, prelude::*};
 use dioxus_free_icons::{
     Icon,
@@ -1257,7 +1257,7 @@ fn OutgoingRequestCard(
                     p { class: "text-base font-medium leading-6 text-foreground-neutral-primary",
                         "{request.team_name}"
                     }
-                    span { class: "px-2 py-0.5 text-xs bg-background-status-info text-foreground-neutral-primary rounded-md font-semibold",
+                    span { class: "px-2 py-0.5 text-xs bg-background-brandNeutral-secondary text-foreground-brandNeutral-primary rounded-md font-semibold",
                         "Pending Request"
                     }
                 }

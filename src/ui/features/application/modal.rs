@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::domain::applications::types::FormSchema;
 use crate::ui::foundation::components::{Button, ButtonSize, ButtonVariant};
-use crate::ui::foundation::modals::ModalBase;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn ApplicationModal(
@@ -34,7 +34,7 @@ pub fn ApplicationModal(
 
                 // If this field has submitted data, add it to the section
                 if let Some(value) = data.get(&field.name) {
-                    sections.entry(section_name).or_insert_with(Vec::new).push((
+                    sections.entry(section_name).or_default().push((
                         field.name.clone(),
                         value.clone(),
                         field.order,

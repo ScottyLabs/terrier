@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::{AppState, core::auth::middleware::SyncedUser};
 #[cfg(feature = "server")]
 use std::io::Cursor;
 #[cfg(feature = "server")]
@@ -39,8 +39,8 @@ pub async fn upload_application_file(
     file_data: Vec<u8>,
     file_name: String,
 ) -> Result<FileUploadResponse, ServerFnError> {
+    use crate::domain::hackathons::repository::HackathonRepository;
     use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     // Extract state from context
     let State(state) = FullstackContext::extract::<State<AppState>, _>()
@@ -48,12 +48,8 @@ pub async fn upload_application_file(
         .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
 
     // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon_repo = HackathonRepository::new(&state.db);
+    let hackathon = hackathon_repo.find_by_slug_or_error(&slug).await?;
 
     // Get form config to find the file_path template
     let form_config: crate::domain::applications::types::FormSchema = hackathon
@@ -71,7 +67,7 @@ pub async fn upload_application_file(
 
     // Check if field is a file type and extract file_path and validation
     let (file_path_template, file_validation) = match &field.field_type {
-        crate::domain::applications::FieldType::File {
+        crate::domain::applications::types::FieldType::File {
             file_path,
             validation,
         } => (file_path, validation),
@@ -178,8 +174,8 @@ pub async fn delete_application_file(
     slug: String,
     field_name: String,
 ) -> Result<(), ServerFnError> {
+    use crate::domain::hackathons::repository::HackathonRepository;
     use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     // Extract state from context
     let State(state) = FullstackContext::extract::<State<AppState>, _>()
@@ -187,12 +183,8 @@ pub async fn delete_application_file(
         .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
 
     // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon_repo = HackathonRepository::new(&state.db);
+    let hackathon = hackathon_repo.find_by_slug_or_error(&slug).await?;
 
     // Get form config to find the file_path template
     let form_config: crate::domain::applications::types::FormSchema = hackathon
@@ -210,7 +202,7 @@ pub async fn delete_application_file(
 
     // Check if field is a file type and extract file_path
     let file_path_template = match &field.field_type {
-        crate::domain::applications::FieldType::File { file_path, .. } => file_path,
+        crate::domain::applications::types::FieldType::File { file_path, .. } => file_path,
         _ => {
             return Err(ServerFnError::new(format!(
                 "Field '{}' is not a file upload field",

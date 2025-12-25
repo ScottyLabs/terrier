@@ -17,37 +17,13 @@ use crate::AppState;
 ))]
 #[get("/api/hackathons")]
 pub async fn get_hackathons() -> Result<Vec<HackathonInfo>, ServerFnError> {
+    use crate::domain::hackathons::repository::HackathonRepository;
     use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::EntityTrait;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let State(state) = FullstackContext::extract::<State<AppState>, _>().await?;
+    let repo = HackathonRepository::new(&state.db);
 
-    // Fetch all hackathons
-    let hackathons = crate::entities::prelude::Hackathons::find()
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathons: {}", e)))?;
-
-    Ok(hackathons
-        .into_iter()
-        .map(|h| HackathonInfo {
-            id: h.id,
-            name: h.name,
-            slug: h.slug,
-            description: h.description,
-            start_date: h.start_date,
-            end_date: h.end_date,
-            is_active: h.is_active,
-            max_team_size: h.max_team_size,
-            banner_url: h.banner_url,
-            background_url: h.background_url,
-            updated_at: h.updated_at,
-            form_config: h.form_config,
-        })
-        .collect())
+    repo.get_all().await
 }
 
 /// Get a hackathon by slug
@@ -65,33 +41,11 @@ pub async fn get_hackathons() -> Result<Vec<HackathonInfo>, ServerFnError> {
 ))]
 #[get("/api/hackathons/:slug")]
 pub async fn get_hackathon_by_slug(slug: String) -> Result<Option<HackathonInfo>, ServerFnError> {
+    use crate::domain::hackathons::repository::HackathonRepository;
     use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let State(state) = FullstackContext::extract::<State<AppState>, _>().await?;
+    let repo = HackathonRepository::new(&state.db);
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?;
-
-    Ok(hackathon.map(|h| HackathonInfo {
-        id: h.id,
-        name: h.name,
-        slug: h.slug,
-        description: h.description,
-        start_date: h.start_date,
-        end_date: h.end_date,
-        is_active: h.is_active,
-        max_team_size: h.max_team_size,
-        banner_url: h.banner_url,
-        background_url: h.background_url,
-        form_config: h.form_config,
-        updated_at: h.updated_at,
-    }))
+    repo.find_by_slug(&slug).await.map(|h| h.map(Into::into))
 }

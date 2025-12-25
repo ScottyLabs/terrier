@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
 #[cfg(feature = "server")]
 use chrono::Utc;
 #[cfg(feature = "server")]
@@ -24,30 +24,20 @@ use sea_orm::{ActiveModelTrait, Set};
 ))]
 #[put("/api/hackathons/:slug/application/decline", user: SyncedUser)]
 pub async fn decline_attendance(slug: String) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch application
-    let application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Application not found"))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let application = app_repo
+        .find_by_user_and_hackathon_or_error(ctx.user.id, hackathon.id, "Application not found")
+        .await?;
 
     // Only allow declining accepted applications
     if application.status != "accepted" {
@@ -59,7 +49,7 @@ pub async fn decline_attendance(slug: String) -> Result<(), ServerFnError> {
     app.status = Set("declined".to_string());
     app.updated_at = Set(Utc::now().naive_utc());
 
-    app.update(&state.db)
+    app.update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to decline attendance: {}", e)))?;
 
@@ -83,30 +73,21 @@ pub async fn decline_attendance(slug: String) -> Result<(), ServerFnError> {
 ))]
 #[post("/api/hackathons/:slug/application/confirm", user: SyncedUser)]
 pub async fn confirm_attendance(slug: String) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
+    use crate::domain::people::repository::UserRoleRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch application
-    let application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Application not found"))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let application = app_repo
+        .find_by_user_and_hackathon_or_error(ctx.user.id, hackathon.id, "Application not found")
+        .await?;
 
     // Only allow confirming accepted applications
     if application.status != "accepted" {
@@ -118,23 +99,19 @@ pub async fn confirm_attendance(slug: String) -> Result<(), ServerFnError> {
     app.status = Set("confirmed".to_string());
     app.updated_at = Set(Utc::now().naive_utc());
 
-    app.update(&state.db)
+    app.update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to confirm attendance: {}", e)))?;
 
     // Change user's role to participant (only if they were applicant, not organizer/admin)
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
+    let role_repo = UserRoleRepository::new(&ctx.state.db);
+    let user_role = role_repo.find_user_role(ctx.user.id, hackathon.id).await?;
 
     if let Some(role) = user_role {
         if role.role == "applicant" {
             let mut role: crate::entities::user_hackathon_roles::ActiveModel = role.into();
             role.role = Set("participant".to_string());
-            role.update(&state.db)
+            role.update(&ctx.state.db)
                 .await
                 .map_err(|e| ServerFnError::new(format!("Failed to update user role: {}", e)))?;
         }
@@ -160,30 +137,21 @@ pub async fn confirm_attendance(slug: String) -> Result<(), ServerFnError> {
 ))]
 #[put("/api/hackathons/:slug/application/undo-confirmation", user: SyncedUser)]
 pub async fn undo_confirmation(slug: String) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
+    use crate::domain::people::repository::UserRoleRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch application
-    let application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Application not found"))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let application = app_repo
+        .find_by_user_and_hackathon_or_error(ctx.user.id, hackathon.id, "Application not found")
+        .await?;
 
     // Only allow undoing confirmed applications
     if application.status != "confirmed" {
@@ -195,23 +163,19 @@ pub async fn undo_confirmation(slug: String) -> Result<(), ServerFnError> {
     app.status = Set("accepted".to_string());
     app.updated_at = Set(Utc::now().naive_utc());
 
-    app.update(&state.db)
+    app.update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to undo confirmation: {}", e)))?;
 
     // Change user's role back to applicant (only if they were participant)
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
+    let role_repo = UserRoleRepository::new(&ctx.state.db);
+    let user_role = role_repo.find_user_role(ctx.user.id, hackathon.id).await?;
 
     if let Some(role) = user_role {
         if role.role == "participant" {
             let mut role: crate::entities::user_hackathon_roles::ActiveModel = role.into();
             role.role = Set("applicant".to_string());
-            role.update(&state.db)
+            role.update(&ctx.state.db)
                 .await
                 .map_err(|e| ServerFnError::new(format!("Failed to update user role: {}", e)))?;
         }

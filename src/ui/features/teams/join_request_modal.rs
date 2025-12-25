@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 
 use crate::domain::teams::{JoinTeamRequest, handlers::request_join_team};
 use crate::ui::foundation::components::{Button, ButtonVariant, Input, InputHeight, InputVariant};
-use crate::ui::foundation::modals::ModalBase;
 use crate::ui::foundation::hooks::use_async_action;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn JoinRequestModal(
@@ -12,14 +12,16 @@ pub fn JoinRequestModal(
     team_id: i32,
     team_name: String,
 ) -> Element {
-    let message = use_signal(|| String::new());
+    let message = use_signal(String::new);
     let action = use_async_action();
 
     let on_submit = move |evt: FormEvent| {
         evt.prevent_default();
 
         let slug = slug.clone();
+        #[allow(clippy::clone_on_copy)]
         let mut action = action.clone();
+
         spawn(async move {
             action.set_loading(true);
             action.clear_error();

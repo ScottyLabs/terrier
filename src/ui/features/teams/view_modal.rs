@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::domain::teams::handlers::get_team_details;
 use crate::ui::foundation::components::{Button, ButtonVariant};
-use crate::ui::foundation::modals::ModalBase;
+use crate::ui::foundation::modals::base::ModalBase;
 
 #[component]
 pub fn ViewTeamModal(

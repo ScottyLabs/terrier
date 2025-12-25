@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use serde_json::Value as JsonValue;
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
 #[cfg(feature = "server")]
 use chrono::Utc;
 #[cfg(feature = "server")]
@@ -31,29 +31,20 @@ pub async fn update_application(
     slug: String,
     form_data: JsonValue,
 ) -> Result<ApplicationData, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Check if application already exists
-    let existing_application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let existing_application = app_repo
+        .find_by_user_and_hackathon(ctx.user.id, hackathon.id)
+        .await?;
 
     let updated_at = Utc::now().naive_utc();
 
@@ -63,7 +54,7 @@ pub async fn update_application(
         app.form_data = Set(form_data.clone());
         app.updated_at = Set(updated_at);
 
-        app.update(&state.db)
+        app.update(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to update application: {}", e)))?
     } else {
@@ -71,14 +62,14 @@ pub async fn update_application(
         let app = crate::entities::applications::ActiveModel {
             id: NotSet,
             hackathon_id: Set(hackathon.id),
-            user_id: Set(user.0.id),
+            user_id: Set(ctx.user.id),
             form_data: Set(form_data.clone()),
             status: Set("draft".to_string()),
             created_at: Set(updated_at),
             updated_at: Set(updated_at),
         };
 
-        app.insert(&state.db)
+        app.insert(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to create application: {}", e)))?
     };
@@ -112,29 +103,20 @@ pub async fn submit_application(
     slug: String,
     form_data: JsonValue,
 ) -> Result<ApplicationData, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Check if application already exists
-    let existing_application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let existing_application = app_repo
+        .find_by_user_and_hackathon(ctx.user.id, hackathon.id)
+        .await?;
 
     let updated_at = Utc::now().naive_utc();
 
@@ -155,7 +137,7 @@ pub async fn submit_application(
         app.status = Set("pending".to_string());
         app.updated_at = Set(updated_at);
 
-        app.update(&state.db)
+        app.update(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to submit application: {}", e)))?
     } else {
@@ -163,14 +145,14 @@ pub async fn submit_application(
         let app = crate::entities::applications::ActiveModel {
             id: NotSet,
             hackathon_id: Set(hackathon.id),
-            user_id: Set(user.0.id),
+            user_id: Set(ctx.user.id),
             form_data: Set(form_data.clone()),
             status: Set("pending".to_string()),
             created_at: Set(updated_at),
             updated_at: Set(updated_at),
         };
 
-        app.insert(&state.db)
+        app.insert(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to create application: {}", e)))?
     };
@@ -199,30 +181,20 @@ pub async fn submit_application(
 ))]
 #[get("/api/hackathons/:slug/application", user: SyncedUser)]
 pub async fn get_application(slug: String) -> Result<ApplicationData, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch application
-    let application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Application not found"))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let application = app_repo
+        .find_by_user_and_hackathon_or_error(ctx.user.id, hackathon.id, "Application not found")
+        .await?;
 
     Ok(ApplicationData {
         form_data: application.form_data,
@@ -248,30 +220,20 @@ pub async fn get_application(slug: String) -> Result<ApplicationData, ServerFnEr
 ))]
 #[put("/api/hackathons/:slug/application/unsubmit", user: SyncedUser)]
 pub async fn unsubmit_application(slug: String) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch application
-    let application = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch application: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Application not found"))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let application = app_repo
+        .find_by_user_and_hackathon_or_error(ctx.user.id, hackathon.id, "Application not found")
+        .await?;
 
     // Only allow unsubmitting pending applications
     if application.status != "pending" {
@@ -283,7 +245,7 @@ pub async fn unsubmit_application(slug: String) -> Result<(), ServerFnError> {
     app.status = Set("draft".to_string());
     app.updated_at = Set(Utc::now().naive_utc());
 
-    app.update(&state.db)
+    app.update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to unsubmit application: {}", e)))?;
 

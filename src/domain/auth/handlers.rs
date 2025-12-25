@@ -15,7 +15,7 @@ use crate::AppState;
 use crate::auth::LoginQuery;
 use crate::auth::UserInfo;
 #[cfg(feature = "server")]
-use crate::auth::middleware::SyncedUser;
+use crate::core::auth::middleware::SyncedUser;
 
 /// Initiate login flow
 #[cfg(feature = "server")]
@@ -27,8 +27,8 @@ pub async fn login(
     // OidcLoginLayer will have handled login, so redirect the user back at this point
     let redirect_to = params
         .redirect_uri
-        .filter(|uri| uri.starts_with(&state.config.app_url))
-        .unwrap_or_else(|| state.config.app_url.clone());
+        .filter(|uri| uri.starts_with(&state.config.app_base_url))
+        .unwrap_or_else(|| state.config.app_base_url.clone());
 
     Redirect::to(&redirect_to)
 }
@@ -41,7 +41,7 @@ pub async fn logout(
 ) -> impl IntoResponse {
     logout
         .with_post_logout_redirect(
-            Uri::from_maybe_shared(state.config.app_url.clone()).expect("valid APP_URL"),
+            Uri::from_maybe_shared(state.config.app_base_url.clone()).expect("valid APP_BASE_URL"),
         )
         .into_response()
 }

@@ -1,7 +1,9 @@
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 #[cfg(feature = "server")]
 use chrono::Utc;
 #[cfg(feature = "server")]
@@ -31,58 +33,28 @@ pub async fn accept_applications(
     slug: String,
     application_ids: Vec<i32>,
 ) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
-    // Check if user is global admin
-    let is_global_admin = state
-        .config
-        .admin_emails
-        .contains(&user.0.email.to_lowercase());
-
-    // Check user's role in this hackathon
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
-
-    let is_admin_or_organizer = user_role
-        .as_ref()
-        .map(|r| r.role == "admin" || r.role == "organizer")
-        .unwrap_or(false);
-
-    if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new("Requires admin or organizer role"));
-    }
+    let hackathon = ctx.hackathon()?;
 
     // Update all applications to accepted status
-    let applications = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::Id.is_in(application_ids))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch applications: {}", e)))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let applications = app_repo
+        .find_by_ids_and_hackathon(application_ids, hackathon.id)
+        .await?;
 
     for app in applications {
         let mut app: crate::entities::applications::ActiveModel = app.into();
         app.status = Set("accepted".to_string());
         app.updated_at = Set(Utc::now().naive_utc());
-        app.update(&state.db)
+        app.update(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to update application: {}", e)))?;
     }
@@ -113,58 +85,28 @@ pub async fn reject_applications(
     slug: String,
     application_ids: Vec<i32>,
 ) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use crate::domain::applications::repository::ApplicationRepository;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
-    // Check if user is global admin
-    let is_global_admin = state
-        .config
-        .admin_emails
-        .contains(&user.0.email.to_lowercase());
-
-    // Check user's role in this hackathon
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
-
-    let is_admin_or_organizer = user_role
-        .as_ref()
-        .map(|r| r.role == "admin" || r.role == "organizer")
-        .unwrap_or(false);
-
-    if !is_global_admin && !is_admin_or_organizer {
-        return Err(ServerFnError::new("Requires admin or organizer role"));
-    }
+    let hackathon = ctx.hackathon()?;
 
     // Update all applications to rejected status
-    let applications = crate::entities::prelude::Applications::find()
-        .filter(crate::entities::applications::Column::Id.is_in(application_ids))
-        .filter(crate::entities::applications::Column::HackathonId.eq(hackathon.id))
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch applications: {}", e)))?;
+    let app_repo = ApplicationRepository::new(&ctx.state.db);
+    let applications = app_repo
+        .find_by_ids_and_hackathon(application_ids, hackathon.id)
+        .await?;
 
     for app in applications {
         let mut app: crate::entities::applications::ActiveModel = app.into();
         app.status = Set("rejected".to_string());
         app.updated_at = Set(Utc::now().naive_utc());
-        app.update(&state.db)
+        app.update(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to update application: {}", e)))?;
     }

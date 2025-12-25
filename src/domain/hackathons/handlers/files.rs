@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "server")]
-use crate::{AppState, auth::middleware::SyncedUser};
+use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
 #[cfg(feature = "server")]
 use std::io::Cursor;
 #[cfg(feature = "server")]
@@ -39,21 +39,12 @@ pub async fn upload_application_file(
     file_data: Vec<u8>,
     file_name: String,
 ) -> Result<FileUploadResponse, ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
-
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Get form config to find the file_path template
     let form_config: crate::domain::applications::types::FormSchema = hackathon
@@ -118,8 +109,8 @@ pub async fn upload_application_file(
     let mut file_path = file_path_template.clone();
     file_path = file_path.replace("{hackathon_id}", &hackathon.id.to_string());
     file_path = file_path.replace("{hackathon_slug}", &hackathon.slug);
-    file_path = file_path.replace("{user_id}", &user.0.id.to_string());
-    file_path = file_path.replace("{user_oidc_sub}", &user.0.oidc_sub.to_string());
+    file_path = file_path.replace("{user_id}", &ctx.user.id.to_string());
+    file_path = file_path.replace("{user_oidc_sub}", &ctx.user.oidc_sub.to_string());
     file_path = file_path.replace("{field_name}", &field_name);
 
     // Add file extension if present
@@ -131,7 +122,7 @@ pub async fn upload_application_file(
     let file_size = file_data.len();
     let mut cursor = Cursor::new(file_data);
     let mut put_args = minio::s3::args::PutObjectArgs::new(
-        &state.config.minio_bucket,
+        &ctx.state.config.minio_bucket,
         &file_path,
         &mut cursor,
         Some(file_size),
@@ -139,7 +130,7 @@ pub async fn upload_application_file(
     )
     .map_err(|e| ServerFnError::new(format!("Invalid upload arguments: {}", e)))?;
 
-    state
+    ctx.state
         .s3
         .put_object(&mut put_args)
         .await
@@ -148,7 +139,7 @@ pub async fn upload_application_file(
     // Generate public URL
     let file_url = format!(
         "{}/{}/{}",
-        state.config.minio_public_endpoint, state.config.minio_bucket, file_path
+        ctx.state.config.minio_public_endpoint, ctx.state.config.minio_bucket, file_path
     );
 
     Ok(FileUploadResponse {
@@ -178,21 +169,12 @@ pub async fn delete_application_file(
     slug: String,
     field_name: String,
 ) -> Result<(), ServerFnError> {
-    use dioxus::fullstack::{FullstackContext, extract::State};
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Extract state from context
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
-
-    // Fetch hackathon by slug
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Get form config to find the file_path template
     let form_config: crate::domain::applications::types::FormSchema = hackathon
@@ -223,16 +205,17 @@ pub async fn delete_application_file(
     let mut file_path = file_path_template.clone();
     file_path = file_path.replace("{hackathon_id}", &hackathon.id.to_string());
     file_path = file_path.replace("{hackathon_slug}", &hackathon.slug);
-    file_path = file_path.replace("{user_id}", &user.0.id.to_string());
-    file_path = file_path.replace("{user_oidc_sub}", &user.0.oidc_sub.to_string());
+    file_path = file_path.replace("{user_id}", &ctx.user.id.to_string());
+    file_path = file_path.replace("{user_oidc_sub}", &ctx.user.oidc_sub.to_string());
     file_path = file_path.replace("{field_name}", &field_name);
 
     // List objects matching the pattern (to handle different extensions)
-    let mut list_args = minio::s3::args::ListObjectsV2Args::new(&state.config.minio_bucket)
+    let mut list_args = minio::s3::args::ListObjectsV2Args::new(&ctx.state.config.minio_bucket)
         .map_err(|e| ServerFnError::new(format!("Invalid list arguments: {}", e)))?;
     list_args.prefix = Some(&file_path);
 
-    let objects = state
+    let objects = ctx
+        .state
         .s3
         .list_objects_v2(&list_args)
         .await
@@ -241,10 +224,10 @@ pub async fn delete_application_file(
     // Delete all matching files
     for item in objects.contents {
         let remove_args =
-            minio::s3::args::RemoveObjectArgs::new(&state.config.minio_bucket, &item.name)
+            minio::s3::args::RemoveObjectArgs::new(&ctx.state.config.minio_bucket, &item.name)
                 .map_err(|e| ServerFnError::new(format!("Invalid remove arguments: {}", e)))?;
 
-        state
+        ctx.state
             .s3
             .remove_object(&remove_args)
             .await

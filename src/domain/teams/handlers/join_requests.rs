@@ -2,11 +2,11 @@ use crate::domain::teams::types::*;
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
-use crate::auth::middleware::SyncedUser;
-#[cfg(feature = "server")]
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
 };
+#[cfg(feature = "server")]
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 
 /// Request to join a team
 #[cfg_attr(feature = "server", utoipa::path(
@@ -27,28 +27,18 @@ use sea_orm::{
 ))]
 #[post("/api/hackathons/:slug/team/request-join", user: SyncedUser)]
 pub async fn request_join_team(slug: String, req: JoinTeamRequest) -> Result<(), ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Check if user is already in a team
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
+    let team_repo = TeamRepository::new(&ctx.state.db);
+    let user_role = team_repo.find_user_role(ctx.user.id, hackathon.id).await?;
 
     let Some(role) = user_role else {
         return Err(ServerFnError::new("User not registered for this hackathon"));
@@ -59,33 +49,26 @@ pub async fn request_join_team(slug: String, req: JoinTeamRequest) -> Result<(),
     }
 
     // Verify team exists
-    let team = crate::entities::prelude::Teams::find_by_id(req.team_id)
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Team not found"))?;
+    let team = team_repo.find_by_id(req.team_id).await?;
 
     if team.hackathon_id != hackathon.id {
         return Err(ServerFnError::new("Team does not belong to this hackathon"));
     }
 
     // Check if team is full
-    let member_count = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(req.team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .count(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to count members: {}", e)))?;
+    let member_count = team_repo
+        .count_team_members(req.team_id, hackathon.id)
+        .await?;
 
-    if member_count >= hackathon.max_team_size as u64 {
+    if member_count >= hackathon.max_team_size as usize {
         return Err(ServerFnError::new("Team is full"));
     }
 
     // Check if user already has a pending request for this team
     let existing_request = crate::entities::prelude::TeamJoinRequests::find()
         .filter(crate::entities::team_join_requests::Column::TeamId.eq(req.team_id))
-        .filter(crate::entities::team_join_requests::Column::UserId.eq(user.0.id))
-        .one(&state.db)
+        .filter(crate::entities::team_join_requests::Column::UserId.eq(ctx.user.id))
+        .one(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to check existing request: {}", e)))?;
 
@@ -98,13 +81,13 @@ pub async fn request_join_team(slug: String, req: JoinTeamRequest) -> Result<(),
     // Create join request
     let new_request = crate::entities::team_join_requests::ActiveModel {
         team_id: Set(req.team_id),
-        user_id: Set(user.0.id),
+        user_id: Set(ctx.user.id),
         message: Set(req.message),
         ..Default::default()
     };
 
     new_request
-        .insert(&state.db)
+        .insert(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to create join request: {}", e)))?;
 
@@ -129,57 +112,44 @@ pub async fn request_join_team(slug: String, req: JoinTeamRequest) -> Result<(),
 ))]
 #[get("/api/hackathons/:slug/team/requests", user: SyncedUser)]
 pub async fn get_join_requests(slug: String) -> Result<Vec<JoinRequestResponse>, ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Get user's team_id
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+    let team_repo = TeamRepository::new(&ctx.state.db);
+    let user_role = team_repo
+        .find_user_role_or_error(
+            ctx.user.id,
+            hackathon.id,
+            "User not registered for this hackathon",
+        )
+        .await?;
 
     let team_id = user_role
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    // Fetch team and verify user is the owner
-    let team = crate::entities::prelude::Teams::find_by_id(team_id)
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Team not found"))?;
-
-    if team.owner_id != user.0.id {
-        return Err(ServerFnError::new("Only team owner can view join requests"));
-    }
+    // Verify user is the team owner
+    Permissions::require_team_ownership(&ctx, team_id).await?;
 
     // Fetch join requests for this team
     let requests = crate::entities::prelude::TeamJoinRequests::find()
         .filter(crate::entities::team_join_requests::Column::TeamId.eq(team_id))
         .order_by_desc(crate::entities::team_join_requests::Column::CreatedAt)
-        .all(&state.db)
+        .all(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch join requests: {}", e)))?;
 
     let mut result = Vec::new();
     for request in requests {
         let request_user = crate::entities::prelude::Users::find_by_id(request.user_id)
-            .one(&state.db)
+            .one(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to fetch user: {}", e)))?
             .ok_or_else(|| ServerFnError::new("Request user not found"))?;
@@ -218,38 +188,28 @@ pub async fn get_join_requests(slug: String) -> Result<Vec<JoinRequestResponse>,
 pub async fn get_outgoing_join_requests(
     slug: String,
 ) -> Result<Vec<OutgoingJoinRequestResponse>, ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch join requests made by this user for teams in this hackathon
     let requests = crate::entities::prelude::TeamJoinRequests::find()
-        .filter(crate::entities::team_join_requests::Column::UserId.eq(user.0.id))
+        .filter(crate::entities::team_join_requests::Column::UserId.eq(ctx.user.id))
         .order_by_desc(crate::entities::team_join_requests::Column::CreatedAt)
-        .all(&state.db)
+        .all(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch join requests: {}", e)))?;
 
+    let team_repo = TeamRepository::new(&ctx.state.db);
     let mut result = Vec::new();
     for request in requests {
         // Fetch the team to ensure it belongs to this hackathon
-        let team = crate::entities::prelude::Teams::find_by_id(request.team_id)
-            .one(&state.db)
-            .await
-            .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?;
-
-        if let Some(team) = team {
+        if let Ok(team) = team_repo.find_by_id(request.team_id).await {
             if team.hackathon_id == hackathon.id {
                 result.push(OutgoingJoinRequestResponse {
                     id: request.id,
@@ -287,30 +247,28 @@ pub async fn cancel_outgoing_join_request(
     slug: String,
     request_id: i32,
 ) -> Result<(), ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
-
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user).await?;
 
     // Fetch the request
     let request = crate::entities::prelude::TeamJoinRequests::find_by_id(request_id)
-        .one(&state.db)
+        .one(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch request: {}", e)))?
         .ok_or_else(|| ServerFnError::new("Join request not found"))?;
 
     // Verify it's the user's request
-    if request.user_id != user.0.id {
+    if request.user_id != ctx.user.id {
         return Err(ServerFnError::new("You can only cancel your own requests"));
     }
 
     // Delete the request
     crate::entities::prelude::TeamJoinRequests::delete_by_id(request_id)
-        .exec(&state.db)
+        .exec(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to cancel request: {}", e)))?;
+
+    // Suppress unused variable warning for slug (required by route path)
+    let _ = slug;
 
     Ok(())
 }
@@ -335,79 +293,54 @@ pub async fn cancel_outgoing_join_request(
 ))]
 #[post("/api/hackathons/:slug/team/requests/:request_id/accept", user: SyncedUser)]
 pub async fn accept_join_request(slug: String, request_id: i32) -> Result<(), ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch join request
     let join_request = crate::entities::prelude::TeamJoinRequests::find_by_id(request_id)
-        .one(&state.db)
+        .one(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch join request: {}", e)))?
         .ok_or_else(|| ServerFnError::new("Join request not found"))?;
 
-    // Get user's team_id and verify they're the owner
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+    // Get user's team_id
+    let team_repo = TeamRepository::new(&ctx.state.db);
+    let user_role = team_repo
+        .find_user_role_or_error(
+            ctx.user.id,
+            hackathon.id,
+            "User not registered for this hackathon",
+        )
+        .await?;
 
     let team_id = user_role
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    if team_id != join_request.team_id {
-        return Err(ServerFnError::new("This request is not for your team"));
-    }
-
-    // Fetch team and verify user is the owner
-    let team = crate::entities::prelude::Teams::find_by_id(team_id)
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Team not found"))?;
-
-    if team.owner_id != user.0.id {
-        return Err(ServerFnError::new(
-            "Only team owner can accept join requests",
-        ));
-    }
-
-    // Fetch team members to check if team is full
-    let members_roles = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::TeamId.eq(team_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .all(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch members: {}", e)))?;
+    // Verify request is for user's team and user is the owner
+    Permissions::require_team_request_ownership(&ctx, request_id, team_id).await?;
 
     // Check if team is full
-    if members_roles.len() >= hackathon.max_team_size as usize {
+    let member_count = team_repo.count_team_members(team_id, hackathon.id).await?;
+
+    if member_count >= hackathon.max_team_size as usize {
         return Err(ServerFnError::new("Team is full"));
     }
 
     // Get the requesting user's role
-    let requesting_user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(join_request.user_id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch requesting user role: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Requesting user not registered for this hackathon"))?;
+    let requesting_user_role = team_repo
+        .find_user_role_or_error(
+            join_request.user_id,
+            hackathon.id,
+            "Requesting user not registered for this hackathon",
+        )
+        .await?;
 
     // Check if user already in a team
     if requesting_user_role.team_id.is_some() {
@@ -418,14 +351,14 @@ pub async fn accept_join_request(slug: String, request_id: i32) -> Result<(), Se
     let mut role: crate::entities::user_hackathon_roles::ActiveModel = requesting_user_role.into();
     role.team_id = Set(Some(team_id));
 
-    role.update(&state.db)
+    role.update(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to add user to team: {}", e)))?;
 
     // Delete the join request
     let request_to_delete: crate::entities::team_join_requests::ActiveModel = join_request.into();
     request_to_delete
-        .delete(&state.db)
+        .delete(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to delete join request: {}", e)))?;
 
@@ -451,62 +384,43 @@ pub async fn accept_join_request(slug: String, request_id: i32) -> Result<(), Se
 ))]
 #[post("/api/hackathons/:slug/team/requests/:request_id/reject", user: SyncedUser)]
 pub async fn reject_join_request(slug: String, request_id: i32) -> Result<(), ServerFnError> {
-    use crate::AppState;
-    use dioxus::fullstack::{FullstackContext, extract::State};
+    use crate::domain::teams::repository::TeamRepository;
 
-    let State(state) = FullstackContext::extract::<State<AppState>, _>()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
 
-    // Fetch hackathon
-    let hackathon = crate::entities::prelude::Hackathons::find()
-        .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
+    let hackathon = ctx.hackathon()?;
 
     // Fetch join request
     let join_request = crate::entities::prelude::TeamJoinRequests::find_by_id(request_id)
-        .one(&state.db)
+        .one(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch join request: {}", e)))?
         .ok_or_else(|| ServerFnError::new("Join request not found"))?;
 
-    // Get user's team_id and verify they're the owner
-    let user_role = crate::entities::prelude::UserHackathonRoles::find()
-        .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(user.0.id))
-        .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("User not registered for this hackathon"))?;
+    // Get user's team_id
+    let team_repo = TeamRepository::new(&ctx.state.db);
+    let user_role = team_repo
+        .find_user_role_or_error(
+            ctx.user.id,
+            hackathon.id,
+            "User not registered for this hackathon",
+        )
+        .await?;
 
     let team_id = user_role
         .team_id
         .ok_or_else(|| ServerFnError::new("User is not in a team"))?;
 
-    if team_id != join_request.team_id {
-        return Err(ServerFnError::new("This request is not for your team"));
-    }
-
-    // Fetch team and verify user is the owner
-    let team = crate::entities::prelude::Teams::find_by_id(team_id)
-        .one(&state.db)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Team not found"))?;
-
-    if team.owner_id != user.0.id {
-        return Err(ServerFnError::new(
-            "Only team owner can reject join requests",
-        ));
-    }
+    // Verify request is for user's team and user is the owner
+    Permissions::require_team_request_ownership(&ctx, request_id, team_id).await?;
 
     // Delete the join request
     let request_to_delete: crate::entities::team_join_requests::ActiveModel = join_request.into();
     request_to_delete
-        .delete(&state.db)
+        .delete(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to delete join request: {}", e)))?;
 

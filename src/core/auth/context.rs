@@ -1,109 +1,98 @@
-#[cfg(feature = "server")]
-use crate::AppState;
-use crate::auth::middleware::SyncedUser;
-use crate::core::{errors::*, types::*};
-use dioxus::prelude::ServerFnError;
-
-#[cfg(feature = "server")]
 use dioxus::fullstack::{FullstackContext, extract::State};
-#[cfg(feature = "server")]
+use dioxus::prelude::ServerFnError;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use std::sync::Arc;
 
-/// Request context that bundles commonly needed data for server functions
-#[cfg(feature = "server")]
+use crate::{
+    AppState,
+    entities::{hackathons, prelude::*, user_hackathon_roles, users},
+};
+
+use super::middleware::SyncedUser;
+
+/// Request context that provides access to commonly needed data in handlers
 #[derive(Clone)]
 pub struct RequestContext {
     pub state: AppState,
-    pub user: SyncedUser,
-    pub hackathon: Option<HackathonEntity>,
-    pub user_role: Option<UserHackathonRoleEntity>,
+    pub user: Arc<users::Model>,
+    pub hackathon: Option<hackathons::Model>,
+    pub user_role: Option<user_hackathon_roles::Model>,
 }
 
-#[cfg(feature = "server")]
 impl RequestContext {
-    /// Extract the base context (state and user)
-    pub async fn extract() -> Result<Self, ServerFnError> {
+    /// Extract the state and user
+    pub async fn extract(user: &SyncedUser) -> Result<Self, ServerFnError> {
+        // Extract state from Dioxus fullstack context
         let State(state) = FullstackContext::extract::<State<AppState>, _>()
             .await
-            .to_server_error("Failed to extract state")?;
-
-        let user = FullstackContext::extract::<SyncedUser, _>()
-            .await
-            .to_server_error("Failed to extract user")?;
+            .map_err(|e| ServerFnError::new(format!("Failed to extract state: {}", e)))?;
 
         Ok(Self {
             state,
-            user,
+            user: user.0.clone(),
             hackathon: None,
             user_role: None,
         })
     }
 
-    /// Fetch and attach hackathon by slug
-    pub async fn with_hackathon(mut self, slug: String) -> Result<Self, ServerFnError> {
-        let hackathon = crate::entities::prelude::Hackathons::find()
-            .filter(crate::entities::hackathons::Column::Slug.eq(&slug))
+    /// Add hackathon to context by slug
+    pub async fn with_hackathon(mut self, slug: &str) -> Result<Self, ServerFnError> {
+        let hackathon = Hackathons::find()
+            .filter(hackathons::Column::Slug.eq(slug))
             .one(&self.state.db)
             .await
-            .to_server_error("Failed to fetch hackathon")?
-            .ok_or_server_error("Hackathon not found")?;
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch hackathon: {}", e)))?
+            .ok_or_else(|| ServerFnError::new("Hackathon not found"))?;
 
         self.hackathon = Some(hackathon);
         Ok(self)
     }
 
-    /// Fetch and attach user's role for the current hackathon
-    /// Requires hackathon to be set first
+    /// Add user's role in the current hackathon to context
+    ///
+    /// Requires that hackathon has already been added via `with_hackathon()`.
     pub async fn with_user_role(mut self) -> Result<Self, ServerFnError> {
         let hackathon = self
             .hackathon
             .as_ref()
-            .ok_or_server_error("Hackathon not set in context")?;
+            .ok_or_else(|| ServerFnError::new("Hackathon must be loaded before user role"))?;
 
-        // Check if user is global admin first
-        if self.is_global_admin() {
-            // Create a synthetic admin role for global admins
-            self.user_role = Some(UserHackathonRoleEntity {
-                id: 0, // Special ID for synthetic roles
-                user_id: self.user.0.id,
-                hackathon_id: hackathon.id,
-                role: "admin".to_string(),
-                team_id: None,
-            });
-            return Ok(self);
-        }
-
-        // Look up role in database
-        let role = crate::entities::prelude::UserHackathonRoles::find()
-            .filter(crate::entities::user_hackathon_roles::Column::UserId.eq(self.user.0.id))
-            .filter(crate::entities::user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
+        let user_role = UserHackathonRoles::find()
+            .filter(user_hackathon_roles::Column::UserId.eq(self.user.id))
+            .filter(user_hackathon_roles::Column::HackathonId.eq(hackathon.id))
             .one(&self.state.db)
             .await
-            .to_server_error("Failed to fetch user role")?;
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch user role: {}", e)))?;
 
-        self.user_role = role;
+        self.user_role = user_role;
         Ok(self)
     }
 
-    /// Check if the current user is a global admin
-    pub fn is_global_admin(&self) -> bool {
-        self.state
-            .config
-            .admin_emails
-            .contains(&self.user.0.email.to_lowercase())
+    /// Get the user's team ID from their role, if they're in a team
+    ///
+    /// Returns `None` if the user role hasn't been loaded or if the user isn't in a team.
+    pub fn team_id(&self) -> Option<i32> {
+        self.user_role.as_ref().and_then(|role| role.team_id)
     }
 
-    /// Get the hackathon, or return an error if not set
-    pub fn require_hackathon(&self) -> Result<&HackathonEntity, ServerFnError> {
+    /// Get the hackathon, returning an error if not loaded
+    pub fn hackathon(&self) -> Result<&hackathons::Model, ServerFnError> {
         self.hackathon
             .as_ref()
-            .ok_or_server_error("Hackathon not set in context")
+            .ok_or_else(|| ServerFnError::new("Hackathon not loaded in context"))
     }
 
-    /// Get the user role, or return an error if not set
-    pub fn require_user_role(&self) -> Result<&UserHackathonRoleEntity, ServerFnError> {
+    /// Get the user role, returning an error if not loaded
+    pub fn user_role(&self) -> Result<&user_hackathon_roles::Model, ServerFnError> {
         self.user_role
             .as_ref()
-            .ok_or_server_error("User role not set in context")
+            .ok_or_else(|| ServerFnError::new("User role not loaded in context"))
+    }
+
+    /// Require that the user has a role (is registered for the hackathon)
+    ///
+    /// Returns an error if the user role hasn't been loaded or doesn't exist.
+    pub fn require_registered(&self) -> Result<&user_hackathon_roles::Model, ServerFnError> {
+        self.user_role()
     }
 }
