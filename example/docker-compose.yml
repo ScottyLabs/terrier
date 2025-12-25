@@ -1,0 +1,83 @@
+services:
+  postgres:
+    container_name: postgres
+    image: docker.io/library/postgres:17
+    networks:
+      - terrier-network
+    environment:
+      POSTGRES_DB: terrier
+      POSTGRES_USER: terrier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-terrier}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # remove in prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terrier"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    container_name: valkey
+    image: docker.io/valkey/valkey:8-alpine
+    networks:
+      - terrier-network
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "6379:6379" # remove in prod
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    container_name: minio
+    image: docker.io/minio/minio:latest
+    networks:
+      - terrier-network
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-terrier}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-terrieradmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  terrier:
+    container_name: terrier
+    image: ghcr.io/scottylabs/terrier-production:latest
+    networks:
+      - terrier-network
+    env_file:
+      - .env
+    ports:
+      - "${TERRIER_PORT:-3000}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+networks:
+  terrier-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: postgres_data
+  valkey_data:
+    name: valkey_data
+  minio_data:
+    name: minio_data

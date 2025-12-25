@@ -6,7 +6,6 @@
     "rust-analyzer.cargo.features": "all",
     "rust-analyzer.linkedProjects": [
         "migration/Cargo.toml",
-        "dioxus-forms/Cargo.toml",
         "Cargo.toml"
     ],
     "rust-analyzer.diagnostics.disabled": [
@@ -19,13 +18,17 @@
     "tailwindCSS.includeLanguages": {
         "rust": "html"
     },
-    // Prevent editing of SeaORM generated files
+    // Prevent editing of generated files
     "files.readonlyInclude": {
         "src/entities/*": true,
-        "assets/tailwind.css": true
+        "assets/tailwind.css": true,
+        ".pre-commit-config.yaml": true,
+        "*.lock": true,
     },
     "files.watcherExclude": {
         "src/entities/**": true,
-        "assets/tailwind.css": true
+        "assets/tailwind.css": true,
+        ".pre-commit-config.yaml": true,
+        "*.lock": true,
     }
 }

@@ -66,7 +66,6 @@ impl MigrationTrait for Migration {
 #[derive(DeriveIden)]
 enum Teams {
     Table,
-    Id,
     OwnerId,
 }
 

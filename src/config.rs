@@ -4,8 +4,7 @@ use std::error::Error;
 #[cfg(feature = "server")]
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub app_url: String,
-    pub api_url: String,
+    pub app_base_url: String,
     pub redis_url: String,
     pub database_url: String,
     pub minio_endpoint: String,
@@ -32,8 +31,7 @@ impl Config {
             .collect();
 
         Ok(Config {
-            app_url: dotenvy::var("APP_URL")?,
-            api_url: dotenvy::var("API_URL")?,
+            app_base_url: dotenvy::var("APP_BASE_URL")?,
             redis_url: dotenvy::var("REDIS_URL")?,
             database_url: dotenvy::var("DATABASE_URL")?,
             minio_endpoint: dotenvy::var("MINIO_ENDPOINT")?,
