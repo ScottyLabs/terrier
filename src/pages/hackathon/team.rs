@@ -34,9 +34,7 @@ pub fn HackathonTeam(slug: String) -> Element {
     // Check if user has submitted application
     let application_resource = use_resource(move || {
         let slug = slug_for_app_check.clone();
-        async move {
-            get_application(slug).await.ok()
-        }
+        async move { get_application(slug).await.ok() }
     });
 
     // If application is not submitted (status == "draft" or doesn't exist), redirect to apply page
@@ -161,14 +159,14 @@ pub fn HackathonTeam(slug: String) -> Element {
     let slug_for_leave = slug.clone();
 
     rsx! {
-        div { class: "flex flex-col gap-14 pt-[60px]",
+        div { class: "flex flex-col gap-8 md:gap-14 pt-6 md:pt-[60px] px-4 md:px-0",
 
             // My Team Section
             if has_team {
-                div { class: "flex flex-col gap-7",
+                div { class: "flex flex-col gap-4 md:gap-7",
                     // Header with Leave Team button outside
-                    div { class: "flex justify-between items-center",
-                        h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+                    div { class: "flex flex-col md:flex-row justify-between md:items-center gap-3",
+                        h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                             "My Team"
                         }
                         // Leave Team button
@@ -206,7 +204,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     }
 
                     // First card, team info with Edit button
-                    div { class: "bg-background-neutral-primary rounded-[20px] p-9 relative",
+                    div { class: "bg-background-neutral-primary rounded-[20px] p-6 md:p-9 relative",
                         if let Some(Some(team)) = &*my_team.read() {
                             div { class: "flex flex-col gap-12",
                                 // Team Name section
@@ -246,7 +244,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     }
 
                     // Second card, Members section
-                    div { class: "bg-background-neutral-primary rounded-[20px] p-9 relative",
+                    div { class: "bg-background-neutral-primary rounded-[20px] p-6 md:p-9 relative",
                         if let Some(Some(team)) = &*my_team.read() {
                             div { class: "flex flex-col gap-12",
                                 // Members heading section
@@ -352,9 +350,9 @@ pub fn HackathonTeam(slug: String) -> Element {
             }
 
             // All Teams Section
-            div { class: "flex flex-col gap-7",
-                div { class: "flex justify-between items-center",
-                    h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+            div { class: "flex flex-col gap-4 md:gap-7",
+                div { class: "flex flex-col md:flex-row justify-between md:items-center gap-3",
+                    h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                         "All Teams"
                     }
                     if !has_team {
@@ -369,7 +367,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                 }
 
                 div { class: "flex items-center gap-2",
-                    div { class: "w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
+                    div { class: "w-full md:w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
                         Icon {
                             width: 20,
                             height: 20,
@@ -389,7 +387,7 @@ pub fn HackathonTeam(slug: String) -> Element {
                     }
                 }
 
-                div { class: "bg-background-neutral-primary rounded-[20px] p-7",
+                div { class: "bg-background-neutral-primary rounded-[20px] p-4 md:p-7",
                     match &*all_teams.read() {
                         Some(Some(teams)) => {
                             let invitations = my_invitations.read();

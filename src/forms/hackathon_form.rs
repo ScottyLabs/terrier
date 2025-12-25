@@ -93,12 +93,13 @@ pub fn HackathonForm(
 
     rsx! {
         form {
+            class: "max-w-full",
             enctype: "multipart/form-data",
             onsubmit: move |evt| {
                 evt.prevent_default();
                 on_submit.call(evt);
             },
-            div { class: "flex flex-col gap-5",
+            div { class: "flex flex-col gap-5 max-w-full",
                 div { class: "flex flex-col gap-2",
                     Input {
                         label: "Hackathon Name".to_string(),
@@ -134,8 +135,8 @@ pub fn HackathonForm(
                     }
                 }
 
-                div { class: "flex gap-4",
-                    div { class: "flex flex-col gap-2 flex-1",
+                div { class: "flex flex-col md:flex-row gap-4",
+                    div { class: "flex flex-col gap-2 flex-1 min-w-0",
                         Input {
                             label: "Start Date & Time".to_string(),
                             placeholder: Some("Enter start date & time".to_string()),
@@ -155,7 +156,7 @@ pub fn HackathonForm(
                         }
                     }
 
-                    div { class: "flex flex-col gap-2 flex-1",
+                    div { class: "flex flex-col gap-2 flex-1 min-w-0",
                         Input {
                             label: "End Date & Time".to_string(),
                             placeholder: Some("Enter end date & time".to_string()),

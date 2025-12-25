@@ -38,7 +38,7 @@ pub fn HackathonLayout(slug: String) -> Element {
                 div {
                     class: format!(
                         "flex bg-cover bg-center bg-no-repeat {}",
-                        if *is_mobile.peek() { "flex-col" } else { "flex-row h-screen gap-9 p-7" },
+                        if *is_mobile.read() { "flex-col" } else { "flex-row h-screen gap-9 p-7" },
                     ),
                     style: if let Some(bg_url) = &hackathon.background_url { format!("background-image: url('{}')", bg_url) } else { String::new() },
                     Sidebar {
@@ -47,7 +47,7 @@ pub fn HackathonLayout(slug: String) -> Element {
                         role: role.cloned(),
                         application_refresh_trigger,
                     }
-                    main { class: format!("flex-1 overflow-y-auto"), Outlet::<Route> {} }
+                    main { class: "flex-1 p-2", Outlet::<Route> {} }
                 }
             }
         }

@@ -40,19 +40,20 @@ pub fn PersonCard(
     };
 
     rsx! {
-        div { class: "flex items-center py-3 border-b border-stroke-neutral-1 gap-4",
-            // Name
-            p { class: "text-base font-medium leading-6 text-foreground-neutral-primary flex-1 min-w-0",
-                "{name}"
-            }
-            // Status badge
-            div { class: "w-24 flex justify-center shrink-0",
-                span { class: "px-3 py-1 text-xs font-semibold leading-4 rounded-full {badge_bg} {badge_text}",
+        div { class: "flex flex-col py-3 border-b border-stroke-neutral-1 gap-3",
+            // Name and status row
+            div { class: "flex items-center justify-between gap-3",
+                // Name
+                p { class: "text-base font-medium leading-6 text-foreground-neutral-primary min-w-0 truncate",
+                    "{name}"
+                }
+                // Status badge
+                span { class: "px-3 py-1 text-xs font-semibold leading-4 rounded-full shrink-0 {badge_bg} {badge_text}",
                     "{status_text}"
                 }
             }
-            // Action buttons
-            div { class: "flex items-center gap-3 shrink-0",
+            // Action buttons - wrap on mobile
+            div { class: "flex flex-wrap items-center gap-2",
                 if let Some(handler) = on_view {
                     Button {
                         size: ButtonSize::Compact,

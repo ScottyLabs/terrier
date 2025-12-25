@@ -1,9 +1,8 @@
 use crate::{
     auth::{APPLY_ROLES, HackathonRole, hooks::use_require_access_or_redirect},
     components::{
-        ApplicationStatus, ApplicationStatusVariant, Button, CheckboxGroup,
-        FormSelectOption, Input, InputHeight, InputVariant, RadioGroup, SaveStatus,
-        SaveStatusIndicator, Select,
+        ApplicationStatus, ApplicationStatusVariant, Button, CheckboxGroup, FormSelectOption,
+        Input, InputHeight, InputVariant, RadioGroup, SaveStatus, SaveStatusIndicator, Select,
     },
     hackathons::HackathonInfo,
     schemas::FormSchema,
@@ -47,7 +46,7 @@ pub fn HackathonApply(slug: String) -> Element {
 
     rsx! {
         div { class: "h-full flex flex-col",
-            div { class: "flex-1 flex items-center justify-center",
+            div { class: "flex-1 pt-6 flex items-center justify-center",
                 if !hackathon.read().is_active {
                     div { class: "text-center py-12",
                         h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
@@ -90,7 +89,11 @@ pub fn HackathonApply(slug: String) -> Element {
                         }
                     } else if let Some(schema) = form_schema() {
                         // Draft or other status, show form
-                        ApplicationForm { schema, application_status, application_refresh_trigger }
+                        ApplicationForm {
+                            schema,
+                            application_status,
+                            application_refresh_trigger,
+                        }
                     } else {
                         div { class: "text-center py-12",
                             h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
@@ -103,7 +106,11 @@ pub fn HackathonApply(slug: String) -> Element {
                     }
                 } else if let Some(schema) = form_schema() {
                     // No application yet, show form
-                    ApplicationForm { schema, application_status, application_refresh_trigger }
+                    ApplicationForm {
+                        schema,
+                        application_status,
+                        application_refresh_trigger,
+                    }
                 } else {
                     div { class: "text-center py-12",
                         h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",
@@ -120,7 +127,11 @@ pub fn HackathonApply(slug: String) -> Element {
 }
 
 #[component]
-fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<String>>, application_refresh_trigger: Signal<u32>) -> Element {
+fn ApplicationForm(
+    schema: FormSchema,
+    application_status: Resource<Option<String>>,
+    application_refresh_trigger: Signal<u32>,
+) -> Element {
     let hackathon = use_context::<Signal<HackathonInfo>>();
     let _nav = navigator();
 
@@ -135,7 +146,11 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
 
     // If application submitted, let parent render ApplicationStatus
     if let Some(Some(status)) = application_status.read().as_ref() {
-        if status == "pending" || status == "accepted" || status == "rejected" || status == "confirmed" {
+        if status == "pending"
+            || status == "accepted"
+            || status == "rejected"
+            || status == "confirmed"
+        {
             return rsx! {
                 div { class: "flex items-center justify-center py-12",
                     p { class: "text-foreground-neutral-primary", "Loading..." }
@@ -270,9 +285,9 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
     });
 
     rsx! {
-        div { class: "flex flex-col gap-6 max-w-3xl",
-            div { class: "flex justify-between items-center pt-11 pb-7",
-                h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+        div { class: "flex flex-col gap-4 md:gap-6 w-full max-w-3xl md:px-0",
+            div { class: "flex flex-col md:flex-row justify-between md:items-center gap-2 pt-6 md:pt-11 pb-4 md:pb-7",
+                h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                     "Application"
                 }
                 SaveStatusIndicator { status: save_status(), last_saved: last_saved() }
@@ -284,13 +299,15 @@ fn ApplicationForm(schema: FormSchema, application_status: Resource<Option<Strin
                 }
             }
 
-            form { class: "flex flex-col gap-6", onsubmit: handle_submit,
+            form {
+                class: "flex flex-col gap-4 md:gap-6",
+                onsubmit: handle_submit,
                 for (section_name , fields) in sections().iter() {
-                    div { class: "bg-background-neutral-primary rounded-lg p-8",
-                        h2 { class: "text-xl font-semibold text-foreground-neutral-primary mb-6",
+                    div { class: "bg-background-neutral-primary rounded-lg p-4 md:p-8",
+                        h2 { class: "text-lg md:text-xl font-semibold text-foreground-neutral-primary mb-4 md:mb-6",
                             "{section_name}"
                         }
-                        div { class: "flex flex-col gap-6",
+                        div { class: "flex flex-col gap-4 md:gap-6",
                             for field in fields.iter() {
                                 FormFieldRenderer {
                                     field: field.clone(),
@@ -368,7 +385,10 @@ fn FormFieldRenderer(
             } else {
                 // For multi-select (comma-separated), check if any value is present
                 let parent_values: Vec<&str> = parent_value.split(',').collect();
-                condition.value.iter().any(|cv| parent_values.contains(&cv.as_str()))
+                condition
+                    .value
+                    .iter()
+                    .any(|cv| parent_values.contains(&cv.as_str()))
             }
         } else {
             false
@@ -381,429 +401,434 @@ fn FormFieldRenderer(
         if !should_show {
             div { style: "display: none;" }
         } else {
-        div { class: "flex flex-col gap-2",
-            match field_type.clone() {
-                FieldType::Text { placeholder, .. }
-                | FieldType::Email { placeholder, .. }
-                | FieldType::Tel { placeholder }
-                | FieldType::Url { placeholder } => {
-                    let input_type = match field_type {
-                        FieldType::Email { .. } => "email",
-                        FieldType::Tel { .. } => "tel",
-                        FieldType::Url { .. } => "url",
-                        _ => "text",
-                    };
-                    rsx! {
-                        Input {
-                            label: field_label,
-                            placeholder,
-                            value,
-                            variant: InputVariant::Primary,
-                            input_type: input_type.to_string(),
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            help_text: field_help_text.clone(),
-                            oninput: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
+            div { class: "flex flex-col gap-2",
+                match field_type.clone() {
+                    FieldType::Text { placeholder, .. }
+                    | FieldType::Email { placeholder, .. }
+                    | FieldType::Tel { placeholder }
+                    | FieldType::Url { placeholder } => {
+                        let input_type = match field_type {
+                            FieldType::Email { .. } => "email",
+                            FieldType::Tel { .. } => "tel",
+                            FieldType::Url { .. } => "url",
+                            _ => "text",
+                        };
+                        rsx! {
+                            Input {
+                                label: field_label,
+                                placeholder,
+                                value,
+                                variant: InputVariant::Primary,
+                                input_type: input_type.to_string(),
+                                name: Some(field_name),
+                                id: Some(field_id),
+                                required: field_required,
+                                help_text: field_help_text.clone(),
+                                oninput: move |evt: Event<FormData>| {
+                                    let new_value = evt.value();
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
                                     }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
                         }
                     }
-                }
-                FieldType::Number { placeholder, .. } => {
-                    rsx! {
-                        Input {
-                            label: field_label,
-                            placeholder,
-                            value,
-                            variant: InputVariant::Primary,
-                            input_type: "number".to_string(),
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            help_text: field_help_text.clone(),
-                            oninput: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
+                    FieldType::Number { placeholder, .. } => {
+                        rsx! {
+                            Input {
+                                label: field_label,
+                                placeholder,
+                                value,
+                                variant: InputVariant::Primary,
+                                input_type: "number".to_string(),
+                                name: Some(field_name),
+                                id: Some(field_id),
+                                required: field_required,
+                                help_text: field_help_text.clone(),
+                                oninput: move |evt: Event<FormData>| {
+                                    let new_value = evt.value();
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
                                     }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
                         }
                     }
-                }
-                FieldType::Textarea { placeholder } => {
-                    rsx! {
-                        Input {
-                            label: field_label,
-                            placeholder,
-                            value,
-                            height: InputHeight::Tall,
-                            variant: InputVariant::Primary,
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            help_text: field_help_text.clone(),
-                            oninput: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
+                    FieldType::Textarea { placeholder } => {
+                        rsx! {
+                            Input {
+                                label: field_label,
+                                placeholder,
+                                value,
+                                height: InputHeight::Tall,
+                                variant: InputVariant::Primary,
+                                name: Some(field_name),
+                                id: Some(field_id),
+                                required: field_required,
+                                help_text: field_help_text.clone(),
+                                oninput: move |evt: Event<FormData>| {
+                                    let new_value = evt.value();
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
                                     }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
                         }
                     }
-                }
-                FieldType::Select { options, placeholder } => {
-                    let select_options = options
-                        .into_iter()
-                        .map(|o| FormSelectOption {
-                            label: o.label,
-                            value: o.value,
-                        })
-                        .collect();
-                    rsx! {
-                        Select {
-                            label: field_label,
-                            options: select_options,
-                            value,
-                            placeholder,
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            onchange: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
+                    FieldType::Select { options, placeholder } => {
+                        let select_options = options
+                            .into_iter()
+                            .map(|o| FormSelectOption {
+                                label: o.label,
+                                value: o.value,
+                            })
+                            .collect();
+                        rsx! {
+                            Select {
+                                label: field_label,
+                                options: select_options,
+                                value,
+                                placeholder,
+                                name: Some(field_name),
+                                id: Some(field_id),
+                                required: field_required,
+                                onchange: move |evt: Event<FormData>| {
+                                    let new_value = evt.value();
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
                                     }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
                         }
                     }
-                }
-                FieldType::Radio { options } => {
-                    let radio_options = options
-                        .into_iter()
-                        .map(|o| FormSelectOption {
-                            label: o.label,
-                            value: o.value,
-                        })
-                        .collect();
-                    rsx! {
-                        RadioGroup {
-                            label: field_label,
-                            options: radio_options,
-                            value,
-                            name: Some(field_name),
-                            required: field_required,
-                            onchange: move |new_value: String| {
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
+                    FieldType::Radio { options } => {
+                        let radio_options = options
+                            .into_iter()
+                            .map(|o| FormSelectOption {
+                                label: o.label,
+                                value: o.value,
+                            })
+                            .collect();
+                        rsx! {
+                            RadioGroup {
+                                label: field_label,
+                                options: radio_options,
+                                value,
+                                name: Some(field_name),
+                                required: field_required,
+                                onchange: move |new_value: String| {
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
                                     }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
                         }
                     }
-                }
-                FieldType::Checkbox { option } => {
-                    rsx! {
-                        div { class: "flex flex-col gap-2",
+                    FieldType::Checkbox { option } => {
+                        rsx! {
+                            div { class: "flex flex-col gap-2",
+
+            
+            
+            
+
+                                label { class: "text-base font-medium text-foreground-neutral-primary mb-2",
+                                    "{field_label}"
+                                    if field_required {
+                                        span { class: "text-status-danger-foreground ml-1", "*" }
+                                    }
+                                }
+                                label { class: "flex items-center gap-2 cursor-pointer",
+                                    input {
+                                        id: field_id,
+                                        name: field_name,
+                                        r#type: "checkbox",
+                                        required: field_required,
+                                        checked: value() == "true",
+                                        onchange: move |evt| {
+                                            let new_value = if evt.checked() {
+                                                "true".to_string()
+                                            } else {
+                                                "false".to_string()
+                                            };
+                                            value.set(new_value.clone());
+                                            {
+                                                let mut values = form_values.write();
+                                                if !new_value.is_empty() && new_value != "false" {
+                                                    values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                                } else {
+                                                    values.remove(&field_name_for_handlers);
+                                                }
+                                            }
+                                            let current = *autosave_trigger.peek();
+                                            autosave_trigger.set(current + 1);
+                                        },
+                                    }
+                                    span { class: "text-base font-normal text-foreground-neutral-primary", "{option.label}" }
+                                }
+                            }
+                        }
+                    }
+                    FieldType::CheckboxGroup { options } => {
+                        let checkbox_options = options
+                            .into_iter()
+                            .map(|o| FormSelectOption {
+                                label: o.label,
+                                value: o.value,
+                            })
+                            .collect();
+                        rsx! {
+                            CheckboxGroup {
+                                label: field_label,
+                                options: checkbox_options,
+                                value,
+                                name: Some(field_name),
+                                required: field_required,
+                                onchange: move |new_value: String| {
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
+                                    }
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
+                        }
+                    }
+                    FieldType::Date => {
+                        rsx! {
+                            Input {
+                                label: field_label,
+                                placeholder: None,
+                                value,
+                                variant: InputVariant::Primary,
+                                input_type: "date".to_string(),
+                                name: Some(field_name),
+                                id: Some(field_id),
+                                required: field_required,
+                                help_text: field_help_text.clone(),
+                                oninput: move |evt: Event<FormData>| {
+                                    let new_value = evt.value();
+                                    {
+                                        let mut values = form_values.write();
+                                        if !new_value.is_empty() {
+                                            values.insert(field_name_for_handlers.clone(), new_value.clone());
+                                        } else {
+                                            values.remove(&field_name_for_handlers);
+                                        }
+                                    }
+                                    let current = *autosave_trigger.peek();
+                                    autosave_trigger.set(current + 1);
+                                },
+                            }
+                        }
+                    }
+                    FieldType::File { validation, .. } => {
+                        let field_id = field_id.to_string();
+                        let field_name_for_file = field_name.clone();
+                        let field_name_for_input = field_name_for_file.clone();
+                        let field_name_for_delete = field_name_for_file.clone();
+                        let field_name_for_upload_handler = field_name_for_handlers.clone();
+                        let field_name_for_delete_handler = field_name_for_handlers.clone();
+                        let hackathon_slug = hackathon_slug.clone();
+                        let hackathon_slug_for_delete = hackathon_slug.clone();
+                        let accept_attr = validation.as_ref().and_then(|v| v.accept.clone());
+                        let mut is_uploading = use_signal(|| false);
+                        let mut is_deleting = use_signal(|| false);
+                        let mut upload_error = use_signal(|| None::<String>);
+                        let mut selected_file = use_signal(|| None::<String>);
+                        rsx! {
                             label {
-                                class: "text-base font-medium text-foreground-neutral-primary mb-2",
+                                class: "text-base font-medium text-foreground-neutral-primary",
+                                r#for: "{field_id}",
                                 "{field_label}"
                                 if field_required {
                                     span { class: "text-status-danger-foreground ml-1", "*" }
                                 }
                             }
-                            label { class: "flex items-center gap-2 cursor-pointer",
+                            div { class: "flex flex-col gap-2",
                                 input {
-                                    id: field_id,
-                                    name: field_name,
-                                    r#type: "checkbox",
-                                    required: field_required,
-                                    checked: value() == "true",
+                                    id: "{field_id}",
+                                    name: "{field_name_for_input}",
+                                    r#type: "file",
+                                    class: "hidden",
+                                    accept: accept_attr,
+                                    required: field_required && value().is_empty(),
+                                    disabled: is_uploading() || is_deleting(),
                                     onchange: move |evt| {
-                                        let new_value = if evt.checked() { "true".to_string() } else { "false".to_string() };
-                                        value.set(new_value.clone());
-                                        {
-                                            let mut values = form_values.write();
-                                            if !new_value.is_empty() && new_value != "false" {
-                                                values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                            } else {
-                                                values.remove(&field_name_for_handlers);
+                                        let files = evt.files();
+                                        let field_name = field_name.clone();
+                                        let field_name_for_values = field_name_for_upload_handler.clone();
+                                        let slug = hackathon_slug.clone();
+                                        spawn(async move {
+                                            is_uploading.set(true);
+                                            upload_error.set(None);
+                                            if let Some(file_info) = files.first() {
+                                                let file_name = file_info.name();
+                                                selected_file.set(Some(file_name.clone()));
+                                                match file_info.read_bytes().await {
+                                                    Ok(file_contents) => {
+                                                        match crate::hackathons::handlers::file_upload::upload_application_file(
+                                                                slug,
+                                                                field_name.clone(),
+                                                                file_contents.to_vec(),
+                                                                file_name,
+                                                            )
+                                                            .await
+                                                        {
+                                                            Ok(response) => {
+                                                                let new_value = response.url;
+                                                                value.set(new_value.clone());
+                                                                form_values
+                                                                    .write()
+                                                                    .insert(field_name_for_values.clone(), new_value);
+                                                                autosave_trigger.set(autosave_trigger() + 1);
+                                                            }
+                                                            Err(e) => {
+                                                                upload_error.set(Some(format!("Upload failed: {}", e)));
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => {
+                                                        upload_error.set(Some(format!("Failed to read file: {}", e)));
+                                                    }
+                                                }
                                             }
-                                        }
-                                        let current = *autosave_trigger.peek();
-                                        autosave_trigger.set(current + 1);
+                                            is_uploading.set(false);
+                                        });
                                     },
                                 }
-                                span {
-                                    class: "text-base font-normal text-foreground-neutral-primary",
-                                    "{option.label}"
-                                }
-                            }
-                        }
-                    }
-                }
-                FieldType::CheckboxGroup { options } => {
-                    let checkbox_options = options
-                        .into_iter()
-                        .map(|o| FormSelectOption {
-                            label: o.label,
-                            value: o.value,
-                        })
-                        .collect();
-                    rsx! {
-                        CheckboxGroup {
-                            label: field_label,
-                            options: checkbox_options,
-                            value,
-                            name: Some(field_name),
-                            required: field_required,
-                            onchange: move |new_value: String| {
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
-                                    }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
-                        }
-                    }
-                }
-                FieldType::Date => {
-                    rsx! {
-                        Input {
-                            label: field_label,
-                            placeholder: None,
-                            value,
-                            variant: InputVariant::Primary,
-                            input_type: "date".to_string(),
-                            name: Some(field_name),
-                            id: Some(field_id),
-                            required: field_required,
-                            help_text: field_help_text.clone(),
-                            oninput: move |evt: Event<FormData>| {
-                                let new_value = evt.value();
-                                {
-                                    let mut values = form_values.write();
-                                    if !new_value.is_empty() {
-                                        values.insert(field_name_for_handlers.clone(), new_value.clone());
-                                    } else {
-                                        values.remove(&field_name_for_handlers);
-                                    }
-                                }
-                                let current = *autosave_trigger.peek();
-                                autosave_trigger.set(current + 1);
-                            },
-                        }
-                    }
-                }
-                FieldType::File { validation, .. } => {
-                    let field_id = field_id.to_string();
-                    let field_name_for_file = field_name.clone();
-                    let field_name_for_input = field_name_for_file.clone();
-                    let field_name_for_delete = field_name_for_file.clone();
-                    let field_name_for_upload_handler = field_name_for_handlers.clone();
-                    let field_name_for_delete_handler = field_name_for_handlers.clone();
-                    let hackathon_slug = hackathon_slug.clone();
-                    let hackathon_slug_for_delete = hackathon_slug.clone();
-                    let accept_attr = validation.as_ref().and_then(|v| v.accept.clone());
-                    let mut is_uploading = use_signal(|| false);
-                    let mut is_deleting = use_signal(|| false);
-                    let mut upload_error = use_signal(|| None::<String>);
-                    let mut selected_file = use_signal(|| None::<String>);
-                    rsx! {
-                        label {
-                            class: "text-base font-medium text-foreground-neutral-primary",
-                            r#for: "{field_id}",
-                            "{field_label}"
-                            if field_required {
-                                span { class: "text-status-danger-foreground ml-1", "*" }
-                            }
-                        }
-                        div { class: "flex flex-col gap-2",
-                            input {
-                                id: "{field_id}",
-                                name: "{field_name_for_input}",
-                                r#type: "file",
-                                class: "hidden",
-                                accept: accept_attr,
-                                required: field_required && value().is_empty(),
-                                disabled: is_uploading() || is_deleting(),
-                                onchange: move |evt| {
-                                    let files = evt.files();
-                                    let field_name = field_name.clone();
-                                    let field_name_for_values = field_name_for_upload_handler.clone();
-                                    let slug = hackathon_slug.clone();
-                                    spawn(async move {
-                                        is_uploading.set(true);
-                                        upload_error.set(None);
-                                        if let Some(file_info) = files.first() {
-                                            let file_name = file_info.name();
-                                            selected_file.set(Some(file_name.clone()));
-                                            match file_info.read_bytes().await {
-                                                Ok(file_contents) => {
-                                                    match crate::hackathons::handlers::file_upload::upload_application_file(
+            
+                                if !value().is_empty() && !is_uploading() {
+                                    div { class: "flex items-center gap-3 p-4 bg-background-brandNeutral-secondary rounded-lg",
+                                        Icon {
+                                            width: 32,
+                                            height: 32,
+                                            icon: LdFile,
+                                            class: "text-foreground-neutral-secondary shrink-0",
+                                        }
+                                        div { class: "flex-1 min-w-0",
+                                            p { class: "text-sm font-medium text-foreground-neutral-primary truncate",
+                                                if let Some(file) = selected_file() {
+                                                    "{file}"
+                                                } else {
+                                                    "Uploaded file"
+                                                }
+                                            }
+                                            div { class: "flex items-center gap-1",
+                                                Icon {
+                                                    width: 12,
+                                                    height: 12,
+                                                    icon: LdCheck,
+                                                    class: "text-status-success-foreground",
+                                                }
+                                                p { class: "text-xs text-status-success-foreground", "Uploaded" }
+                                            }
+                                        }
+                                        button {
+                                            r#type: "button",
+                                            class: "p-2 hover:bg-background-neutral-tertiary rounded-md transition-colors",
+                                            disabled: is_deleting(),
+                                            onclick: move |_| {
+                                                let field_name = field_name_for_delete.clone();
+                                                let field_name_for_values = field_name_for_delete_handler.clone();
+                                                let slug = hackathon_slug_for_delete.clone();
+                                                spawn(async move {
+                                                    is_deleting.set(true);
+                                                    upload_error.set(None);
+                                                    match crate::hackathons::handlers::file_upload::delete_application_file(
                                                             slug,
                                                             field_name.clone(),
-                                                            file_contents.to_vec(),
-                                                            file_name,
                                                         )
                                                         .await
                                                     {
-                                                        Ok(response) => {
-                                                            let new_value = response.url;
-                                                            value.set(new_value.clone());
-                                                            form_values
-                                                                .write()
-                                                                .insert(field_name_for_values.clone(), new_value);
+                                                        Ok(_) => {
+                                                            value.set(String::new());
+                                                            form_values.write().remove(&field_name_for_values);
+                                                            selected_file.set(None);
                                                             autosave_trigger.set(autosave_trigger() + 1);
                                                         }
                                                         Err(e) => {
-                                                            upload_error.set(Some(format!("Upload failed: {}", e)));
+                                                            upload_error.set(Some(format!("Delete failed: {}", e)));
                                                         }
                                                     }
-                                                }
-                                                Err(e) => {
-                                                    upload_error.set(Some(format!("Failed to read file: {}", e)));
-                                                }
-                                            }
-                                        }
-                                        is_uploading.set(false);
-                                    });
-                                },
-                            }
-
-                            if !value().is_empty() && !is_uploading() {
-                                div { class: "flex items-center gap-3 p-4 bg-background-brandNeutral-secondary rounded-lg",
-                                    Icon {
-                                        width: 32,
-                                        height: 32,
-                                        icon: LdFile,
-                                        class: "text-foreground-neutral-secondary shrink-0",
-                                    }
-                                    div { class: "flex-1 min-w-0",
-                                        p { class: "text-sm font-medium text-foreground-neutral-primary truncate",
-                                            if let Some(file) = selected_file() {
-                                                "{file}"
-                                            } else {
-                                                "Uploaded file"
-                                            }
-                                        }
-                                        div { class: "flex items-center gap-1",
+                                                    is_deleting.set(false);
+                                                });
+                                            },
                                             Icon {
-                                                width: 12,
-                                                height: 12,
-                                                icon: LdCheck,
-                                                class: "text-status-success-foreground",
+                                                width: 20,
+                                                height: 20,
+                                                icon: LdX,
+                                                class: "text-status-danger-foreground",
                                             }
-                                            p { class: "text-xs text-status-success-foreground", "Uploaded" }
-                                        }
-                                    }
-                                    button {
-                                        r#type: "button",
-                                        class: "p-2 hover:bg-background-neutral-tertiary rounded-md transition-colors",
-                                        disabled: is_deleting(),
-                                        onclick: move |_| {
-                                            let field_name = field_name_for_delete.clone();
-                                            let field_name_for_values = field_name_for_delete_handler.clone();
-                                            let slug = hackathon_slug_for_delete.clone();
-                                            spawn(async move {
-                                                is_deleting.set(true);
-                                                upload_error.set(None);
-                                                match crate::hackathons::handlers::file_upload::delete_application_file(
-                                                        slug,
-                                                        field_name.clone(),
-                                                    )
-                                                    .await
-                                                {
-                                                    Ok(_) => {
-                                                        value.set(String::new());
-                                                        form_values.write().remove(&field_name_for_values);
-                                                        selected_file.set(None);
-                                                        autosave_trigger.set(autosave_trigger() + 1);
-                                                    }
-                                                    Err(e) => {
-                                                        upload_error.set(Some(format!("Delete failed: {}", e)));
-                                                    }
-                                                }
-                                                is_deleting.set(false);
-                                            });
-                                        },
-                                        Icon {
-                                            width: 20,
-                                            height: 20,
-                                            icon: LdX,
-                                            class: "text-status-danger-foreground",
                                         }
                                     }
                                 }
-                            }
-
-                            label {
-                                r#for: "{field_id}",
-                                class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
-                                Icon { width: 20, height: 20, icon: LdFileText }
-                                if !value().is_empty() && !is_uploading() {
-                                    "Change file"
-                                } else {
-                                    "Choose file"
+            
+                                label {
+                                    r#for: "{field_id}",
+                                    class: "flex items-center justify-center gap-2 h-12 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                    Icon { width: 20, height: 20, icon: LdFileText }
+                                    if !value().is_empty() && !is_uploading() {
+                                        "Change file"
+                                    } else {
+                                        "Choose file"
+                                    }
                                 }
-                            }
-
-                            if is_uploading() {
-                                p { class: "text-sm text-foreground-neutral-secondary", "Uploading..." }
-                            }
-                            if is_deleting() {
-                                p { class: "text-sm text-foreground-neutral-secondary", "Deleting..." }
-                            }
-                            if let Some(error) = upload_error() {
-                                p { class: "text-sm text-status-danger-foreground", "{error}" }
+            
+                                if is_uploading() {
+                                    p { class: "text-sm text-foreground-neutral-secondary", "Uploading..." }
+                                }
+                                if is_deleting() {
+                                    p { class: "text-sm text-foreground-neutral-secondary", "Deleting..." }
+                                }
+                                if let Some(error) = upload_error() {
+                                    p { class: "text-sm text-status-danger-foreground", "{error}" }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
         }
     }
 }

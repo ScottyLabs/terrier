@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::components::{Button, ButtonVariant};
+use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ApplicationStatusVariant {
@@ -26,22 +26,22 @@ pub fn ApplicationStatus(
     match variant {
         ApplicationStatusVariant::Submitted => {
             rsx! {
-                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-9 w-full max-w-[498px]",
-                    div { class: "flex flex-col gap-6 mb-9",
-                        p { class: "text-[18px] font-medium leading-[26px] text-center w-full",
+                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-6 md:p-9 w-full max-w-[498px] mx-4 md:mx-0",
+                    div { class: "flex flex-col gap-4 md:gap-6 mb-6 md:mb-9",
+                        p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
                         div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
-                            p { class: "text-[24px] font-medium leading-8 text-black",
+                            p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "SUBMITTED"
                             }
                         }
                     }
-                    p { class: "text-[14px] font-normal leading-5 text-black mb-9",
+                    p { class: "text-sm md:text-[14px] font-normal leading-5 text-black mb-6 md:mb-9",
                         "Thank you for submitting your application! We'll review it and get back to you soon."
                     }
 
-                    div { class: "flex gap-3 w-full",
+                    div { class: "flex flex-col md:flex-row gap-3 w-full",
                         Button {
                             variant: ButtonVariant::Tertiary,
                             class: "flex-1",
@@ -88,22 +88,22 @@ pub fn ApplicationStatus(
         }
         ApplicationStatusVariant::Accepted => {
             rsx! {
-                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-9 w-full max-w-[498px]",
-                    div { class: "flex flex-col gap-6 mb-9",
-                        p { class: "text-[18px] font-medium leading-[26px] text-center w-full",
+                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-6 md:p-9 w-full max-w-[498px] mx-4 md:mx-0",
+                    div { class: "flex flex-col gap-4 md:gap-6 mb-6 md:mb-9",
+                        p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
                         div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
-                            p { class: "text-[24px] font-medium leading-8 text-black",
+                            p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "ADMITTED"
                             }
                         }
                     }
-                    p { class: "text-[14px] font-normal leading-5 text-black mb-9",
+                    p { class: "text-sm md:text-[14px] font-normal leading-5 text-black mb-6 md:mb-9",
                         "Congratulations! You've been accepted. Please confirm your attendance below to see the dashboard."
                     }
 
-                    div { class: "flex gap-3 w-full",
+                    div { class: "flex flex-col md:flex-row gap-3 w-full",
                         Button {
                             variant: ButtonVariant::Tertiary,
                             class: "flex-1",
@@ -184,22 +184,22 @@ pub fn ApplicationStatus(
         }
         ApplicationStatusVariant::Confirmed => {
             rsx! {
-                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-9 w-full max-w-[498px]",
-                    div { class: "flex flex-col gap-6 mb-9",
-                        p { class: "text-[18px] font-medium leading-[26px] text-center w-full",
+                div { class: "bg-background-neutral-primary rounded-[20px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.25)] p-6 md:p-9 w-full max-w-[498px] mx-4 md:mx-0",
+                    div { class: "flex flex-col gap-4 md:gap-6 mb-6 md:mb-9",
+                        p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
                         div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
-                            p { class: "text-[24px] font-medium leading-8 text-black",
+                            p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "CONFIRMED"
                             }
                         }
                     }
-                    p { class: "text-[14px] font-normal leading-5 text-black mb-9",
+                    p { class: "text-sm md:text-[14px] font-normal leading-5 text-black mb-6 md:mb-9",
                         "You're all set! You can now access the dashboard and start forming or joining a team."
                     }
 
-                    div { class: "flex gap-3 w-full",
+                    div { class: "flex flex-col md:flex-row gap-3 w-full",
                         Button {
                             variant: ButtonVariant::Tertiary,
                             class: "flex-1",
