@@ -10,8 +10,6 @@ mod entities;
 mod server;
 mod ui;
 
-use std::thread::Scope;
-
 #[cfg(feature = "server")]
 use config::Config;
 use dioxus::prelude::*;

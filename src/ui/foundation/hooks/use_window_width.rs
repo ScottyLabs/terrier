@@ -24,7 +24,6 @@ pub fn use_window_width() -> Signal<f64> {
             // Initial set
             width.set(get_width());
 
-            let window = web_sys::window().unwrap();
             let l = gloo_events::EventListener::new(&window, "resize", move |_| {
                 if let Some(w) = web_sys::window() {
                     if let Ok(v) = w.inner_width() {
