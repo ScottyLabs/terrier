@@ -133,10 +133,10 @@ pub fn HackathonPeople(slug: String) -> Element {
             }
 
             div { class: "flex flex-col gap-7 flex-1 min-h-0",
-                div { class: "flex items-center justify-between",
+                div { class: "flex items-center justify-between max-w-full flex-col gap-7 md:gap-0 md:flex-row",
                     div { class: "flex items-center gap-2",
                         // Search bar
-                        div { class: "w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
+                        div { class: "flex-1 h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
                             Icon {
                                 width: 20,
                                 height: 20,
@@ -156,7 +156,7 @@ pub fn HackathonPeople(slug: String) -> Element {
                         if show_filter {
                             div { class: "relative",
                                 button {
-                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full px-4 py-[9px] flex gap-2 items-center cursor-pointer",
+                                    class: "flex-3 bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full px-4 py-[9px] flex gap-2 items-center cursor-pointer",
                                     onclick: move |_| filter_open.set(!filter_open()),
                                     "Filter"
                                     Icon {

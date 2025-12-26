@@ -126,8 +126,8 @@ pub fn HackathonSettings(slug: String) -> Element {
 
     rsx! {
         div {
-            div { class: "flex justify-between items-center pt-11 pb-7",
-                h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+            div { class: "flex flex-col md:flex-row justify-between md:items-center gap-3 pt-6 md:pt-11 pb-4 md:pb-7",
+                h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                     "Settings"
                 }
                 SaveStatusIndicator {
@@ -137,7 +137,7 @@ pub fn HackathonSettings(slug: String) -> Element {
             }
 
             // Tab switcher
-            div { class: "mb-6",
+            div { class: "mb-4 md:mb-6",
                 TabSwitcher { active_tab, tabs }
             }
 
@@ -320,7 +320,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     });
                                 },
-                                // Hidden fields for name, description, banner
                                 input {
                                     r#type: "hidden",
                                     name: "name",
@@ -388,7 +387,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                         let mut status = save_status;
                         rsx! {
                             div { class: "flex flex-col gap-6",
-                                // Registration Status Toggle
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Registration Status" }
                                     p { class: "text-foreground-neutral-secondary",
@@ -431,7 +429,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     }
                                 }
-                                // Preset Selector
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Application Form" }
                                     div { class: "flex flex-col gap-2",
