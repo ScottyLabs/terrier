@@ -10,15 +10,17 @@ mod entities;
 mod server;
 mod ui;
 
-use dioxus::prelude::*;
-use ui::pages::*;
+use std::thread::Scope;
 
 #[cfg(feature = "server")]
 use config::Config;
+use dioxus::prelude::*;
 #[cfg(feature = "server")]
 use dioxus_fullstack::FullstackContext;
 #[cfg(feature = "server")]
 use dioxus_fullstack::extract::FromRef;
+use ui::foundation::hooks::use_window_width;
+use ui::pages::*;
 
 #[cfg(feature = "server")]
 #[derive(Clone)]
@@ -126,33 +128,12 @@ fn App() -> Element {
 
     // Update is_mobile on client-side after hydration
     #[cfg(target_arch = "wasm32")]
-    use_effect(move || {
-        use wasm_bindgen::{JsCast, closure::Closure};
-
-        let check_mobile = || {
-            web_sys::window()
-                .and_then(|w| w.inner_width().ok())
-                .and_then(|w| w.as_f64())
-                .map(|w| w < 768.0)
-                .unwrap_or(false)
-        };
-
-        // Set initial value
-        is_mobile.set(check_mobile());
-
-        // Set up resize listener
-        if let Some(window) = web_sys::window() {
-            let closure = Closure::<dyn FnMut()>::new(move || {
-                is_mobile.set(check_mobile());
-            });
-
-            let _ =
-                window.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
-
-            // Keep closure alive - it will be dropped when component unmounts
-            closure.forget();
-        }
-    });
+    {
+        let width = use_window_width();
+        use_effect(move || {
+            is_mobile.set(*width.read() < 768.0);
+        });
+    }
 
     rsx! {
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }

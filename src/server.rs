@@ -37,8 +37,7 @@ pub async fn setup() {
         .init();
 
     // Load configuration
-    let config_2 = Config::from_env();
-    let config = config_2.expect("Failed to load configuration");
+    let config = Config::from_env().expect("Failed to load configuration");
     tracing::info!("Configuration loaded successfully");
 
     // Set up database connection
