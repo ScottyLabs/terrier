@@ -12,69 +12,49 @@ MINIO_BUCKET := env_var("MINIO_BUCKET")
 help:
     @just --list
 
-# Start postgres database
-db:
-    docker-compose up -d postgres
-
-# Start valkey
-valkey:
-    docker-compose up -d valkey
-
-# Start minio
-minio:
-    docker-compose up -d minio
-
-# Wait for postgres to be ready
-wait-for-db:
-    @echo "Waiting for postgres to be ready..."
-    @until docker-compose exec -T postgres pg_isready -U terrier -d terrier > /dev/null 2>&1; do sleep 1; done
-    @echo "Postgres is ready"
-
-# Wait for valkey to be ready
-wait-for-valkey:
-    @echo "Waiting for valkey to be ready..."
-    @until docker-compose exec -T valkey valkey-cli ping > /dev/null 2>&1; do sleep 1; done
-    @echo "Valkey is ready"
-
-# Wait for minio to be ready
-wait-for-minio:
-    @echo "Waiting for minio to be ready..."
-    @until curl -s http://localhost:9000/minio/health/live > /dev/null 2>&1; do sleep 1; done
-    @echo "MinIO is ready"
-
-# Stop all services
-down:
-    docker-compose down
-
 # Create new migration
 new-migration NAME:
     sea-orm-cli migrate generate {{NAME}} --migration-dir ./migration
 
 # Run database migrations
-migrate: db wait-for-db
+migrate:
+    devenv up -d postgres
     sea-orm-cli migrate up --migration-dir ./migration -u {{DATABASE_URL}}
 
 # Fresh database (drop all tables and reapply migrations)
-fresh: db wait-for-db minio wait-for-minio
+fresh:
+    devenv up -d postgres minio
     @echo "Clearing MinIO bucket..."
-    @docker-compose exec -T minio sh -c "mc alias set local http://localhost:9000 {{MINIO_ROOT_USER}} {{MINIO_ROOT_PASSWORD}} && mc rm --recursive --force local/{{MINIO_BUCKET}}/" || true
+    mc alias set local http://localhost:9000 {{MINIO_ROOT_USER}} {{MINIO_ROOT_PASSWORD}} 2>/dev/null || true
+    mc rm --recursive --force local/{{MINIO_BUCKET}}/ 2>/dev/null || true
     sea-orm-cli migrate fresh --migration-dir ./migration -u {{DATABASE_URL}}
 
 # Check migration status
-status: db wait-for-db
+status:
+    devenv up -d postgres
     sea-orm-cli migrate status --migration-dir ./migration -u {{DATABASE_URL}}
 
 # Generate entities from database
-generate-entities: migrate
+generate-entities:
+    devenv up -d postgres
     sea-orm-cli generate entity -o ./src/entities --with-serde both --model-extra-derives "utoipa::ToSchema" -u {{DATABASE_URL}}
 
-# Remove all containers, volumes, and images
-clean:
-    docker-compose down -v --rmi all
-
-# Initialize database: start, wait, migrate, and generate entities
-init: db wait-for-db migrate generate-entities
+# Start database, run migrations, and generate entities
+init: migrate generate-entities
 
 # Start development server
-dev: db wait-for-db valkey wait-for-valkey minio wait-for-minio
+dev:
+    process-compose up -D postgres redis minio
     dx serve --platform web
+
+# Attach to development server
+attach:
+    process-compose attach
+
+# Stop development server
+down:
+    process-compose down
+
+# Clean devenv state (removes all service data)
+clean: down
+    rm -rf .devenv/state

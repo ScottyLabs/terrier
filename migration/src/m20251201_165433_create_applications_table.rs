@@ -23,16 +23,8 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(Applications::UserId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Applications::FormData)
-                            .json()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Applications::UserId).integer().not_null())
+                    .col(ColumnDef::new(Applications::FormData).json().not_null())
                     .col(
                         ColumnDef::new(Applications::Status)
                             .string()

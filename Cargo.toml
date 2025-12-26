@@ -10,7 +10,7 @@ edition = "2024"
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
-dioxus-forms = { path = "dioxus-forms" }
+dioxus-forms = "0.1.0"
 dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }
 dioxus-logger = "0.7.1"
 dotenvy = "0.15.7"
@@ -20,7 +20,8 @@ wasm-bindgen = "0.2"
 
 # Server-only dependencies
 axum = { version = "0.8.7", features = ["macros"], optional = true }
-axum-oidc = { git = "https://github.com/pfzetto/axum-oidc", branch = "master", optional = true }
+axum-oidc = { version = "=1.0.0-dev-0", optional = true }
+fred = { version = "10.1.0", features = ["unix-sockets"], optional = true }
 http = { version = "1.3", optional = true }
 minio = { version = "0.1.0", optional = true }
 openidconnect = { version = "4.0", optional = true }
@@ -44,7 +45,10 @@ utoipa = { version = "5.4.0", features = [
     "chrono",
 ], optional = true }
 utoipa-axum = { version = "0.2.0", optional = true }
-utoipa-swagger-ui = { version = "9.0.2", features = ["axum"], optional = true }
+utoipa-swagger-ui = { version = "9.0.2", features = [
+    "axum",
+    "vendored",
+], optional = true }
 migration = { path = "migration", optional = true }
 gloo-timers = { version = "0.3.0", features = ["futures"] }
 web-sys = { version = "0.3.83", features = ["Window", "console"] }
@@ -67,6 +71,7 @@ server = [
     "dep:tower-http",
     "dep:tower-sessions",
     "dep:tower-sessions-redis-store",
+    "dep:fred",
     "dep:tracing",
     "dep:tracing-subscriber",
     "dep:utoipa",

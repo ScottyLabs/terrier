@@ -1,4 +1,6 @@
-use axum::{Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get};
+use axum::{
+    Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get,
+};
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
     handle_oidc_redirect,
@@ -6,7 +8,7 @@ use axum_oidc::{
 use dioxus::prelude::{DioxusRouterExt, ServeConfig};
 use http::Uri;
 use migration::{Migrator, MigratorTrait};
-use openidconnect::{ClientId, ClientSecret};
+use openidconnect::{ClientId, ClientSecret, IssuerUrl, Scope};
 use sea_orm::Database;
 use tower::ServiceBuilder;
 use tower_sessions::{
@@ -21,7 +23,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{App, AppState, auth, config::Config, docs::ApiDoc};
+use crate::{App, AppState, config::Config, docs::ApiDoc};
 
 pub async fn setup() {
     // Initialize tracing
@@ -35,7 +37,8 @@ pub async fn setup() {
         .init();
 
     // Load configuration
-    let config = Config::from_env().expect("Failed to load configuration");
+    let config_2 = Config::from_env();
+    let config = config_2.expect("Failed to load configuration");
     tracing::info!("Configuration loaded successfully");
 
     // Set up database connection
@@ -144,18 +147,25 @@ pub async fn setup() {
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    // OIDC client
-    let redirect_url = format!("{}/auth/callback", app_state.config.api_url);
+    // Initialize OIDC client
+    let scopes = vec![
+        Scope::new("openid".into()),
+        Scope::new("email".into()),
+        Scope::new("profile".into()),
+    ];
+
+    let issuer_url = IssuerUrl::new(app_state.config.oidc_issuer.clone()).expect("valid IssuerUrl");
+    let redirect_url = format!("{}/auth/callback", app_state.config.app_base_url);
 
     let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
         .with_default_http_client()
-        .with_redirect_url(Uri::try_from(redirect_url).expect("valid API_URL"))
+        .with_redirect_url(Uri::try_from(redirect_url).expect("valid APP_BASE_URL"))
         .with_client_id(ClientId::new(app_state.config.oidc_client_id.clone()))
         .with_client_secret(ClientSecret::new(
             app_state.config.oidc_client_secret.clone(),
         ))
-        .with_scopes(["openid", "email", "profile"].into_iter())
-        .discover(app_state.config.oidc_issuer.clone())
+        .with_scopes(scopes)
+        .discover(issuer_url)
         .await
         .expect("Failed to discover OIDC provider")
         .build();
@@ -187,12 +197,12 @@ pub async fn setup() {
         // Swagger UI for API documentation
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         // Protected routes
-        .route("/auth/login", get(auth::handlers::login))
-        .route("/auth/logout", get(auth::handlers::logout))
+        .route("/auth/login", get(crate::domain::auth::handlers::login))
+        .route("/auth/logout", get(crate::domain::auth::handlers::logout))
         // User sync middleware
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            auth::middleware::sync_user_middleware,
+            crate::core::auth::middleware::sync_user_middleware,
         ))
         .layer(oidc_login_service.clone())
         // Public routes
@@ -210,7 +220,7 @@ pub async fn setup() {
         .serve_dioxus_application(ServeConfig::default(), App)
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            auth::middleware::sync_user_middleware,
+            crate::core::auth::middleware::sync_user_middleware,
         ))
         .layer(oidc_login_service.clone())
         .layer(oidc_auth_service.clone())

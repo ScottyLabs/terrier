@@ -1,12 +1,16 @@
 # Terrier
 
-Hackathon management platform built with Dioxus and Axum.
+Hackathon management platform written entirely in Rust.
 
-## Development
+## Quick Links
 
-### Prerequisites
+- [Contributing Guide](CONTRIBUTING.md) - Set up your development environment
+- [Production Setup](SETUP.md) - Deploy Terrier in production
 
-- Rust (latest nightly)
-- Docker and Docker Compose
-- [just](https://github.com/casey/just) command runner
-- [sea-orm-cli](https://www.sea-ql.org/SeaORM/docs/generate-entity/sea-orm-cli/)
+## Tech Stack
+
+- Frontend/Backend: [Dioxus](https://dioxuslabs.com/), a Rust full-stack framework
+- Database: PostgreSQL
+- Cache: Redis/Valkey
+- Object Storage: MinIO (S3-compatible)
+- Auth: OpenID Connect

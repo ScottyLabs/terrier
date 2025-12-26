@@ -8,3 +8,11 @@
 
 # Environment
 .env
+
+.devenv/
+.direnv/
+.pre-commit-config.yaml
+
+# Nix build outputs
+result
+result-*

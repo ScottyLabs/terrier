@@ -1,19 +1,17 @@
 mod auth;
-mod components;
 mod config;
+mod core;
 #[cfg(feature = "server")]
 mod docs;
+mod domain;
 #[cfg(feature = "server")]
 mod entities;
-mod forms;
-mod hackathons;
-mod pages;
-mod schemas;
 #[cfg(feature = "server")]
 mod server;
+mod ui;
 
 use dioxus::prelude::*;
-use pages::*;
+use ui::pages::*;
 
 #[cfg(feature = "server")]
 use config::Config;
@@ -119,7 +117,7 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let user_future = use_server_future(auth::handlers::get_current_user)?;
+    let user_future = use_server_future(domain::auth::handlers::get_current_user)?;
     let user = use_signal(|| user_future().and_then(|r| r.ok()).flatten());
     use_context_provider(|| user);
 

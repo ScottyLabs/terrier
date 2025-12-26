@@ -12,7 +12,6 @@ FROM chef AS builder
 
 # Build dependencies
 COPY --from=planner /app/recipe.json recipe.json
-COPY --from=planner /app/dioxus-forms /app/dioxus-forms
 COPY --from=planner /app/migration /app/migration
 
 RUN cargo chef cook --release --recipe-path recipe.json

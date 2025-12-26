@@ -1,9 +1,4 @@
-#[cfg(feature = "server")]
-pub mod extractors;
-pub mod handlers;
 pub mod hooks;
-#[cfg(feature = "server")]
-pub mod middleware;
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "server")]

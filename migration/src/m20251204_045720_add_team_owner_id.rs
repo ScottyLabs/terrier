@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Teams::OwnerId)
                             .integer()
                             .not_null()
-                            .default(1)
+                            .default(1),
                     )
                     .to_owned(),
             )
@@ -66,7 +66,6 @@ impl MigrationTrait for Migration {
 #[derive(DeriveIden)]
 enum Teams {
     Table,
-    Id,
     OwnerId,
 }
 
