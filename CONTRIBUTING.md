@@ -81,7 +81,8 @@ Run `just` to see all available commands:
 
 ```bash
 Available recipes:
-    attach             # Attach to development server
+    android            # Start Android development server
+    attach             # Display service logs
     clean              # Clean devenv state (removes all service data)
     dev                # Start development server
     down               # Stop development server
@@ -89,7 +90,14 @@ Available recipes:
     generate-entities  # Generate entities from database
     help               # Show this help message
     init               # Start database, run migrations, and generate entities
+    ios                # Start iOS development server
     migrate            # Run database migrations
     new-migration NAME # Create new migration
     status             # Check migration status
+```
+
+Every time you make a change to [devenv.nix](./nix/devenv.nix), you should rebuild the development environment:
+
+```bash
+direnv reload
 ```

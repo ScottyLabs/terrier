@@ -20,13 +20,43 @@
 
   languages.rust = {
     enable = true;
-    toolchainFile = ../rust-toolchain.toml;
+    toolchainFile = ../rust-toolchain.toml; # install targets
   };
 
+  # Android setup
+  android = {
+    enable = true;
+    platforms.version = [
+      "33"
+      "34"
+    ];
+    buildTools.version = [
+      "33.0.0"
+      "34.0.0"
+    ];
+    systemImageTypes = [ "google_apis" ];
+  };
+
+  # iOS setup
+  apple.sdk = null; # use the system SDK
+
+  env = {
+    # Use system clang to avoid Nix wrapper's macOS flags
+    CC_aarch64_apple_ios = "/usr/bin/clang";
+    CXX_aarch64_apple_ios = "/usr/bin/clang++";
+    CC_aarch64_apple_ios_sim = "/usr/bin/clang";
+    CXX_aarch64_apple_ios_sim = "/usr/bin/clang++";
+
+    # Use system clang for cargo linking
+    CARGO_TARGET_AARCH64_APPLE_IOS_LINKER = "/usr/bin/clang";
+    CARGO_TARGET_AARCH64_APPLE_IOS_SIM_LINKER = "/usr/bin/clang";
+  };
+
+  # Services
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_17;
-    initialDatabases = [{ name = "terrier"; }];
+    initialDatabases = [ { name = "terrier"; } ];
   };
 
   services.minio = {
@@ -65,6 +95,26 @@
   };
 
   enterShell = ''
+    # Create Android emulator
+    if ! avdmanager list avd 2>/dev/null | grep -q "Name: pixel"; then
+      echo "Creating Android emulator..."
+      case "$(uname -m)" in
+        arm64|aarch64) abi="arm64-v8a" ;;
+        *) abi="x86_64" ;;
+      esac
+      pkg="system-images;android-34;google_apis;$abi"
+      echo "no" | avdmanager create avd --force --name pixel --package "$pkg" --device "pixel_6"
+    fi
+
+    # Create iOS simulator
+    iphone_count=$(xcrun simctl list devices available 2>/dev/null | grep -c "iPhone" || echo 0)
+    has_target=$(xcrun simctl list devices available 2>/dev/null | grep -c "iPhone 17 Pro" || echo 0)
+    if [ "$iphone_count" -ne 1 ] || [ "$has_target" -ne 1 ]; then
+      echo "Setting up iOS simulator..."
+      xcrun simctl delete all 2>/dev/null || true
+      xcrun simctl create "iPhone 17 Pro" "iPhone 17 Pro"
+    fi
+
     export DATABASE_URL="postgres:///terrier?host=$PGHOST"
     export REDIS_URL="redis+unix://$REDIS_UNIX_SOCKET"
 
