@@ -1,5 +1,9 @@
 use axum::{
-    Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get,
+    Extension, Router,
+    extract::DefaultBodyLimit,
+    middleware,
+    response::{IntoResponse, Redirect},
+    routing::get,
 };
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
@@ -207,7 +211,15 @@ pub async fn setup() {
         // Public routes
         .route(
             "/auth/callback",
-            get(handle_oidc_redirect::<EmptyAdditionalClaims>),
+            get(|session, extension, query| async {
+                match handle_oidc_redirect::<EmptyAdditionalClaims>(session, extension, query).await {
+                    Ok(response) => response.into_response(),
+                    Err(_) => {
+                        tracing::warn!("OIDC callback failed, redirecting to home");
+                        Redirect::to("/").into_response()
+                    }
+                }
+            }),
         )
         .route("/health", get(|| async { "OK" }))
         // Apply OIDC auth and session layers
