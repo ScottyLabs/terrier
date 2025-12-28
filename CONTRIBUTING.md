@@ -67,6 +67,10 @@ Terrier uses [devenv](https://devenv.sh) for development environment management,
 
     Then, edit the `.env` file to set the necessary environment variables. You need to set `OIDC_CLIENT_SECRET` and change `ADMIN_EMAILS` to your Andrew email.
 
+    Configure your development OIDC client with the following redirect URIs:
+    - Web: `http://localhost:8080/auth/callback`
+    - Mobile: `terrier://auth/callback`
+
 4. Start the development server:
 
     ```bash

@@ -1,6 +1,10 @@
 #[cfg(feature = "server")]
 use std::error::Error;
 
+/// Default hackathon slug for mobile builds
+#[cfg(feature = "mobile")]
+pub const DEFAULT_HACKATHON_SLUG: Option<&str> = option_env!("DEFAULT_HACKATHON_SLUG");
+
 #[cfg(feature = "server")]
 #[derive(Clone, Debug)]
 pub struct Config {

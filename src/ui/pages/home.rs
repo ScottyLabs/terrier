@@ -9,6 +9,19 @@ use crate::{
 
 #[component]
 pub fn Home() -> Element {
+    #[cfg(feature = "mobile")]
+    {
+        if let Some(slug) = crate::config::DEFAULT_HACKATHON_SLUG {
+            let nav = navigator();
+            use_effect(move || {
+                nav.push(Route::HackathonDashboard {
+                    slug: slug.to_string(),
+                });
+            });
+            return rsx!();
+        }
+    }
+
     let user = use_context::<Signal<Option<UserInfo>>>();
     let is_admin = user().map(|u| u.is_admin).unwrap_or(false);
 

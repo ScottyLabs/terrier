@@ -50,6 +50,7 @@ dev:
 # Start iOS development server
 ios:
     process-compose up -D postgres redis minio
+    xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
     dx serve --platform ios
 
 # Start Android development server
