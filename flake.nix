@@ -9,14 +9,30 @@
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, devenv, rust-overlay, ... }@inputs:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      devenv,
+      rust-overlay,
+      ...
+    }@inputs:
     let
-      devSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      packageSystems = [ "x86_64-linux" "aarch64-linux" ];
+      devSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      packageSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = systems: f: nixpkgs.lib.genAttrs systems (system: f system);
     in
     {
-      packages = forAllSystems packageSystems (system:
+      packages = forAllSystems packageSystems (
+        system:
         let
           pkgs = import nixpkgs {
             inherit system;
@@ -63,18 +79,24 @@
               runHook postInstall
             '';
           };
-        });
+        }
+      );
 
-      devShells = forAllSystems devSystems (system:
+      devShells = forAllSystems devSystems (
+        system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
         in
         {
           default = devenv.lib.mkShell {
             inherit inputs pkgs;
             modules = [ ./nix/devenv.nix ];
           };
-        });
+        }
+      );
 
       nixosModules.default = import ./nix/module.nix { inherit self; };
     };

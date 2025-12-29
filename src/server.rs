@@ -1,5 +1,9 @@
 use axum::{
-    Extension, Router, extract::DefaultBodyLimit, middleware, response::IntoResponse, routing::get,
+    Extension, Router,
+    extract::DefaultBodyLimit,
+    middleware,
+    response::{IntoResponse, Redirect},
+    routing::get,
 };
 use axum_oidc::{
     EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, error::MiddlewareError,
@@ -147,24 +151,25 @@ pub async fn setup() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     // Initialize OIDC client
-    let scopes = vec![
-        Scope::new("openid".into()),
-        Scope::new("email".into()),
-        Scope::new("profile".into()),
-    ];
+    #[cfg(feature = "mobile")]
+    let redirect_url = "terrier://auth/callback".to_string();
 
-    let issuer_url = IssuerUrl::new(app_state.config.oidc_issuer.clone()).expect("valid IssuerUrl");
+    #[cfg(not(feature = "mobile"))]
     let redirect_url = format!("{}/auth/callback", app_state.config.app_base_url);
 
     let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
         .with_default_http_client()
-        .with_redirect_url(Uri::try_from(redirect_url).expect("valid APP_BASE_URL"))
+        .with_redirect_url(Uri::try_from(redirect_url.as_str()).expect("valid redirect URL"))
         .with_client_id(ClientId::new(app_state.config.oidc_client_id.clone()))
         .with_client_secret(ClientSecret::new(
             app_state.config.oidc_client_secret.clone(),
         ))
-        .with_scopes(scopes)
-        .discover(issuer_url)
+        .with_scopes(vec![
+            Scope::new("openid".into()),
+            Scope::new("email".into()),
+            Scope::new("profile".into()),
+        ])
+        .discover(IssuerUrl::new(app_state.config.oidc_issuer.clone()).expect("valid issuer URL"))
         .await
         .expect("Failed to discover OIDC provider")
         .build();
@@ -207,7 +212,16 @@ pub async fn setup() {
         // Public routes
         .route(
             "/auth/callback",
-            get(handle_oidc_redirect::<EmptyAdditionalClaims>),
+            get(|session, extension, query| async {
+                match handle_oidc_redirect::<EmptyAdditionalClaims>(session, extension, query).await
+                {
+                    Ok(response) => response.into_response(),
+                    Err(_) => {
+                        tracing::warn!("OIDC callback failed, redirecting to home");
+                        Redirect::to("/").into_response()
+                    }
+                }
+            }),
         )
         .route("/health", get(|| async { "OK" }))
         // Apply OIDC auth and session layers

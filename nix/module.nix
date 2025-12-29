@@ -1,6 +1,11 @@
 { self }:
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.services.terrier;
@@ -34,16 +39,20 @@ in
 
     extraGroups = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [];
+      default = [ ];
       description = "Extra groups for the terrier user (e.g., for socket access)";
       example = [ "redis-terrier" ];
     };
 
     dependencies = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [];
+      default = [ ];
       description = "Systemd services that Terrier depends on";
-      example = [ "postgresql.service" "redis.service" "minio.service" ];
+      example = [
+        "postgresql.service"
+        "redis.service"
+        "minio.service"
+      ];
     };
   };
 
@@ -53,7 +62,7 @@ in
       group = cfg.group;
       extraGroups = cfg.extraGroups;
     };
-    users.groups.${cfg.group} = {};
+    users.groups.${cfg.group} = { };
 
     services.postgresql = {
       ensureUsers = lib.mkIf config.services.postgresql.enable [

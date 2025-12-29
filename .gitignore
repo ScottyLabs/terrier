@@ -16,3 +16,7 @@
 # Nix build outputs
 result
 result-*
+
+# Android
+.android
+local.properties
