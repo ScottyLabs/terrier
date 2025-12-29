@@ -82,6 +82,7 @@ pub fn EventModal(
         .as_ref()
         .map(|e| e.event_type.clone())
         .unwrap_or_else(|| "default".to_string());
+    let initial_is_visible = event.as_ref().map(|e| e.is_visible).unwrap_or(true); // Default to visible for new events
     let initial_organizer_ids = event
         .as_ref()
         .map(|e| e.organizer_ids.clone())
@@ -98,6 +99,7 @@ pub fn EventModal(
     let mut end_time = use_signal(|| initial_end_time);
     let mut visible_to_role = use_signal(|| initial_visible_to);
     let mut event_type = use_signal(|| initial_event_type);
+    let mut is_visible = use_signal(|| initial_is_visible);
     let mut selected_organizers = use_signal(Vec::<OrganizerInfo>::new);
 
     // Organizer search
@@ -183,6 +185,7 @@ pub fn EventModal(
             let end_time_val = end_time();
             let visible_to_role_val = visible_to_role();
             let event_type_val = event_type();
+            let is_visible_val = is_visible();
             let organizer_ids_val: Vec<i32> =
                 selected_organizers().iter().map(|o| o.user_id).collect();
 
@@ -269,6 +272,7 @@ pub fn EventModal(
                         end_time: end_datetime,
                         visible_to_role: visible_to_role_val,
                         event_type: event_type_val,
+                        is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
                     };
 
@@ -305,6 +309,7 @@ pub fn EventModal(
                         end_time: end_datetime,
                         visible_to_role: visible_to_role_val,
                         event_type: event_type_val,
+                        is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
                     };
 
@@ -383,6 +388,16 @@ pub fn EventModal(
                             option { value: "sponsor", selected: visible_to_role().as_deref() == Some("sponsor"), "Sponsors" }
                             option { value: "judge", selected: visible_to_role().as_deref() == Some("judge"), "Judges" }
                             option { value: "organizer", selected: visible_to_role().as_deref() == Some("organizer"), "Organizers" }
+                        }
+                        // Visibility checkbox
+                        label { class: "flex items-center gap-2 cursor-pointer",
+                            input {
+                                r#type: "checkbox",
+                                class: "w-4 h-4 rounded border-stroke-neutral-1",
+                                checked: is_visible(),
+                                onchange: move |e| is_visible.set(e.checked()),
+                            }
+                            span { class: "text-sm", "Visible" }
                         }
                     }
                 }

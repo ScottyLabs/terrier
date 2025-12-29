@@ -1,7 +1,7 @@
+use crate::domain::hackathons::types::HackathonInfo;
+use chrono::NaiveDateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::domain::hackathons::types::HackathonInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
@@ -9,6 +9,8 @@ pub struct UpdateHackathonRequest {
     pub name: String,
     pub description: String,
     pub max_team_size: i32,
+    pub start_date: NaiveDateTime,
+    pub end_date: NaiveDateTime,
 }
 
 #[cfg(feature = "server")]
@@ -55,6 +57,8 @@ pub async fn update_hackathon(
     hackathon.description = Set(Some(req.description.clone()));
     hackathon.max_team_size = Set(req.max_team_size);
     hackathon.updated_at = Set(Utc::now().naive_utc());
+    hackathon.start_date = Set(req.start_date);
+    hackathon.end_date = Set(req.end_date);
 
     let hackathon = hackathon
         .update(&ctx.state.db)

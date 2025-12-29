@@ -1,3 +1,4 @@
+use chrono::{NaiveDate, NaiveDateTime};
 use dioxus::{logger::tracing, prelude::*};
 use dioxus_forms::*;
 
@@ -167,11 +168,24 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field.value.read().clone();
                                     let desc_val = desc_field.value.read().clone();
                                     let team_size_val = *team_size_field.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
                                     spawn(async move {
+                                        // TODO: Update the other fields in a hackathon update request
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {
@@ -292,11 +306,23 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field2.value.read().clone();
                                     let desc_val = desc_field2.value.read().clone();
                                     let team_size_val = *max_team_size_for_save.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
                                     spawn(async move {
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {

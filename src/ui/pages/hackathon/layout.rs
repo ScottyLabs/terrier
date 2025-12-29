@@ -54,7 +54,7 @@ pub fn HackathonLayout(slug: String) -> Element {
 
             rsx! {
                 div {
-                    class: "flex bg-cover bg-center bg-no-repeat flex-col md:flex-row md:h-screen md:gap-9 md:p-7",
+                    class: "flex bg-cover bg-center bg-no-repeat w-screen flex-col md:flex-row md:h-screen md:gap-9 md:p-7",
                     style: if let Some(bg_url) = &hackathon.background_url { format!("background-image: url('{}')", bg_url) } else { String::new() },
                     Sidebar {
                         slug,

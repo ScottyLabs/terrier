@@ -13,7 +13,7 @@ use crate::{
         applications::handlers::get_user_schedule,
         hackathons::types::{HackathonInfo, ScheduleEvent},
     },
-    ui::features::schedule::EventModal,
+    ui::features::schedule::{EventDetailModal, EventModal},
 };
 
 /// Height of one hour in pixels
@@ -50,6 +50,9 @@ pub fn HackathonSchedule(slug: String) -> Element {
     let mut editing_event = use_signal(|| None::<ScheduleEvent>);
     let mut show_modal = use_signal(|| false);
 
+    // View-only modal state for non-admin event viewing
+    let mut viewing_event = use_signal(|| None::<ScheduleEvent>);
+
     // Fetch schedule events
     let mut schedule_resource = use_resource(move || {
         let slug = slug_for_resource.clone();
@@ -76,9 +79,8 @@ pub fn HackathonSchedule(slug: String) -> Element {
         categorize_events(events.as_ref().and_then(|e| e.as_ref()), now);
 
     rsx! {
-        div { class: "flex flex-col lg:flex-row gap-6 h-full",
-            // Main schedule area
-            div { class: "flex-1 flex flex-col",
+        div { class: "flex flex-col lg:flex-row gap-6 h-full overflow-hidden",
+            div { class: "flex-1 min-w-0 flex flex-col overflow-hidden",
                 // Header with title and add button
                 div { class: "flex items-center justify-between pt-11 pb-7",
                     h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
@@ -104,32 +106,70 @@ pub fn HackathonSchedule(slug: String) -> Element {
 
                 // Calendar grid
                 div { class: "bg-background-neutral-primary rounded-[20px] p-4 flex-1 overflow-auto",
-                    div { class: "flex min-w-max",
-                        // Time column
-                        div { class: "w-16 flex-shrink-0",
+                    // Check if there are any events
+                    {
+                        let has_events = events
+                            .as_ref()
+
+                            // Time column
                             // Header spacer
-                            div { class: "h-10 border-b border-stroke-neutral-1" }
                             // Hour labels
-                            for hour in START_HOUR..END_HOUR {
-                                div {
-                                    class: "h-[60px] text-xs text-foreground-neutral-tertiary pr-2 text-right",
-                                    style: "line-height: 60px;",
-                                    "{format_hour(hour)}"
+
+                            // Day columns
+                            .and_then(|e| e.as_ref())
+                            .map(|e| !e.is_empty())
+                            .unwrap_or(false);
+                        if has_events {
+                            rsx! {
+                                div { class: "flex min-w-max",
+                                    div { class: "w-16 flex-shrink-0",
+                                        div { class: "h-10 border-b border-stroke-neutral-1" }
+                                        for hour in START_HOUR..END_HOUR {
+                                            div {
+                                                class: "h-[60px] text-xs text-foreground-neutral-tertiary pr-2 text-right",
+                                                style: "line-height: 60px;",
+                                                "{format_hour(hour)}"
+                                            }
+                                        }
+                                    }
+                                    for day in hackathon_days.iter() {
+                                        DayColumn {
+                                            day: *day,
+                                            events: events.as_ref().and_then(|e| e.as_ref()).cloned().unwrap_or_default(),
+                                            current_user_id,
+                                            is_admin: is_admin_or_organizer,
+                                            on_click: move |event: ScheduleEvent| {
+                                                viewing_event.set(Some(event));
+                                            },
+                                        }
+                                    }
                                 }
                             }
-                        }
-
-                        // Day columns
-                        for day in hackathon_days.iter() {
-                            DayColumn {
-                                day: *day,
-                                events: events.as_ref().and_then(|e| e.as_ref()).cloned().unwrap_or_default(),
-                                current_user_id,
-                                is_admin: is_admin_or_organizer,
-                                on_edit: move |event: ScheduleEvent| {
-                                    editing_event.set(Some(event));
-                                    show_modal.set(true);
-                                },
+                        } else {
+                            rsx! {
+                                div { class: "flex flex-col items-center justify-center h-full min-h-[400px] text-center",
+                                    div { class: "text-6xl mb-4", "📅" }
+                                    h2 { class: "text-xl font-semibold text-foreground-neutral-primary mb-2", "No events yet" }
+                                    p { class: "text-foreground-neutral-secondary mb-6",
+                                        "Events will appear here once they're added to the schedule."
+                                    }
+                                    if is_admin_or_organizer {
+                                        button {
+                                            class: "flex items-center gap-2 bg-foreground-neutral-primary text-white font-semibold text-sm rounded-full px-4 py-2.5",
+                                            onclick: move |_| {
+                                                editing_event.set(None);
+                                                show_modal.set(true);
+                                            },
+                                            Icon {
+                                                width: 16,
+                                                height: 16,
+                                                icon: LdPlus,
+                                                class: "text-white",
+                                            }
+                                            "Add first event"
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -180,6 +220,23 @@ pub fn HackathonSchedule(slug: String) -> Element {
                 },
             }
         }
+
+        // Event Detail Modal (view-only, with Edit for admins)
+        if let Some(event) = viewing_event() {
+            EventDetailModal {
+                event: event.clone(),
+                is_admin: is_admin_or_organizer,
+                on_close: move |_| {
+                    viewing_event.set(None);
+                },
+                on_edit: move |_| {
+                    // Switch to edit mode
+                    viewing_event.set(None);
+                    editing_event.set(Some(event.clone()));
+                    show_modal.set(true);
+                },
+            }
+        }
     }
 }
 
@@ -189,7 +246,7 @@ fn DayColumn(
     events: Vec<ScheduleEvent>,
     current_user_id: Option<i32>,
     is_admin: bool,
-    on_edit: EventHandler<ScheduleEvent>,
+    on_click: EventHandler<ScheduleEvent>,
 ) -> Element {
     let day_name = day.format("%a").to_string();
     let day_num = day.format("%d").to_string();
@@ -207,9 +264,9 @@ fn DayColumn(
         .collect();
 
     rsx! {
-        div { class: "flex-1 min-w-[120px] border-l border-stroke-neutral-1",
+        div { class: "flex-1 min-w-[150px] border-l border-stroke-neutral-1",
             // Day header
-            div { class: "h-10 border-b border-stroke-neutral-1 text-center py-2",
+            div { class: "h-10 border-b border-stroke-neutral-1 text-center py-2 sticky top-0 bg-background-neutral-primary z-10",
                 span { class: "text-sm font-medium text-foreground-neutral-primary",
                     "{day_name} {day_num}"
                 }
@@ -229,7 +286,7 @@ fn DayColumn(
                         day,
                         current_user_id,
                         is_admin,
-                        on_edit,
+                        on_click,
                     }
                 }
             }
@@ -242,8 +299,8 @@ fn EventBlock(
     event: ScheduleEvent,
     day: NaiveDate,
     current_user_id: Option<i32>,
-    is_admin: bool,
-    on_edit: EventHandler<ScheduleEvent>,
+    #[allow(unused)] is_admin: bool,
+    on_click: EventHandler<ScheduleEvent>,
 ) -> Element {
     let event_start_date = event.start_time.date();
     let event_end_date = event.end_time.date();
@@ -311,12 +368,8 @@ fn EventBlock(
         }
     };
 
-    // Add cursor pointer and hover effect for admins
-    let cursor_class = if is_admin {
-        "cursor-pointer hover:opacity-80"
-    } else {
-        ""
-    };
+    // All events are clickable
+    let cursor_class = "cursor-pointer hover:opacity-80";
 
     let time_str = format!(
         "{} - {}",
@@ -331,9 +384,7 @@ fn EventBlock(
             class: "absolute left-1 right-1 rounded-md p-2 overflow-hidden {bg_color} {cursor_class}",
             style: "top: {top}px; height: {height}px;",
             onclick: move |_| {
-                if is_admin {
-                    on_edit.call(event_for_click.clone());
-                }
+                on_click.call(event_for_click.clone());
             },
             p { class: "text-xs font-medium {text_class} truncate", "{event.name}" }
             p { class: "text-xs {text_class} opacity-75 truncate", "{time_str}" }

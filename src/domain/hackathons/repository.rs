@@ -126,6 +126,7 @@ impl<'a> HackathonRepository<'a> {
                     end_time: e.end_time,
                     visible_to_role: e.visible_to_role,
                     event_type: e.event_type,
+                    is_visible: e.is_visible,
                     organizer_ids: org_ids,
                 }
             })

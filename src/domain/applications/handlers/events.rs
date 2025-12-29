@@ -66,6 +66,8 @@ pub struct CreateEventRequest {
     pub visible_to_role: Option<String>,
     /// Event type for color coding: default, hacking, speaker, sponsor, food
     pub event_type: String,
+    /// Whether the event is visible (published) or hidden (draft)
+    pub is_visible: bool,
     /// User IDs of organizers assigned to this event
     pub organizer_ids: Vec<i32>,
 }
@@ -124,6 +126,7 @@ pub async fn create_event(
         end_time: Set(request.end_time),
         visible_to_role: Set(request.visible_to_role.clone()),
         event_type: Set(request.event_type.clone()),
+        is_visible: Set(request.is_visible),
         created_at: Set(now),
         updated_at: Set(now),
         ..Default::default()
@@ -158,6 +161,7 @@ pub async fn create_event(
         end_time: inserted.end_time,
         visible_to_role: inserted.visible_to_role,
         event_type: inserted.event_type,
+        is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
     })
 }
@@ -174,6 +178,7 @@ pub struct UpdateEventRequest {
     pub end_time: NaiveDateTime,
     pub visible_to_role: Option<String>,
     pub event_type: String,
+    pub is_visible: bool,
     pub organizer_ids: Vec<i32>,
 }
 
@@ -238,6 +243,7 @@ pub async fn update_event(
     event_model.end_time = Set(request.end_time);
     event_model.visible_to_role = Set(request.visible_to_role.clone());
     event_model.event_type = Set(request.event_type.clone());
+    event_model.is_visible = Set(request.is_visible);
     event_model.updated_at = Set(now);
 
     let updated = event_model
@@ -274,6 +280,7 @@ pub async fn update_event(
         end_time: updated.end_time,
         visible_to_role: updated.visible_to_role,
         event_type: updated.event_type,
+        is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
     })
 }

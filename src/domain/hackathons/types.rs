@@ -36,6 +36,8 @@ pub struct ScheduleEvent {
     pub visible_to_role: Option<String>,
     /// Event type for color coding: default, hacking, speaker, sponsor, food
     pub event_type: String,
+    /// Whether the event is visible to participants (draft/published)
+    pub is_visible: bool,
     /// User IDs of organizers assigned to this event
     pub organizer_ids: Vec<i32>,
 }

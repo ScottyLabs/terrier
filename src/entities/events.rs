@@ -21,6 +21,7 @@ pub struct Model {
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub location: Option<String>,
+    pub is_visible: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
