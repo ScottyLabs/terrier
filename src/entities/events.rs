@@ -6,47 +6,46 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, utoipa :: ToSchema,
 )]
-#[sea_orm(table_name = "applications")]
+#[sea_orm(table_name = "events")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub hackathon_id: i32,
-    pub user_id: i32,
-    pub form_data: Json,
-    pub status: String,
+    pub name: String,
+    pub slug: String,
+    pub description: Option<String>,
+    pub start_time: DateTime,
+    pub end_time: DateTime,
+    pub visible_to_role: Option<String>,
+    pub event_type: String,
     pub created_at: DateTime,
     pub updated_at: DateTime,
+    pub location: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::event_organizers::Entity")]
+    EventOrganizers,
     #[sea_orm(
         belongs_to = "super::hackathons::Entity",
         from = "Column::HackathonId",
         to = "super::hackathons::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
     Hackathons,
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::UserId",
-        to = "super::users::Column::Id",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    Users,
+}
+
+impl Related<super::event_organizers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventOrganizers.def()
+    }
 }
 
 impl Related<super::hackathons::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Hackathons.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
     }
 }
 
