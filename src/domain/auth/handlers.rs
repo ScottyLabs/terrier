@@ -46,7 +46,7 @@ pub async fn logout(
         .into_response()
 }
 
-/// Get current user information (server function)
+/// Get current user information
 #[cfg_attr(feature = "server", utoipa::path(
     get,
     path = "/auth/status",

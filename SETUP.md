@@ -33,6 +33,10 @@ cp examples/.env.prod .env
 
 4. Update the "OIDC Configuration" section to match your Identity Provider.
 
+    Configure your OIDC client with the following redirect URIs:
+    - Web: `{APP_BASE_URL}/auth/callback` (e.g., `https://terrier.example.com/auth/callback`)
+    - Mobile: `terrier://auth/callback`
+
 5. Add your Global Admins' Andrew emails to `ADMIN_EMAILS`.
 
 6. Customize the host port mapping if necessary.
