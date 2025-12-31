@@ -22,13 +22,15 @@ pub fn ModalBase(
                 style: "width: {width};",
                 onclick: move |e| e.stop_propagation(),
 
-                // Close button (absolutely positioned)
-                button {
-                    class: "absolute top-7 right-7 text-foreground-neutral-primary hover:text-foreground-neutral-tertiary transition-colors z-10",
-                    onclick: move |_| on_close.call(()),
-                    Icon { width: 24, height: 24, icon: LdX }
+                // Top line
+                div { class: "flex items-center justify-between p-4",
+                    // Close button (position in top line at the right)
+                    button {
+                        class: "text-foreground-neutral-primary hover:text-foreground-neutral-tertiary transition-colors z-10 relative ml-auto mt-2 mr-2",
+                        onclick: move |_| on_close.call(()),
+                        Icon { width: 24, height: 24, icon: LdX }
+                    }
                 }
-
                 // Content
                 {children}
             }

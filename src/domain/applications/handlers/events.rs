@@ -70,6 +70,8 @@ pub struct CreateEventRequest {
     pub is_visible: bool,
     /// User IDs of organizers assigned to this event
     pub organizer_ids: Vec<i32>,
+    /// Optional points value for gamification
+    pub points: Option<i32>,
 }
 
 /// Create a new event (admin only)
@@ -127,6 +129,7 @@ pub async fn create_event(
         visible_to_role: Set(request.visible_to_role.clone()),
         event_type: Set(request.event_type.clone()),
         is_visible: Set(request.is_visible),
+        points: Set(request.points),
         created_at: Set(now),
         updated_at: Set(now),
         ..Default::default()
@@ -163,6 +166,7 @@ pub async fn create_event(
         event_type: inserted.event_type,
         is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
+        points: inserted.points,
     })
 }
 
@@ -180,6 +184,8 @@ pub struct UpdateEventRequest {
     pub event_type: String,
     pub is_visible: bool,
     pub organizer_ids: Vec<i32>,
+    /// Optional points value for gamification
+    pub points: Option<i32>,
 }
 
 /// Update an existing event (admin only)
@@ -244,6 +250,7 @@ pub async fn update_event(
     event_model.visible_to_role = Set(request.visible_to_role.clone());
     event_model.event_type = Set(request.event_type.clone());
     event_model.is_visible = Set(request.is_visible);
+    event_model.points = Set(request.points);
     event_model.updated_at = Set(now);
 
     let updated = event_model
@@ -282,6 +289,7 @@ pub async fn update_event(
         event_type: updated.event_type,
         is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
+        points: updated.points,
     })
 }
 

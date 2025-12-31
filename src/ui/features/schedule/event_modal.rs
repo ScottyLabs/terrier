@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     Icon,
-    icons::ld_icons::{LdClock, LdMapPin, LdSearch, LdX},
+    icons::ld_icons::{LdClock, LdMapPin, LdSearch, LdTarget, LdX},
 };
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
         hackathons::types::ScheduleEvent,
         people::handlers::{HackathonPerson, get_hackathon_people},
     },
-    ui::foundation::modals::base::ModalBase,
+    ui::foundation::{modals::base::ModalBase, utils::get_avatar_color},
 };
 
 /// Simple organizer info for the modal
@@ -30,6 +30,7 @@ pub fn EventModal(
     slug: String,
     event: Option<ScheduleEvent>,
     hackathon_start_date: NaiveDate,
+    hackathon_end_date: NaiveDate,
     on_close: EventHandler<()>,
     on_save: EventHandler<()>,
 ) -> Element {
@@ -39,15 +40,6 @@ pub fn EventModal(
     let slug_for_people = slug.clone();
     let slug_for_save = slug.clone();
     let slug_for_delete = slug.clone();
-
-    // Colors for organizer avatars
-    let colors = [
-        "bg-orange-400",
-        "bg-purple-500",
-        "bg-pink-400",
-        "bg-blue-400",
-        "bg-green-400",
-    ];
 
     // Initialize form state from event if editing, otherwise use defaults
     let initial_name = event.as_ref().map(|e| e.name.clone()).unwrap_or_default();
@@ -87,6 +79,7 @@ pub fn EventModal(
         .as_ref()
         .map(|e| e.organizer_ids.clone())
         .unwrap_or_default();
+    let initial_points = event.as_ref().and_then(|e| e.points);
     let event_id = event.as_ref().map(|e| e.id);
 
     // Form state
@@ -100,7 +93,9 @@ pub fn EventModal(
     let mut visible_to_role = use_signal(|| initial_visible_to);
     let mut event_type = use_signal(|| initial_event_type);
     let mut is_visible = use_signal(|| initial_is_visible);
+    let mut points = use_signal(|| initial_points.map(|p| p.to_string()).unwrap_or_default());
     let mut selected_organizers = use_signal(Vec::<OrganizerInfo>::new);
+    let mut has_initialized_organizers = use_signal(|| false);
 
     // Organizer search
     let mut organizer_search = use_signal(String::new);
@@ -121,25 +116,26 @@ pub fn EventModal(
         }
     });
 
-    // Initialize selected organizers from event when people are loaded
+    // Initialize selected organizers from event when people are loaded (only once)
     let _ = use_memo(move || {
         if let Some(people) = people_resource.read().as_ref().and_then(|p| p.as_ref()) {
-            let current_orgs = selected_organizers();
-            if current_orgs.is_empty() && !initial_organizer_ids.is_empty() {
+            // Only initialize once - don't re-populate after user clears organizers
+            if !has_initialized_organizers() {
                 let orgs: Vec<OrganizerInfo> = initial_organizer_ids
                     .iter()
                     .filter_map(|id| {
                         people.iter().find(|p| p.user_id == *id).map(|p| {
-                            let color_idx = (p.user_id as usize) % colors.len();
+                            let name = p.name.clone().unwrap_or_else(|| p.email.clone());
                             OrganizerInfo {
                                 user_id: p.user_id,
-                                name: p.name.clone().unwrap_or_else(|| p.email.clone()),
-                                color: colors[color_idx].to_string(),
+                                name: name.clone(),
+                                color: get_avatar_color(&name).to_string(),
                             }
                         })
                     })
                     .collect();
                 selected_organizers.set(orgs);
+                has_initialized_organizers.set(true);
             }
         }
     });
@@ -186,6 +182,7 @@ pub fn EventModal(
             let visible_to_role_val = visible_to_role();
             let event_type_val = event_type();
             let is_visible_val = is_visible();
+            let points_val = points();
             let organizer_ids_val: Vec<i32> =
                 selected_organizers().iter().map(|o| o.user_id).collect();
 
@@ -253,6 +250,45 @@ pub fn EventModal(
                 let start_datetime = NaiveDateTime::new(parsed_start_date, parsed_start_time);
                 let end_datetime = NaiveDateTime::new(parsed_end_date, parsed_end_time);
 
+                // Validate that start is before end
+                if start_datetime >= end_datetime {
+                    error.set(Some(
+                        "Start date/time must be before end date/time".to_string(),
+                    ));
+                    is_saving.set(false);
+                    return;
+                }
+
+                // Validate that event is within hackathon time bounds
+                if parsed_start_date < hackathon_start_date {
+                    error.set(Some(
+                        "Event must start on or after the hackathon start date".to_string(),
+                    ));
+                    is_saving.set(false);
+                    return;
+                }
+                if parsed_end_date > hackathon_end_date {
+                    error.set(Some(
+                        "Event must end on or before the hackathon end date".to_string(),
+                    ));
+                    is_saving.set(false);
+                    return;
+                }
+
+                // Parse points (empty string = None)
+                let parsed_points: Option<i32> = if points_val.trim().is_empty() {
+                    None
+                } else {
+                    match points_val.trim().parse::<i32>() {
+                        Ok(p) => Some(p),
+                        Err(_) => {
+                            error.set(Some("Points must be a valid number".to_string()));
+                            is_saving.set(false);
+                            return;
+                        }
+                    }
+                };
+
                 if let Some(id) = event_id {
                     // Update existing event
                     let request = UpdateEventRequest {
@@ -274,7 +310,15 @@ pub fn EventModal(
                         event_type: event_type_val,
                         is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
+                        points: parsed_points,
                     };
+
+                    dioxus_logger::tracing::info!(
+                        "Updating event {} with {} organizers: {:?}",
+                        id,
+                        request.organizer_ids.len(),
+                        request.organizer_ids
+                    );
 
                     match update_event(slug, id, request).await {
                         Ok(_) => {
@@ -311,6 +355,7 @@ pub fn EventModal(
                         event_type: event_type_val,
                         is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
+                        points: parsed_points,
                     };
 
                     match create_event(slug, request).await {
@@ -350,138 +395,116 @@ pub fn EventModal(
     };
 
     rsx! {
-        ModalBase {
-            on_close: move |_| on_close.call(()),
-            div { class: "p-8",
-                // Header with name input
-                div { class: "mb-6",
+        ModalBase { on_close: move |_| on_close.call(()),
+            div { class: "p-6",
+                // Header with name input and category badge
+                div { class: "flex items-start justify-between gap-4 mb-4",
                     input {
                         r#type: "text",
-                        class: "text-2xl font-semibold text-foreground-neutral-primary bg-transparent border-none outline-none w-full placeholder:text-foreground-neutral-tertiary",
+                        class: "flex-1 text-2xl font-semibold text-foreground-neutral-primary bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
                         placeholder: "Name of event",
                         value: "{name}",
                         oninput: move |e| name.set(e.value()),
                     }
-
-                    // Category/visibility selector
-                    div { class: "mt-2 flex gap-2",
-                        // Event type
-                        select {
-                            class: "text-sm border border-stroke-neutral-1 rounded-lg px-3 py-1.5 bg-white",
-                            value: "{event_type}",
-                            onchange: move |e| event_type.set(e.value()),
-                            option { value: "default", "Default" }
-                            option { value: "hacking", "Hacking" }
-                            option { value: "speaker", "Speaker" }
-                            option { value: "sponsor", "Sponsor" }
-                            option { value: "food", "Food" }
-                        }
-                        // Visibility
-                        select {
-                            class: "text-sm border border-stroke-neutral-1 rounded-lg px-3 py-1.5 bg-white",
-                            onchange: move |e| {
-                                let val = e.value();
-                                visible_to_role.set(if val.is_empty() { None } else { Some(val) });
-                            },
-                            option { value: "", selected: visible_to_role().is_none(), "Everyone" }
-                            option { value: "participant", selected: visible_to_role().as_deref() == Some("participant"), "Participants" }
-                            option { value: "sponsor", selected: visible_to_role().as_deref() == Some("sponsor"), "Sponsors" }
-                            option { value: "judge", selected: visible_to_role().as_deref() == Some("judge"), "Judges" }
-                            option { value: "organizer", selected: visible_to_role().as_deref() == Some("organizer"), "Organizers" }
-                        }
-                        // Visibility checkbox
-                        label { class: "flex items-center gap-2 cursor-pointer",
-                            input {
-                                r#type: "checkbox",
-                                class: "w-4 h-4 rounded border-stroke-neutral-1",
-                                checked: is_visible(),
-                                onchange: move |e| is_visible.set(e.checked()),
-                            }
-                            span { class: "text-sm", "Visible" }
-                        }
+                    // Category selector as badge
+                    select {
+                        class: "text-sm border border-stroke-neutral-1 rounded-full px-3 py-1 bg-transparent",
+                        value: "{event_type}",
+                        onchange: move |e| event_type.set(e.value()),
+                        option { value: "default", "Category" }
+                        option { value: "hacking", "Hacking" }
+                        option { value: "speaker", "Speaker" }
+                        option { value: "sponsor", "Sponsor" }
+                        option { value: "food", "Food" }
                     }
                 }
 
                 // Location
                 div { class: "flex items-center gap-2 text-foreground-neutral-secondary mb-2",
-                    Icon {
-                        width: 16,
-                        height: 16,
-                        icon: LdMapPin,
-                    }
+                    Icon { width: 16, height: 16, icon: LdMapPin }
                     input {
                         r#type: "text",
                         class: "flex-1 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
-                        placeholder: "Add location (optional)",
+                        placeholder: "McConomy",
                         value: "{location}",
                         oninput: move |e| location.set(e.value()),
                     }
                 }
 
                 // Date and Time
-                div { class: "flex flex-wrap items-center gap-2 text-foreground-neutral-secondary mb-4",
-                    Icon {
-                        width: 16,
-                        height: 16,
-                        icon: LdClock,
-                    }
-                    // Start date/time
+                div { class: "flex flex-wrap items-center gap-2 text-foreground-neutral-secondary mb-2",
+                    Icon { width: 16, height: 16, icon: LdClock }
                     input {
                         r#type: "date",
-                        class: "text-sm border border-stroke-neutral-1 rounded px-2 py-1",
+                        class: "text-sm bg-transparent border-none outline-none",
                         value: "{start_date}",
                         oninput: move |e| start_date.set(e.value()),
                     }
+                    span { class: "text-sm", "·" }
                     input {
                         r#type: "time",
-                        class: "text-sm border border-stroke-neutral-1 rounded px-2 py-1",
+                        class: "text-sm bg-transparent border-none outline-none",
                         value: "{start_time}",
                         oninput: move |e| start_time.set(e.value()),
                     }
                     span { class: "text-sm", "to" }
-                    // End date/time
                     input {
                         r#type: "date",
-                        class: "text-sm border border-stroke-neutral-1 rounded px-2 py-1",
+                        class: "text-sm bg-transparent border-none outline-none",
                         value: "{end_date}",
                         oninput: move |e| end_date.set(e.value()),
                     }
+                    span { class: "text-sm", "·" }
                     input {
                         r#type: "time",
-                        class: "text-sm border border-stroke-neutral-1 rounded px-2 py-1",
+                        class: "text-sm bg-transparent border-none outline-none",
                         value: "{end_time}",
                         oninput: move |e| end_time.set(e.value()),
                     }
                 }
 
-                // Description
+                // Points (inline with icon)
+                div { class: "flex items-center gap-2 text-foreground-neutral-secondary mb-6",
+                    Icon { width: 16, height: 16, icon: LdTarget }
+                    input {
+                        r#type: "number",
+                        class: "w-20 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
+                        placeholder: "5",
+                        value: "{points}",
+                        oninput: move |e| points.set(e.value()),
+                    }
+                    span { class: "text-sm", "Points" }
+                }
+
+                // Event Description
                 div { class: "mb-6",
-                    textarea {
-                        class: "w-full h-24 p-3 text-sm border border-stroke-neutral-1 rounded-lg resize-none placeholder:text-foreground-neutral-tertiary",
-                        placeholder: "Add event description...",
-                        value: "{description}",
-                        oninput: move |e| description.set(e.value()),
+                    h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-2",
+                        "Event Description"
+                    }
+                    div { class: "bg-background-neutral-primary rounded-xl p-4",
+                        textarea {
+                            class: "w-full h-20 text-sm bg-transparent resize-none placeholder:text-foreground-neutral-tertiary border-none outline-none",
+                            placeholder: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce consequat tincidunt urna placerat pulvinar.",
+                            value: "{description}",
+                            oninput: move |e| description.set(e.value()),
+                        }
                     }
                 }
 
                 // Organizers section
-                div { class: "mb-6",
+                div { class: "mb-6 bg-background-neutral-primary rounded-lg p-4",
                     h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-3",
-                        "Event Organizers"
+                        "Organizers"
                     }
 
                     // Search input
                     div { class: "relative mb-3",
                         div { class: "flex items-center gap-2 px-3 py-2 border border-stroke-neutral-1 rounded-lg",
-                            Icon {
-                                width: 16,
-                                height: 16,
-                                icon: LdSearch,
-                            }
+                            Icon { width: 16, height: 16, icon: LdSearch }
                             input {
                                 r#type: "text",
                                 class: "flex-1 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
-                                placeholder: "Search organizers...",
+                                placeholder: "Add Organizer",
                                 value: "{organizer_search}",
                                 oninput: move |e| {
                                     organizer_search.set(e.value());
@@ -500,22 +523,20 @@ pub fn EventModal(
                                         class: "w-full px-4 py-2 text-left hover:bg-background-neutral-secondary-enabled flex items-center gap-2",
                                         onclick: {
                                             let p = person.clone();
-                                            let color_idx = (p.user_id as usize) % colors.len();
+                                            let name = p.name.clone().unwrap_or_else(|| p.email.clone());
                                             move |_| {
                                                 let mut orgs = selected_organizers();
                                                 orgs.push(OrganizerInfo {
                                                     user_id: p.user_id,
-                                                    name: p.name.clone().unwrap_or_else(|| p.email.clone()),
-                                                    color: colors[color_idx].to_string(),
+                                                    name: name.clone(),
+                                                    color: get_avatar_color(&name).to_string(),
                                                 });
                                                 selected_organizers.set(orgs);
                                                 organizer_search.set(String::new());
                                                 show_organizer_dropdown.set(false);
                                             }
                                         },
-                                        div {
-                                            class: "w-6 h-6 rounded-full bg-gray-300",
-                                        }
+                                        div { class: "w-6 h-6 rounded-full bg-gray-300" }
                                         span { class: "text-sm",
                                             "{person.name.clone().unwrap_or_else(|| person.email.clone())}"
                                         }
@@ -531,25 +552,23 @@ pub fn EventModal(
                             {
                                 let org_id = org.user_id;
                                 rsx! {
-                                    div {
-                                        key: "{org.user_id}",
-                                        class: "flex items-center justify-between p-3 bg-background-neutral-secondary-enabled rounded-lg",
+                                    // Avatar circle with color
+                                    div { key: "{org.user_id}", class: "flex items-center justify-between p-3",
                                         div { class: "flex items-center gap-3",
-                                            // Avatar circle with color
-                                            div {
-                                                class: "w-8 h-8 rounded-full {org.color}",
-                                            }
-                                            span { class: "text-sm font-medium text-foreground-neutral-primary",
-                                                "{org.name}"
-                                            }
+                                            div { class: "w-8 h-8 rounded-full {org.color}" }
+                                            span { class: "text-sm font-medium text-foreground-neutral-primary", "{org.name}" }
                                         }
                                         button {
-                                            class: "text-sm text-foreground-neutral-secondary border border-stroke-neutral-1 rounded-full px-3 py-1 hover:bg-background-neutral-secondary-enabled",
+                                            class: "text-sm text-foreground-neutral-secondary border border-stroke-neutral-1 rounded-full px-3 py-1 hover:bg-red-50",
                                             onclick: move |_| {
                                                 let orgs: Vec<_> = selected_organizers()
                                                     .into_iter()
                                                     .filter(|o| o.user_id != org_id)
                                                     .collect();
+                                                // todo: console.log(orgs, org_id)
+                                                dioxus_logger::tracing::info!(
+                                                    "Removing organizer: {}, remaining orgs: {}", org_id, orgs.len()
+                                                );
                                                 selected_organizers.set(orgs);
                                             },
                                             "Remove"
@@ -571,7 +590,9 @@ pub fn EventModal(
                 // Delete confirmation dialog
                 if show_delete_confirm() {
                     div { class: "mb-4 p-4 bg-red-50 border border-red-200 rounded-lg",
-                        p { class: "text-red-700 font-medium mb-3", "Are you sure you want to delete this event?" }
+                        p { class: "text-red-700 font-medium mb-3",
+                            "Are you sure you want to delete this event?"
+                        }
                         div { class: "flex gap-2",
                             button {
                                 class: "px-4 py-2 text-sm border border-stroke-neutral-1 rounded-full hover:bg-gray-100",
@@ -582,27 +603,35 @@ pub fn EventModal(
                                 class: "px-4 py-2 text-sm bg-red-600 text-white rounded-full hover:bg-red-700",
                                 disabled: is_deleting(),
                                 onclick: handle_delete,
-                                if is_deleting() { "Deleting..." } else { "Yes, Delete" }
+                                if is_deleting() {
+                                    "Deleting..."
+                                } else {
+                                    "Yes, Delete"
+                                }
                             }
                         }
                     }
                 }
 
                 // Action buttons
-                div { class: "flex justify-center gap-3",
+                div { class: "flex justify-end gap-3",
                     // Only show delete button in edit mode
                     if is_edit_mode && !show_delete_confirm() {
                         button {
-                            class: "px-6 py-2 bg-red-500 text-white font-medium rounded-full hover:bg-red-600",
+                            class: "px-6 py-2.5 bg-[var(--color-status-danger-foreground)] text-white font-medium text-sm rounded-full hover:bg-red-600 transition-colors",
                             onclick: move |_| show_delete_confirm.set(true),
                             "Delete"
                         }
                     }
                     button {
-                        class: "px-6 py-2 bg-foreground-neutral-primary text-white font-medium rounded-full hover:opacity-90",
+                        class: "px-6 py-2.5 bg-foreground-neutral-primary text-white font-medium text-sm rounded-full hover:opacity-90 transition-opacity",
                         disabled: is_saving(),
                         onclick: handle_save,
-                        if is_saving() { "Saving..." } else { "Save" }
+                        if is_saving() {
+                            "Saving..."
+                        } else {
+                            "Save"
+                        }
                     }
                 }
             }

@@ -62,7 +62,7 @@ pub fn HackathonLayout(slug: String) -> Element {
                         role: role.cloned(),
                         application_refresh_trigger,
                     }
-                    main { class: "flex-1 p-2", Outlet::<Route> {} }
+                    main { class: "flex-1 p-2 min-w-0", Outlet::<Route> {} }
                 }
             }
         }

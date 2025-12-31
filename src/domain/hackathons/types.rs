@@ -40,4 +40,6 @@ pub struct ScheduleEvent {
     pub is_visible: bool,
     /// User IDs of organizers assigned to this event
     pub organizer_ids: Vec<i32>,
+    /// Optional points value for gamification
+    pub points: Option<i32>,
 }

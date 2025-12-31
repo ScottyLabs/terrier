@@ -2,10 +2,11 @@ use chrono::{Duration, NaiveDate, NaiveDateTime, Timelike};
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     Icon,
-    icons::ld_icons::{LdClock, LdMapPin, LdPlus},
+    icons::ld_icons::{LdClock, LdMapPin, LdPlus, LdTarget},
 };
 
 use crate::{
+    Route,
     auth::{
         HackathonRole, HackathonRoleType, SCHEDULE_ROLES, hooks::use_require_access_or_redirect,
     },
@@ -29,9 +30,13 @@ pub fn HackathonSchedule(slug: String) -> Element {
         return no_access;
     }
 
+    // Mobile detection
+    let is_mobile = use_context::<Signal<bool>>();
+
     // Clone slug for different closures
     let slug_for_resource = slug.clone();
     let slug_for_modal = slug.clone();
+    let slug_for_mobile = slug.clone();
 
     let hackathon = use_context::<Signal<HackathonInfo>>();
 
@@ -70,6 +75,14 @@ pub fn HackathonSchedule(slug: String) -> Element {
         get_days_between(start, end)
     };
 
+    // Selected day for mobile view (default to first day)
+    let mut selected_day = use_signal(|| {
+        hackathon_days
+            .first()
+            .cloned()
+            .unwrap_or_else(|| chrono::Local::now().date_naive())
+    });
+
     // Get current time for "Current" event highlighting
     let now = chrono::Local::now().naive_local();
 
@@ -78,8 +91,21 @@ pub fn HackathonSchedule(slug: String) -> Element {
     let (current_events, upcoming_events, past_events) =
         categorize_events(events.as_ref().and_then(|e| e.as_ref()), now);
 
+    // Mobile view
+    if *is_mobile.read() {
+        return rsx! {
+            MobileScheduleView {
+                slug: slug_for_mobile,
+                hackathon_days: hackathon_days.clone(),
+                events: events.as_ref().and_then(|e| e.as_ref()).cloned().unwrap_or_default(),
+                selected_day,
+                is_admin: is_admin_or_organizer,
+            }
+        };
+    }
+
     rsx! {
-        div { class: "flex flex-col lg:flex-row gap-6 h-full overflow-hidden",
+        div { class: "flex flex-col gap-6 h-full overflow-hidden lg:flex-row",
             div { class: "flex-1 min-w-0 flex flex-col overflow-hidden",
                 // Header with title and add button
                 div { class: "flex items-center justify-between pt-11 pb-7",
@@ -99,34 +125,29 @@ pub fn HackathonSchedule(slug: String) -> Element {
                                 icon: LdPlus,
                                 class: "text-white",
                             }
-                            "Add new event"
+                            "Add new schedule"
                         }
                     }
                 }
 
                 // Calendar grid
-                div { class: "bg-background-neutral-primary rounded-[20px] p-4 flex-1 overflow-auto",
+                div { class: "bg-background-neutral-primary rounded-[20px] flex-1 overflow-auto",
                     // Check if there are any events
                     {
                         let has_events = events
                             .as_ref()
-
-                            // Time column
-                            // Header spacer
-                            // Hour labels
-
-                            // Day columns
                             .and_then(|e| e.as_ref())
                             .map(|e| !e.is_empty())
                             .unwrap_or(false);
                         if has_events {
                             rsx! {
                                 div { class: "flex min-w-max",
-                                    div { class: "w-16 flex-shrink-0",
-                                        div { class: "h-10 border-b border-stroke-neutral-1" }
+                                    div { class: "w-24 flex-shrink-0",
+                                        // Sticky header spacer (matches day header height)
+                                        div { class: "h-[68px] sticky top-0 bg-background-neutral-primary z-20" }
                                         for hour in START_HOUR..END_HOUR {
                                             div {
-                                                class: "h-[60px] text-xs text-foreground-neutral-tertiary pr-2 text-right",
+                                                class: "h-[60px] text-[14px] text-black pr-2 text-right",
                                                 style: "line-height: 60px;",
                                                 "{format_hour(hour)}"
                                             }
@@ -138,6 +159,7 @@ pub fn HackathonSchedule(slug: String) -> Element {
                                             events: events.as_ref().and_then(|e| e.as_ref()).cloned().unwrap_or_default(),
                                             current_user_id,
                                             is_admin: is_admin_or_organizer,
+                                            now,
                                             on_click: move |event: ScheduleEvent| {
                                                 viewing_event.set(Some(event));
                                             },
@@ -209,6 +231,7 @@ pub fn HackathonSchedule(slug: String) -> Element {
                 slug: slug_for_modal.clone(),
                 event: editing_event(),
                 hackathon_start_date: hackathon.read().start_date.date(),
+                hackathon_end_date: hackathon.read().end_date.date(),
                 on_close: move |_| {
                     show_modal.set(false);
                     editing_event.set(None);
@@ -224,6 +247,7 @@ pub fn HackathonSchedule(slug: String) -> Element {
         // Event Detail Modal (view-only, with Edit for admins)
         if let Some(event) = viewing_event() {
             EventDetailModal {
+                slug: slug_for_modal.clone(),
                 event: event.clone(),
                 is_admin: is_admin_or_organizer,
                 on_close: move |_| {
@@ -246,6 +270,7 @@ fn DayColumn(
     events: Vec<ScheduleEvent>,
     current_user_id: Option<i32>,
     is_admin: bool,
+    now: NaiveDateTime,
     on_click: EventHandler<ScheduleEvent>,
 ) -> Element {
     let day_name = day.format("%a").to_string();
@@ -263,20 +288,42 @@ fn DayColumn(
         .cloned()
         .collect();
 
+    // Calculate if current time indicator should show on this day
+    let is_today = now.date() == day;
+    let now_indicator_top = if is_today {
+        let hours_from_start = now.hour() as f64 - START_HOUR as f64;
+        let minutes_fraction = now.minute() as f64 / 60.0;
+        Some((hours_from_start + minutes_fraction) * HOUR_HEIGHT)
+    } else {
+        None
+    };
+
     rsx! {
-        div { class: "flex-1 min-w-[150px] border-l border-stroke-neutral-1",
+        div { class: "flex-1 min-w-[150px] border-stroke-neutral-1",
             // Day header
-            div { class: "h-10 border-b border-stroke-neutral-1 text-center py-2 sticky top-0 bg-background-neutral-primary z-10",
-                span { class: "text-sm font-medium text-foreground-neutral-primary",
+            div { class: "text-center pt-[28px] pb-[20px] sticky top-0 bg-background-neutral-primary z-20",
+                span { class: "text-[18px] font-medium text-foreground-neutral-primary",
                     "{day_name} {day_num}"
                 }
             }
 
             // Time slots with events
-            div { class: "relative",
+            div { class: "relative top-[20px]",
                 // Hour grid lines
                 for hour in START_HOUR..END_HOUR {
-                    div { class: "h-[60px] border-b border-stroke-neutral-1" }
+                    div { class: "pt-[30px] mb-[29px] border-t border-stroke-neutral-1" }
+                }
+
+                // Current time indicator
+                if let Some(top) = now_indicator_top {
+                    div {
+                        class: "absolute left-0 right-0 flex items-center z-10",
+                        style: "top: {top}px;",
+                        // Dot on the left
+                        div { class: "w-3 h-3 rounded-full bg-foreground-neutral-primary -ml-1.5" }
+                        // Line across
+                        div { class: "flex-1 h-0.5 bg-foreground-neutral-primary" }
+                    }
                 }
 
                 // Events positioned absolutely
@@ -333,61 +380,58 @@ fn EventBlock(
     // Color coding based on event_type
     // If user is an organizer, use bright vibrant colors (full opacity)
     // Otherwise, use softer pastel colors
-    let (bg_color, text_class) = if is_my_event {
+    let bg_color = if is_my_event {
         // Bright, vibrant colors for user's own events
         match event.event_type.as_str() {
-            "hacking" => ("bg-blue-600 border-l-4 border-blue-800", "text-white"),
-            "speaker" => ("bg-purple-600 border-l-4 border-purple-800", "text-white"),
-            "sponsor" => ("bg-amber-500 border-l-4 border-amber-700", "text-white"),
-            "food" => ("bg-orange-500 border-l-4 border-orange-700", "text-white"),
-            _ => ("bg-green-600 border-l-4 border-green-800", "text-white"), // default
+            "hacking" => "bg-blue-600",
+            "speaker" => "bg-purple-600",
+            "sponsor" => "bg-amber-500",
+            "food" => "bg-orange-500",
+            _ => "bg-green-600", // default
         }
     } else {
         // Soft pastel colors for other events
         match event.event_type.as_str() {
-            "hacking" => (
-                "bg-blue-50 border-l-4 border-blue-400",
-                "text-foreground-neutral-primary",
-            ),
-            "speaker" => (
-                "bg-purple-50 border-l-4 border-purple-400",
-                "text-foreground-neutral-primary",
-            ),
-            "sponsor" => (
-                "bg-amber-50 border-l-4 border-amber-400",
-                "text-foreground-neutral-primary",
-            ),
-            "food" => (
-                "bg-orange-50 border-l-4 border-orange-400",
-                "text-foreground-neutral-primary",
-            ),
-            _ => (
-                "bg-green-50 border-l-4 border-green-400",
-                "text-foreground-neutral-primary",
-            ), // default
+            "hacking" => "bg-blue-50",
+            "speaker" => "bg-purple-50",
+            "sponsor" => "bg-amber-50",
+            "food" => "bg-orange-50",
+            _ => "bg-green-50", // default
         }
     };
 
     // All events are clickable
     let cursor_class = "cursor-pointer hover:opacity-80";
 
-    let time_str = format!(
-        "{} - {}",
-        event.start_time.format("%l:%M%P"),
-        event.end_time.format("%l:%M%P")
-    );
+    // Format time simply: "5 - 6pm", if same am/pm, otherwise "5am - 6pm"
+    // check if same am/pm
+    let am_pm = event.start_time.format("%P").to_string();
+    let end_am_pm = event.end_time.format("%P").to_string();
+    let time_str = if am_pm == end_am_pm {
+        format!(
+            "{} - {}",
+            event.start_time.format("%-I:%M"),
+            event.end_time.format("%-I:%M%P")
+        )
+    } else {
+        format!(
+            "{} - {}",
+            event.start_time.format("%-I:%M%P"),
+            event.end_time.format("%-I:%M%P")
+        )
+    };
 
     let event_for_click = event.clone();
 
     rsx! {
         div {
-            class: "absolute left-1 right-1 rounded-md p-2 overflow-hidden {bg_color} {cursor_class}",
+            class: "absolute left-2 right-2 flex flex-col gap-1.5 rounded-xl p-3 overflow-hidden {bg_color} {cursor_class}",
             style: "top: {top}px; height: {height}px;",
             onclick: move |_| {
                 on_click.call(event_for_click.clone());
             },
-            p { class: "text-xs font-medium {text_class} truncate", "{event.name}" }
-            p { class: "text-xs {text_class} opacity-75 truncate", "{time_str}" }
+            p { class: "text-base font-medium text-foreground-neutral-primary", "{event.name}" }
+            p { class: "text-base text-foreground-neutral-primary", "{time_str}" }
         }
     }
 }
@@ -400,7 +444,7 @@ fn EventSection(title: String, events: Vec<ScheduleEvent>, highlight: bool) -> E
 
     rsx! {
         div { class: "mb-6",
-            h2 { class: "text-lg font-semibold text-foreground-neutral-primary mb-4",
+            h2 { class: "text-lg font-semibold text-[var(--color-foreground-neutral-primary)] mb-4",
                 "{title}"
             }
             for event in events {
@@ -421,38 +465,58 @@ fn EventCard(event: ScheduleEvent, highlight: bool) -> Element {
     let time_str = format!(
         "{} · {} – {}",
         event.start_time.format("%A, %B %d"),
-        event.start_time.format("%l:%M"),
-        event.end_time.format("%l:%M%P")
+        event.start_time.format("%-I:%M"),
+        event.end_time.format("%-I:%M%P")
     );
+
+    // Get event type display name for category badge
+    let event_type_display = match event.event_type.as_str() {
+        "hacking" => "Hacking",
+        "speaker" => "Speaker",
+        "sponsor" => "Sponsor",
+        "food" => "Food",
+        _ => "Event",
+    };
 
     rsx! {
         div { class: "bg-background-neutral-primary rounded-xl p-4 mb-3 {border_class}",
-            div { class: "flex items-start justify-between mb-2",
-                h3 { class: "font-semibold text-foreground-neutral-primary", "{event.name}" }
-                if let Some(role) = &event.visible_to_role {
-                    span { class: "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded",
-                        "{role}"
-                    }
+            // Title and category badge
+            div { class: "flex items-start justify-between gap-3 mb-3",
+                h3 { class: "text-base font-semibold text-foreground-neutral-primary",
+                    "{event.name}"
+                }
+                span { class: "text-xs border border-stroke-neutral-1 text-foreground-neutral-secondary px-2.5 py-1 rounded-full whitespace-nowrap",
+                    "{event_type_display}"
                 }
             }
 
             // Location
             if let Some(loc) = &event.location {
-                div { class: "flex items-center gap-2 text-sm text-foreground-neutral-secondary mb-1",
+                div { class: "flex items-center gap-2 text-sm text-foreground-neutral-secondary mb-1.5",
                     Icon { width: 14, height: 14, icon: LdMapPin }
-                    "{loc}"
+                    span { "{loc}" }
                 }
             }
 
             // Time
-            div { class: "flex items-center gap-2 text-sm text-foreground-neutral-secondary mb-2",
+            div { class: "flex items-center gap-2 text-sm text-foreground-neutral-secondary mb-1.5",
                 Icon { width: 14, height: 14, icon: LdClock }
-                "{time_str}"
+                span { "{time_str}" }
+            }
+
+            // Points (only show if set)
+            if let Some(pts) = event.points {
+                div { class: "flex items-center gap-2 text-sm text-foreground-neutral-secondary mb-3",
+                    Icon { width: 14, height: 14, icon: LdTarget }
+                    span { "{pts} Points" }
+                }
             }
 
             // Description
             if let Some(desc) = &event.description {
-                p { class: "text-sm text-foreground-neutral-tertiary", "{desc}" }
+                p { class: "text-sm text-foreground-neutral-tertiary leading-relaxed",
+                    "{desc}"
+                }
             }
         }
     }
@@ -501,5 +565,141 @@ fn format_hour(hour: u32) -> String {
         12 => "12 PM".to_string(),
         13..=23 => format!("{} PM", hour - 12),
         _ => format!("{}", hour),
+    }
+}
+
+/// Mobile schedule view with day tabs and event list
+#[component]
+fn MobileScheduleView(
+    slug: String,
+    hackathon_days: Vec<NaiveDate>,
+    events: Vec<ScheduleEvent>,
+    selected_day: Signal<NaiveDate>,
+    is_admin: bool,
+) -> Element {
+    let nav = use_navigator();
+    let slug_for_nav = slug.clone();
+
+    // Filter events for selected day
+    let selected = *selected_day.read();
+    let mut day_events: Vec<_> = events
+        .iter()
+        .filter(|e| {
+            let start_date = e.start_time.date();
+            let end_date = e.end_time.date();
+            start_date <= selected && selected <= end_date
+        })
+        .cloned()
+        .collect();
+
+    // Sort by start time
+    day_events.sort_by_key(|e| e.start_time);
+
+    // Group events by hour
+    let mut grouped: std::collections::BTreeMap<u32, Vec<ScheduleEvent>> =
+        std::collections::BTreeMap::new();
+    for event in day_events {
+        let hour = event.start_time.hour();
+        grouped.entry(hour).or_default().push(event);
+    }
+
+    rsx! {
+        div { class: "min-h-screen bg-gray-100",
+            // Schedule title
+            div { class: "px-4 pt-6 pb-4",
+                h1 { class: "text-2xl font-bold text-gray-900 mb-5", "Schedule" }
+
+                // Day tabs
+                div { class: "flex gap-2",
+                    for day in hackathon_days.iter() {
+                        MobileDayTab {
+                            day: *day,
+                            is_selected: *day == selected,
+                            on_select: move |d| selected_day.set(d),
+                        }
+                    }
+                }
+            }
+
+            // Events list grouped by hour
+            div { class: "px-4 pb-8",
+                if grouped.is_empty() {
+                    div { class: "text-center py-12",
+                        p { class: "text-gray-500", "No events scheduled for this day" }
+                    }
+                } else {
+                    for (hour , hour_events) in grouped.iter() {
+                        // Time group with separator
+                        div { class: "flex items-stretch",
+                            // Time label column
+                            div { class: "w-16 flex-shrink-0 pr-1",
+                                // Time text
+                                div { class: "text-[18px] text-black pt-4", "{format_hour(*hour)}" }
+                            }
+                            // Separator line + events column
+                            div { class: "flex-1 border-l border-gray-200 pl-4",
+                                // Events for this hour
+                                div { class: "space-y-3 py-3",
+                                    for event in hour_events.iter() {
+                                        MobileEventCard {
+                                            event: event.clone(),
+                                            slug: slug_for_nav.clone(),
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Mobile day tab button
+#[component]
+fn MobileDayTab(day: NaiveDate, is_selected: bool, on_select: EventHandler<NaiveDate>) -> Element {
+    let day_name = day.format("%a").to_string();
+    let day_num = day.format("%d").to_string();
+
+    let (bg_class, text_class) = if is_selected {
+        ("bg-gray-900", "text-white")
+    } else {
+        ("bg-transparent", "text-gray-900")
+    };
+
+    rsx! {
+        button {
+            class: "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors {bg_class} {text_class}",
+            onclick: move |_| on_select.call(day),
+            "{day_name} {day_num}"
+        }
+    }
+}
+
+/// Mobile event card
+#[component]
+fn MobileEventCard(event: ScheduleEvent, slug: String) -> Element {
+    let nav = use_navigator();
+    let event_id = event.id;
+    let slug_for_nav = slug.clone();
+
+    // Format location like Figma shows: "UC 1 | McConomy"
+    let location_display = event.location.clone().unwrap_or_default();
+
+    rsx! {
+        button {
+            class: "w-full text-left bg-white rounded-2xl p-4",
+            onclick: move |_| {
+                nav.push(Route::HackathonScheduleEvent {
+                    slug: slug_for_nav.clone(),
+                    event_id,
+                });
+            },
+            h3 { class: "font-semibold text-gray-900 text-base", "{event.name}" }
+            if !location_display.is_empty() {
+                p { class: "text-sm text-gray-500 mt-0.5", "{location_display}" }
+            }
+        }
     }
 }

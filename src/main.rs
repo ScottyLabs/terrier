@@ -64,6 +64,16 @@ pub enum Route {
                 HackathonSchedule {
                     slug: String
                 },
+            #[route("/schedule/event/:event_id")]
+                HackathonScheduleEvent {
+                    slug: String,
+                    event_id: i32
+                },
+            #[route("/schedule/event/:event_id/edit")]
+                HackathonScheduleEdit {
+                    slug: String,
+                    event_id: i32
+                },
             #[route("/messages")]
                 HackathonMessages {
                     slug: String

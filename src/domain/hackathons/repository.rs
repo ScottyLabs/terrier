@@ -128,6 +128,7 @@ impl<'a> HackathonRepository<'a> {
                     event_type: e.event_type,
                     is_visible: e.is_visible,
                     organizer_ids: org_ids,
+                    points: e.points,
                 }
             })
             .collect())
