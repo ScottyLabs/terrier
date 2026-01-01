@@ -302,7 +302,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
     };
 
     rsx! {
-        div { class: "h-screen bg-background-neutral-secondary-enabled flex flex-col overflow-hidden",
+        div { class: "bg-background-neutral-secondary-enabled flex flex-col",
             // Header with back button
             div { class: "flex-shrink-0 p-4 flex items-center justify-between",
                 button {
@@ -318,207 +318,208 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
             }
 
             // Form content - scrollable
-            div { class: "flex-1 px-4 pb-4 overflow-y-auto h-full",
+            div { class: "flex flex-col flex-1 px-4 pb-4 overflow-y-auto",
                 // Title and category row
-                div { class: "flex items-start justify-between gap-4 mb-4",
-                    input {
-                        r#type: "text",
-                        class: "flex-1 text-2xl font-semibold text-foreground-neutral-primary bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
-                        placeholder: "Name of event",
-                        value: "{name}",
-                        oninput: move |e| name.set(e.value()),
-                    }
-                    select {
-                        class: "text-sm border border-stroke-neutral-1 rounded-full px-3 py-1 bg-transparent",
-                        value: "{event_type}",
-                        onchange: move |e| event_type.set(e.value()),
-                        option { value: "default", "Category" }
-                        option { value: "hacking", "Hacking" }
-                        option { value: "speaker", "Speaker" }
-                        option { value: "sponsor", "Sponsor" }
-                        option { value: "food", "Food" }
-                    }
-                }
-
-                // Location
-                div { class: "flex items-center gap-2 mb-2",
-                    Icon {
-                        width: 16,
-                        height: 16,
-                        icon: LdMapPin,
-                        class: "text-foreground-neutral-secondary",
-                    }
-                    input {
-                        r#type: "text",
-                        class: "flex-1 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
-                        placeholder: "Location",
-                        value: "{location}",
-                        oninput: move |e| location.set(e.value()),
-                    }
-                }
-
-                // Date and time
-                div { class: "flex items-center gap-2 mb-2",
-                    Icon {
-                        width: 16,
-                        height: 16,
-                        icon: LdClock,
-                        class: "text-foreground-neutral-secondary",
-                    }
-                    input {
-                        r#type: "date",
-                        class: "text-sm bg-transparent border-none outline-none",
-                        value: "{start_date}",
-                        oninput: move |e| start_date.set(e.value()),
-                    }
-                    span { class: "text-foreground-neutral-tertiary", "·" }
-                    input {
-                        r#type: "time",
-                        class: "text-sm bg-transparent border-none outline-none",
-                        value: "{start_time}",
-                        oninput: move |e| start_time.set(e.value()),
-                    }
-                    span { class: "text-foreground-neutral-tertiary", "–" }
-                    input {
-                        r#type: "time",
-                        class: "text-sm bg-transparent border-none outline-none",
-                        value: "{end_time}",
-                        oninput: move |e| end_time.set(e.value()),
-                    }
-                }
-
-                // Points
-                div { class: "flex items-center gap-2 mb-6",
-                    Icon {
-                        width: 16,
-                        height: 16,
-                        icon: LdTarget,
-                        class: "text-foreground-neutral-secondary",
-                    }
-                    input {
-                        r#type: "number",
-                        class: "w-20 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
-                        placeholder: "Points",
-                        value: "{points}",
-                        oninput: move |e| points.set(e.value()),
-                    }
-                    span { class: "text-sm text-foreground-neutral-secondary", "Points" }
-                }
-
-                // Event Description
-                div { class: "mb-6",
-                    h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-2",
-                        "Event Description"
-                    }
-                    div { class: "bg-background-neutral-primary rounded-xl p-4",
-                        textarea {
-                            class: "w-full h-24 text-sm bg-transparent resize-none placeholder:text-foreground-neutral-tertiary border-none outline-none",
-                            placeholder: "Describe this event...",
-                            value: "{description}",
-                            oninput: move |e| description.set(e.value()),
+                div { class: "height-[calc(100%-100px)] overflow-y-auto",
+                    div { class: "flex items-start justify-between gap-4 mb-4",
+                        input {
+                            r#type: "text",
+                            class: "flex-1 text-2xl font-semibold text-foreground-neutral-primary bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
+                            placeholder: "Name of event",
+                            value: "{name}",
+                            oninput: move |e| name.set(e.value()),
+                        }
+                        select {
+                            class: "text-sm border border-stroke-neutral-1 rounded-full px-3 py-1 bg-transparent",
+                            value: "{event_type}",
+                            onchange: move |e| event_type.set(e.value()),
+                            option { value: "default", "Category" }
+                            option { value: "hacking", "Hacking" }
+                            option { value: "speaker", "Speaker" }
+                            option { value: "sponsor", "Sponsor" }
+                            option { value: "food", "Food" }
                         }
                     }
-                }
 
-                // Organizers
-                div { class: "mb-6 bg-background-neutral-primary rounded-xl p-4",
-                    h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-3",
-                        "Organizers"
+                    // Location
+                    div { class: "flex items-center gap-2 mb-2",
+                        Icon {
+                            width: 16,
+                            height: 16,
+                            icon: LdMapPin,
+                            class: "text-foreground-neutral-secondary",
+                        }
+                        input {
+                            r#type: "text",
+                            class: "flex-1 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
+                            placeholder: "Location",
+                            value: "{location}",
+                            oninput: move |e| location.set(e.value()),
+                        }
                     }
 
-                    // Search input
-                    div { class: "relative mb-3",
-                        div { class: "flex items-center gap-2 px-3 py-2 border border-stroke-neutral-1 rounded-lg",
-                            Icon {
-                                width: 16,
-                                height: 16,
-                                icon: LdSearch,
-                                class: "text-foreground-neutral-tertiary",
-                            }
-                            input {
-                                r#type: "text",
-                                class: "flex-1 text-sm bg-transparent outline-none placeholder:text-foreground-neutral-tertiary",
-                                placeholder: "Add Organizer",
-                                value: "{organizer_search}",
-                                onfocus: move |_| show_organizer_dropdown.set(true),
-                                oninput: move |e| {
-                                    organizer_search.set(e.value());
-                                    show_organizer_dropdown.set(true);
-                                },
+                    // Date and time
+                    div { class: "flex items-center gap-2 mb-2",
+                        Icon {
+                            width: 16,
+                            height: 16,
+                            icon: LdClock,
+                            class: "text-foreground-neutral-secondary",
+                        }
+                        input {
+                            r#type: "date",
+                            class: "text-sm bg-transparent border-none outline-none",
+                            value: "{start_date}",
+                            oninput: move |e| start_date.set(e.value()),
+                        }
+                        span { class: "text-foreground-neutral-tertiary", "·" }
+                        input {
+                            r#type: "time",
+                            class: "text-sm bg-transparent border-none outline-none",
+                            value: "{start_time}",
+                            oninput: move |e| start_time.set(e.value()),
+                        }
+                        span { class: "text-foreground-neutral-tertiary", "–" }
+                        input {
+                            r#type: "time",
+                            class: "text-sm bg-transparent border-none outline-none",
+                            value: "{end_time}",
+                            oninput: move |e| end_time.set(e.value()),
+                        }
+                    }
+
+                    // Points
+                    div { class: "flex items-center gap-2 mb-6",
+                        Icon {
+                            width: 16,
+                            height: 16,
+                            icon: LdTarget,
+                            class: "text-foreground-neutral-secondary",
+                        }
+                        input {
+                            r#type: "number",
+                            class: "w-20 text-sm bg-transparent border-none outline-none placeholder:text-foreground-neutral-tertiary",
+                            placeholder: "Points",
+                            value: "{points}",
+                            oninput: move |e| points.set(e.value()),
+                        }
+                        span { class: "text-sm text-foreground-neutral-secondary", "Points" }
+                    }
+
+                    // Event Description
+                    div { class: "mb-6",
+                        h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-2",
+                            "Event Description"
+                        }
+                        div { class: "bg-background-neutral-primary rounded-xl p-4",
+                            textarea {
+                                class: "w-full h-24 text-sm bg-transparent resize-none placeholder:text-foreground-neutral-tertiary border-none outline-none",
+                                placeholder: "Describe this event...",
+                                value: "{description}",
+                                oninput: move |e| description.set(e.value()),
                             }
                         }
+                    }
 
-                        // Dropdown
-                        if show_organizer_dropdown() && !filtered_organizers.is_empty() {
-                            div { class: "absolute left-0 right-0 top-full mt-1 bg-white border border-stroke-neutral-1 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10",
-                                for person in filtered_organizers.iter() {
-                                    button {
-                                        key: "{person.user_id}",
-                                        class: "w-full px-4 py-2 text-left hover:bg-background-neutral-secondary-enabled flex items-center gap-2",
-                                        onclick: {
-                                            let p = person.clone();
-                                            let name = p.name.clone().unwrap_or_else(|| p.email.clone());
-                                            move |_| {
-                                                let mut orgs = selected_organizers();
-                                                orgs.push(OrganizerInfo {
-                                                    user_id: p.user_id,
-                                                    name: name.clone(),
-                                                    color: get_avatar_color(&name).to_string(),
-                                                });
-                                                selected_organizers.set(orgs);
-                                                organizer_search.set(String::new());
-                                                show_organizer_dropdown.set(false);
-                                            }
-                                        },
-                                        div { class: "w-6 h-6 rounded-full bg-gray-300" }
-                                        span { class: "text-sm",
-                                            "{person.name.clone().unwrap_or_else(|| person.email.clone())}"
-                                        }
-                                    }
+                    // Organizers
+                    div { class: "mb-6 bg-background-neutral-primary rounded-xl p-4",
+                        h3 { class: "text-sm font-medium text-foreground-neutral-primary mb-3",
+                            "Organizers"
+                        }
+
+                        // Search input
+                        div { class: "relative mb-3",
+                            div { class: "flex items-center gap-2 px-3 py-2 border border-stroke-neutral-1 rounded-lg",
+                                Icon {
+                                    width: 16,
+                                    height: 16,
+                                    icon: LdSearch,
+                                    class: "text-foreground-neutral-tertiary",
+                                }
+                                input {
+                                    r#type: "text",
+                                    class: "flex-1 text-sm bg-transparent outline-none placeholder:text-foreground-neutral-tertiary",
+                                    placeholder: "Add Organizer",
+                                    value: "{organizer_search}",
+                                    onfocus: move |_| show_organizer_dropdown.set(true),
+                                    oninput: move |e| {
+                                        organizer_search.set(e.value());
+                                        show_organizer_dropdown.set(true);
+                                    },
                                 }
                             }
-                        }
-                    }
 
-                    // Selected organizers
-                    div { class: "space-y-2",
-                        for org in selected_organizers().iter() {
-                            {
-                                let org_id = org.user_id;
-                                rsx! {
-                                    div { key: "{org.user_id}", class: "flex items-center justify-between py-2",
-                                        div { class: "flex items-center gap-3",
-                                            div { class: "w-8 h-8 rounded-full {org.color}" }
-                                            span { class: "text-sm font-medium text-foreground-neutral-primary", "{org.name}" }
-                                        }
+                            // Dropdown
+                            if show_organizer_dropdown() && !filtered_organizers.is_empty() {
+                                div { class: "absolute left-0 right-0 top-full mt-1 bg-white border border-stroke-neutral-1 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10",
+                                    for person in filtered_organizers.iter() {
                                         button {
-                                            class: "text-sm text-foreground-neutral-secondary border border-stroke-neutral-1 rounded-full px-3 py-1 hover:bg-red-50",
-                                            onclick: move |_| {
-                                                let orgs: Vec<_> = selected_organizers()
-                                                    .into_iter()
-                                                    .filter(|o| o.user_id != org_id)
-                                                    .collect();
-                                                selected_organizers.set(orgs);
+                                            key: "{person.user_id}",
+                                            class: "w-full px-4 py-2 text-left hover:bg-background-neutral-secondary-enabled flex items-center gap-2",
+                                            onclick: {
+                                                let p = person.clone();
+                                                let name = p.name.clone().unwrap_or_else(|| p.email.clone());
+                                                move |_| {
+                                                    let mut orgs = selected_organizers();
+                                                    orgs.push(OrganizerInfo {
+                                                        user_id: p.user_id,
+                                                        name: name.clone(),
+                                                        color: get_avatar_color(&name).to_string(),
+                                                    });
+                                                    selected_organizers.set(orgs);
+                                                    organizer_search.set(String::new());
+                                                    show_organizer_dropdown.set(false);
+                                                }
                                             },
-                                            "Remove"
+                                            div { class: "w-6 h-6 rounded-full bg-gray-300" }
+                                            span { class: "text-sm",
+                                                "{person.name.clone().unwrap_or_else(|| person.email.clone())}"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Selected organizers
+                        div { class: "space-y-2",
+                            for org in selected_organizers().iter() {
+                                {
+                                    let org_id = org.user_id;
+                                    rsx! {
+                                        div { key: "{org.user_id}", class: "flex items-center justify-between py-2",
+                                            div { class: "flex items-center gap-3",
+                                                div { class: "w-8 h-8 rounded-full {org.color}" }
+                                                span { class: "text-sm font-medium text-foreground-neutral-primary", "{org.name}" }
+                                            }
+                                            button {
+                                                class: "text-sm text-foreground-neutral-secondary border border-stroke-neutral-1 rounded-full px-3 py-1 hover:bg-red-50",
+                                                onclick: move |_| {
+                                                    let orgs: Vec<_> = selected_organizers()
+                                                        .into_iter()
+                                                        .filter(|o| o.user_id != org_id)
+                                                        .collect();
+                                                    selected_organizers.set(orgs);
+                                                },
+                                                "Remove"
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Error display
-                if let Some(err) = error() {
-                    div { class: "mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm",
-                        "{err}"
+                    // Error display
+                    if let Some(err) = error() {
+                        div { class: "mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm",
+                            "{err}"
+                        }
                     }
                 }
-
 
                 // Bottom buttons
-                div { class: "p-4 mt-auto",
+                div { class: "p-4 mt-auto flex-none",
                     div { class: "flex gap-3",
                         if show_delete_confirm() {
                             button {
