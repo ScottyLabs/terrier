@@ -10,7 +10,7 @@ pub fn TabSwitcher<T: Clone + PartialEq + 'static>(
             for (value , label) in tabs {
                 button {
                     key: "{label}",
-                    class: if active_tab() == value { "px-4 py-2 rounded-full bg-background-neutral-primary text-foreground-neutral-primary font-semibold text-sm w-full md:w-fit" } else { "px-4 py-2 rounded-full bg-transparent text-foreground-neutral-primary font-semibold text-sm" },
+                    class: if active_tab() == value { "px-4 py-2 rounded-full bg-background-neutral-primary text-foreground-neutral-primary font-semibold text-sm w-full md:w-fit" } else { "px-4 py-2 rounded-full bg-transparent text-foreground-neutral-primary font-semibold text-sm w-full md:w-fit" },
                     onclick: {
                         let v = value.clone();
                         move |_| active_tab.set(v.clone())
