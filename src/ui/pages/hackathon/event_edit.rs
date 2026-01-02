@@ -70,6 +70,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
     let mut description = use_signal(String::new);
     let mut location = use_signal(String::new);
     let mut start_date = use_signal(String::new);
+    let mut end_date = use_signal(String::new);
     let mut start_time = use_signal(String::new);
     let mut end_time = use_signal(String::new);
     let mut event_type = use_signal(|| "default".to_string());
@@ -88,6 +89,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                 description.set(event.description.clone().unwrap_or_default());
                 location.set(event.location.clone().unwrap_or_default());
                 start_date.set(event.start_time.date().format("%Y-%m-%d").to_string());
+                end_date.set(event.end_time.date().format("%Y-%m-%d").to_string());
                 start_time.set(event.start_time.time().format("%H:%M").to_string());
                 end_time.set(event.end_time.time().format("%H:%M").to_string());
                 event_type.set(event.event_type.clone());
@@ -185,6 +187,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
             let start_date_val = start_date();
             let start_time_val = start_time();
             let end_time_val = end_time();
+            let end_date_val = end_date();
             let event_type_val = event_type();
             let points_val = points();
             let organizer_ids_val: Vec<i32> =
@@ -212,6 +215,15 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                     }
                 };
 
+                let parsed_end_date = match NaiveDate::parse_from_str(&end_date_val, "%Y-%m-%d") {
+                    Ok(d) => d,
+                    Err(_) => {
+                        error.set(Some("Invalid date format".to_string()));
+                        is_saving.set(false);
+                        return;
+                    }
+                };
+
                 let parsed_start_time = match NaiveTime::parse_from_str(&start_time_val, "%H:%M") {
                     Ok(t) => t,
                     Err(_) => {
@@ -231,7 +243,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                 };
 
                 let start_datetime = NaiveDateTime::new(parsed_start_date, parsed_start_time);
-                let end_datetime = NaiveDateTime::new(parsed_start_date, parsed_end_time);
+                let end_datetime = NaiveDateTime::new(parsed_end_date, parsed_end_time);
 
                 let parsed_points: Option<i32> = if points_val.is_empty() {
                     None
@@ -268,7 +280,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                     points: parsed_points,
                 };
 
-                match update_event(slug.clone(), event_id, request).await {
+                match update_event(slug.clone(), request).await {
                     Ok(_) => {
                         nav.push(Route::HackathonScheduleEvent { slug, event_id });
                     }
@@ -378,6 +390,12 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                             class: "text-sm bg-transparent border-none outline-none",
                             value: "{start_time}",
                             oninput: move |e| start_time.set(e.value()),
+                        }
+                        input {
+                            r#type: "date",
+                            class: "text-sm bg-transparent border-none outline-none",
+                            value: "{end_date}",
+                            oninput: move |e| end_date.set(e.value()),
                         }
                         span { class: "text-foreground-neutral-tertiary", "–" }
                         input {

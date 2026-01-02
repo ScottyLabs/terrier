@@ -172,14 +172,14 @@ pub fn HackathonSettings(slug: String) -> Element {
                                             &start_date_field.value.read().clone(),
                                             "%Y-%m-%dT%H:%M",
                                         )
-                                        .unwrap();
+                                        // TODO: Update the other fields in a hackathon update request
+                                        .expect("Failed to parse start date");
                                     let end_date_val = NaiveDateTime::parse_from_str(
                                             &end_date_field.value.read().clone(),
                                             "%Y-%m-%dT%H:%M",
                                         )
-                                        .unwrap();
+                                        .expect("Failed to parse end date");
                                     spawn(async move {
-                                        // TODO: Update the other fields in a hackathon update request
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,

@@ -56,7 +56,7 @@ impl<'a> HackathonRepository<'a> {
 
     /// Get schedule for a hackathon
     /// - Admins see all events
-    /// - Others see events where visible_to_role is NULL or matches their role
+    /// - Others see events where visible_to_role is NULL or matches their role AND is_visible is true
     pub async fn get_schedule(
         &self,
         slug: &str,
@@ -83,14 +83,15 @@ impl<'a> HackathonRepository<'a> {
                 // Others see events where visible_to_role is NULL or matches their role
                 let role_condition =
                     Condition::any().add(crate::entities::events::Column::VisibleToRole.is_null());
-
                 let role_condition = if let Some(role) = user_role {
                     role_condition.add(crate::entities::events::Column::VisibleToRole.eq(role))
                 } else {
                     role_condition
                 };
 
-                base_query.filter(role_condition)
+                base_query
+                    .filter(role_condition)
+                    .filter(crate::entities::events::Column::IsVisible.eq(true))
             })
             .await?;
 

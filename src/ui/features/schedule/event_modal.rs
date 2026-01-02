@@ -320,7 +320,7 @@ pub fn EventModal(
                         request.organizer_ids
                     );
 
-                    match update_event(slug, id, request).await {
+                    match update_event(slug, request).await {
                         Ok(_) => {
                             on_save.call(());
                         }

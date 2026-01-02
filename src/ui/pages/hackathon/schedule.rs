@@ -288,6 +288,9 @@ fn DayColumn(
         .cloned()
         .collect();
 
+    // Compute layout positions for overlapping events
+    let event_layouts = compute_event_layout(day_events, day);
+
     // Calculate if current time indicator should show on this day
     let is_today = now.date() == day;
     let now_indicator_top = if is_today {
@@ -327,10 +330,12 @@ fn DayColumn(
                 }
 
                 // Events positioned absolutely
-                for event in day_events {
+                for layout in event_layouts.iter() {
                     EventBlock {
-                        event,
+                        event: layout.event.clone(),
                         day,
+                        column: layout.column,
+                        total_columns: layout.total_columns,
                         current_user_id,
                         is_admin,
                         on_click,
@@ -345,6 +350,8 @@ fn DayColumn(
 fn EventBlock(
     event: ScheduleEvent,
     day: NaiveDate,
+    column: usize,
+    total_columns: usize,
     current_user_id: Option<i32>,
     #[allow(unused)] is_admin: bool,
     on_click: EventHandler<ScheduleEvent>,
@@ -423,15 +430,38 @@ fn EventBlock(
 
     let event_for_click = event.clone();
 
+    // Calculate width and position based on overlap
+    let (left_percent, width_percent) = match total_columns {
+        1 => (0.5, 99.0), // Full width with small margin
+        2 => {
+            // Side by side: each gets ~48% width with small gap
+            let width = 48.0;
+            let left = column as f64 * 50.0 + 0.5;
+            (left, width)
+        }
+        n => {
+            // 3+ events: use minimum width with slight overlap
+            let min_width = 35.0;
+            let available_width = 99.0;
+            // Distribute columns with overlap
+            let step = (available_width - min_width) / (n as f64 - 1.0).max(1.0);
+            let left = column as f64 * step + 0.5;
+            (left, min_width)
+        }
+    };
+
+    // Z-index: later columns appear on top
+    let z_index = column + 1;
+
     rsx! {
         div {
-            class: "absolute left-2 right-2 flex flex-col gap-1.5 rounded-xl p-3 overflow-hidden {bg_color} {cursor_class}",
-            style: "top: {top}px; height: {height}px;",
+            class: "absolute flex flex-col gap-1.5 rounded-xl p-3 overflow-hidden {bg_color} {cursor_class}",
+            style: "top: {top}px; height: {height}px; left: {left_percent}%; width: {width_percent}%; z-index: {z_index};",
             onclick: move |_| {
                 on_click.call(event_for_click.clone());
             },
-            p { class: "text-base font-medium text-foreground-neutral-primary", "{event.name}" }
-            p { class: "text-base text-foreground-neutral-primary", "{time_str}" }
+            p { class: "text-base font-medium text-foreground-neutral-primary truncate", "{event.name}" }
+            p { class: "text-base text-foreground-neutral-primary truncate", "{time_str}" }
         }
     }
 }
@@ -566,6 +596,114 @@ fn format_hour(hour: u32) -> String {
         13..=23 => format!("{} PM", hour - 12),
         _ => format!("{}", hour),
     }
+}
+
+/// Represents an event's layout position within overlapping groups
+struct EventLayout {
+    event: ScheduleEvent,
+    /// Column index (0-indexed) within the overlap group
+    column: usize,
+    /// Total number of columns in this overlap group
+    total_columns: usize,
+}
+
+/// Compute layout positions for overlapping events using greedy column packing
+fn compute_event_layout(events: Vec<ScheduleEvent>, day: NaiveDate) -> Vec<EventLayout> {
+    if events.is_empty() {
+        return vec![];
+    }
+
+    // Helper to calculate effective start/end hours for an event on a specific day
+    let effective_hours = |event: &ScheduleEvent| -> (f64, f64) {
+        let event_start_date = event.start_time.date();
+        let event_end_date = event.end_time.date();
+
+        let start_hour = if day == event_start_date {
+            event.start_time.hour() as f64 + event.start_time.minute() as f64 / 60.0
+        } else {
+            // Multi-day event: starts at beginning of this day
+            START_HOUR as f64
+        };
+
+        let end_hour = if day == event_end_date {
+            event.end_time.hour() as f64 + event.end_time.minute() as f64 / 60.0
+        } else {
+            // Multi-day event: ends at end of this day
+            END_HOUR as f64
+        };
+
+        (start_hour, end_hour)
+    };
+
+    // Sort events by their effective start time for THIS day, then by effective end time
+    let mut sorted_events = events;
+    sorted_events.sort_by(|a, b| {
+        let (a_start, a_end) = effective_hours(a);
+        let (b_start, b_end) = effective_hours(b);
+        a_start
+            .partial_cmp(&b_start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                a_end
+                    .partial_cmp(&b_end)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    });
+
+    // Track column end times (when each column becomes free)
+    // Value is the end hour as f64 for this day
+    let mut column_ends: Vec<f64> = Vec::new();
+    let mut assignments: Vec<(ScheduleEvent, usize, f64, f64)> = Vec::new(); // (event, column, start, end)
+
+    for event in sorted_events {
+        let (start_hour, end_hour) = effective_hours(&event);
+
+        // Find the first column where this event fits
+        let mut assigned_column = None;
+        for (col_idx, col_end) in column_ends.iter().enumerate() {
+            if *col_end <= start_hour {
+                assigned_column = Some(col_idx);
+                break;
+            }
+        }
+
+        let column = match assigned_column {
+            Some(col) => {
+                column_ends[col] = end_hour;
+                col
+            }
+            None => {
+                // No available column, create a new one
+                column_ends.push(end_hour);
+                column_ends.len() - 1
+            }
+        };
+
+        assignments.push((event, column, start_hour, end_hour));
+    }
+
+    // Now we need to determine total_columns for each event
+    // An event's total_columns is the max columns among all events it overlaps with
+    let mut layouts: Vec<EventLayout> = Vec::new();
+
+    for (event, column, start_hour, end_hour) in &assignments {
+        // Find all events that overlap with this one and get max column + 1
+        let mut max_column = *column;
+        for (_, other_column, other_start, other_end) in &assignments {
+            // Check if they overlap (start < other_end && other_start < end)
+            if start_hour < other_end && other_start < end_hour {
+                max_column = max_column.max(*other_column);
+            }
+        }
+
+        layouts.push(EventLayout {
+            event: event.clone(),
+            column: *column,
+            total_columns: max_column + 1,
+        });
+    }
+
+    layouts
 }
 
 /// Mobile schedule view with day tabs and event list

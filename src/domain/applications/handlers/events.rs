@@ -33,7 +33,7 @@ pub async fn get_user_schedule(
     // Fetch user role
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let user_role = role_repo
-        .find_user_role(ctx.user.id, ctx.hackathon.as_ref().unwrap().id)
+        .find_user_role(ctx.user.id, ctx.hackathon()?.id)
         .await?;
     let role_str = user_role.as_ref().map(|r| r.role.as_str());
     let is_admin = user_role
@@ -205,10 +205,9 @@ pub struct UpdateEventRequest {
     ),
     tag = "events"
 ))]
-#[put("/api/hackathons/:slug/events/:id", user: SyncedUser)]
+#[put("/api/hackathons/:slug/events", user: SyncedUser)]
 pub async fn update_event(
     slug: String,
-    id: i32,
     request: UpdateEventRequest,
 ) -> Result<crate::domain::hackathons::types::ScheduleEvent, ServerFnError> {
     use crate::domain::people::repository::UserRoleRepository;
