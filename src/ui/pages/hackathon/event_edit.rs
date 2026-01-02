@@ -245,6 +245,13 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                 let start_datetime = NaiveDateTime::new(parsed_start_date, parsed_start_time);
                 let end_datetime = NaiveDateTime::new(parsed_end_date, parsed_end_time);
 
+                // reject if end time is before start time
+                if end_datetime < start_datetime {
+                    error.set(Some("End time must be after start time".to_string()));
+                    is_saving.set(false);
+                    return;
+                }
+
                 let parsed_points: Option<i32> = if points_val.is_empty() {
                     None
                 } else {

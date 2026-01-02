@@ -199,7 +199,7 @@ pub fn HackathonSchedule(slug: String) -> Element {
             }
 
             // Sidebar with event details
-            div { class: "w-full lg:w-80 flex-shrink-0",
+            div { class: "w-full lg:w-80 flex-shrink-0 overflow-scroll",
                 div { class: "pt-11",
                     // Current events
                     EventSection {
@@ -432,20 +432,20 @@ fn EventBlock(
 
     // Calculate width and position based on overlap
     let (left_percent, width_percent) = match total_columns {
-        1 => (0.5, 99.0), // Full width with small margin
+        1 => (1.0, 98.0), // Full width with small margin
         2 => {
-            // Side by side: each gets ~48% width with small gap
-            let width = 48.0;
-            let left = column as f64 * 50.0 + 0.5;
+            // Side by side: each gets ~46% width with 8% total gap
+            let width = 46.0;
+            let left = column as f64 * 52.0 + 1.0;
             (left, width)
         }
         n => {
             // 3+ events: use minimum width with slight overlap
-            let min_width = 35.0;
-            let available_width = 99.0;
+            let min_width = 32.0;
+            let available_width = 98.0;
             // Distribute columns with overlap
             let step = (available_width - min_width) / (n as f64 - 1.0).max(1.0);
-            let left = column as f64 * step + 0.5;
+            let left = column as f64 * step + 1.0;
             (left, min_width)
         }
     };
@@ -460,7 +460,9 @@ fn EventBlock(
             onclick: move |_| {
                 on_click.call(event_for_click.clone());
             },
-            p { class: "text-base font-medium text-foreground-neutral-primary truncate", "{event.name}" }
+            p { class: "text-base font-medium text-foreground-neutral-primary truncate",
+                "{event.name}"
+            }
             p { class: "text-base text-foreground-neutral-primary truncate", "{time_str}" }
         }
     }
