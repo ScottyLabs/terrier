@@ -9,6 +9,11 @@ mod m20251203_041138_create_team_join_requests;
 mod m20251203_145251_create_team_invitations;
 mod m20251203_220027_add_hackathon_background_url;
 mod m20251204_045720_add_team_owner_id;
+mod m20251229_003029_add_schedule_tables;
+mod m20251229_043000_add_event_organizers;
+mod m20251229_051500_add_event_location;
+mod m20251229_105000_add_event_visibility;
+mod m20251230_172700_add_event_points;
 
 pub struct Migrator;
 
@@ -25,6 +30,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20251203_145251_create_team_invitations::Migration),
             Box::new(m20251203_220027_add_hackathon_background_url::Migration),
             Box::new(m20251204_045720_add_team_owner_id::Migration),
+            Box::new(m20251229_003029_add_schedule_tables::Migration),
+            Box::new(m20251229_043000_add_event_organizers::Migration),
+            Box::new(m20251229_051500_add_event_location::Migration),
+            Box::new(m20251229_105000_add_event_visibility::Migration),
+            Box::new(m20251230_172700_add_event_points::Migration),
         ]
     }
 }

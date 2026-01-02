@@ -12,6 +12,11 @@ impl<'a> Repository<'a> {
         Self { db }
     }
 
+    /// Get the database connection
+    pub fn db(&self) -> &DatabaseConnection {
+        self.db
+    }
+
     /// Find entity by ID with proper error handling
     pub async fn find_by_id<E>(&self, id: i32) -> Result<E::Model, ServerFnError>
     where

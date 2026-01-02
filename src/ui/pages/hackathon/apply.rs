@@ -282,7 +282,7 @@ fn ApplicationForm(
     });
 
     rsx! {
-        div { class: "flex flex-col gap-6 max-w-3xl",
+        div { class: "flex flex-col gap-6 w-screen md:w-full max-w-3xl",
             div { class: "flex justify-between items-center pt-11 pb-7",
                 h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
                     "Application"
@@ -754,7 +754,18 @@ fn FormFieldRenderer(
                                     },
                                 }
 
+
+
+
+
+
+
+
+
                                 if !value().is_empty() && !is_uploading() {
+
+
+
                                     div { class: "flex items-center gap-3 p-4 bg-background-brandNeutral-secondary rounded-lg",
                                         Icon {
                                             width: 32,

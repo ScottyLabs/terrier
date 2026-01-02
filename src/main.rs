@@ -10,15 +10,15 @@ mod entities;
 mod server;
 mod ui;
 
-use dioxus::prelude::*;
-use ui::pages::*;
-
 #[cfg(feature = "server")]
 use config::Config;
+use dioxus::prelude::*;
 #[cfg(feature = "server")]
 use dioxus_fullstack::FullstackContext;
 #[cfg(feature = "server")]
 use dioxus_fullstack::extract::FromRef;
+use ui::foundation::hooks::use_window_width;
+use ui::pages::*;
 
 #[cfg(feature = "server")]
 #[derive(Clone)]
@@ -63,6 +63,16 @@ pub enum Route {
             #[route("/schedule")]
                 HackathonSchedule {
                     slug: String
+                },
+            #[route("/schedule/event/:event_id")]
+                HackathonScheduleEvent {
+                    slug: String,
+                    event_id: i32
+                },
+            #[route("/schedule/event/:event_id/edit")]
+                HackathonScheduleEdit {
+                    slug: String,
+                    event_id: i32
                 },
             #[route("/messages")]
                 HackathonMessages {
@@ -119,8 +129,19 @@ fn main() {
 fn App() -> Element {
     let user_future = use_server_future(domain::auth::handlers::get_current_user)?;
     let user = use_signal(|| user_future().and_then(|r| r.ok()).flatten());
-
     use_context_provider(|| user);
+
+    let mut is_mobile = use_signal(|| false);
+    use_context_provider(|| is_mobile);
+
+    // Update is_mobile on client-side after hydration
+    #[cfg(target_arch = "wasm32")]
+    {
+        let width = use_window_width();
+        use_effect(move || {
+            is_mobile.set(*width.read() < 768.0);
+        });
+    }
 
     rsx! {
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }

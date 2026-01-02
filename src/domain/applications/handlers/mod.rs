@@ -1,11 +1,17 @@
 pub mod attendance;
-pub mod files;
-pub mod query;
-pub mod review;
-pub mod submission;
-
 pub use attendance::*;
+
+pub mod events;
+pub use events::*;
+
+pub mod files;
 pub use files::*;
+
+pub mod query;
 pub use query::*;
+
+pub mod review;
 pub use review::*;
+
+pub mod submission;
 pub use submission::*;

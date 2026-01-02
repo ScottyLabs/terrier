@@ -7,7 +7,7 @@ pub fn HackathonLayout(slug: String) -> Element {
     let nav = navigator();
     let slug_for_hackathon = slug.clone();
     let slug_for_role = slug.clone();
-
+    let is_mobile = use_context::<Signal<bool>>();
     // Fetch hackathon data
     let hackathon_resource = use_resource(move || {
         let s = slug_for_hackathon.clone();
@@ -54,7 +54,7 @@ pub fn HackathonLayout(slug: String) -> Element {
 
             rsx! {
                 div {
-                    class: "flex flex-row p-7 gap-9 h-screen bg-cover bg-center bg-no-repeat",
+                    class: "flex bg-cover bg-center bg-no-repeat w-screen flex-col md:flex-row md:h-screen md:gap-9 md:p-7",
                     style: if let Some(bg_url) = &hackathon.background_url { format!("background-image: url('{}')", bg_url) } else { String::new() },
                     Sidebar {
                         slug,
@@ -62,7 +62,7 @@ pub fn HackathonLayout(slug: String) -> Element {
                         role: role.cloned(),
                         application_refresh_trigger,
                     }
-                    main { class: "flex-1 overflow-y-auto", Outlet::<Route> {} }
+                    main { class: "flex-1 p-2 min-w-0 overflow-scroll", Outlet::<Route> {} }
                 }
             }
         }

@@ -1,3 +1,4 @@
+use chrono::{NaiveDate, NaiveDateTime};
 use dioxus::{logger::tracing, prelude::*};
 use dioxus_forms::*;
 
@@ -126,8 +127,8 @@ pub fn HackathonSettings(slug: String) -> Element {
 
     rsx! {
         div {
-            div { class: "flex justify-between items-center pt-11 pb-7",
-                h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+            div { class: "flex flex-col md:flex-row justify-between md:items-center gap-3 pt-6 md:pt-11 pb-4 md:pb-7",
+                h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                     "Settings"
                 }
                 SaveStatusIndicator {
@@ -137,7 +138,7 @@ pub fn HackathonSettings(slug: String) -> Element {
             }
 
             // Tab switcher
-            div { class: "mb-6",
+            div { class: "mb-4 md:mb-6",
                 TabSwitcher { active_tab, tabs }
             }
 
@@ -167,11 +168,24 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field.value.read().clone();
                                     let desc_val = desc_field.value.read().clone();
                                     let team_size_val = *team_size_field.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        // TODO: Update the other fields in a hackathon update request
+                                        .expect("Failed to parse start date");
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .expect("Failed to parse end date");
                                     spawn(async move {
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {
@@ -292,11 +306,23 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field2.value.read().clone();
                                     let desc_val = desc_field2.value.read().clone();
                                     let team_size_val = *max_team_size_for_save.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
                                     spawn(async move {
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {
@@ -320,7 +346,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     });
                                 },
-                                // Hidden fields for name, description, banner
                                 input {
                                     r#type: "hidden",
                                     name: "name",
@@ -388,7 +413,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                         let mut status = save_status;
                         rsx! {
                             div { class: "flex flex-col gap-6",
-                                // Registration Status Toggle
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Registration Status" }
                                     p { class: "text-foreground-neutral-secondary",
@@ -431,7 +455,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     }
                                 }
-                                // Preset Selector
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Application Form" }
                                     div { class: "flex flex-col gap-2",
