@@ -31,7 +31,7 @@ pub fn ApplicationStatus(
                         p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
-                        div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
+                        div { class: "bg-background-neutral-secondary rounded-xl p-3 flex items-center justify-center",
                             p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "SUBMITTED"
                             }
@@ -93,7 +93,7 @@ pub fn ApplicationStatus(
                         p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
-                        div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
+                        div { class: "bg-background-neutral-secondary rounded-xl p-3 flex items-center justify-center",
                             p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "ADMITTED"
                             }
@@ -187,7 +187,7 @@ pub fn ApplicationStatus(
                         p { class: "text-base md:text-[18px] font-medium leading-6 md:leading-[26px] text-center w-full",
                             "Your Status"
                         }
-                        div { class: "bg-background-brandNeutral-secondary rounded-xl p-3 flex items-center justify-center",
+                        div { class: "bg-background-neutral-secondary rounded-xl p-3 flex items-center justify-center",
                             p { class: "text-xl md:text-[24px] font-medium leading-7 md:leading-8 text-black",
                                 "CONFIRMED"
                             }

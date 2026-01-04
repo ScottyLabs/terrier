@@ -80,6 +80,10 @@ pub fn EventModal(
         .map(|e| e.organizer_ids.clone())
         .unwrap_or_default();
     let initial_points = event.as_ref().and_then(|e| e.points);
+    let initial_checkin_type = event
+        .as_ref()
+        .map(|e| e.checkin_type.clone())
+        .unwrap_or_else(|| "qr_scan".to_string());
     let event_id = event.as_ref().map(|e| e.id);
 
     // Form state
@@ -94,6 +98,7 @@ pub fn EventModal(
     let mut event_type = use_signal(|| initial_event_type);
     let mut is_visible = use_signal(|| initial_is_visible);
     let mut points = use_signal(|| initial_points.map(|p| p.to_string()).unwrap_or_default());
+    let mut checkin_type = use_signal(|| initial_checkin_type);
     let mut selected_organizers = use_signal(Vec::<OrganizerInfo>::new);
     let mut has_initialized_organizers = use_signal(|| false);
 
@@ -183,6 +188,7 @@ pub fn EventModal(
             let event_type_val = event_type();
             let is_visible_val = is_visible();
             let points_val = points();
+            let checkin_type_val = checkin_type();
             let organizer_ids_val: Vec<i32> =
                 selected_organizers().iter().map(|o| o.user_id).collect();
 
@@ -311,6 +317,7 @@ pub fn EventModal(
                         is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
                         points: parsed_points,
+                        checkin_type: checkin_type_val.clone(),
                     };
 
                     dioxus_logger::tracing::info!(
@@ -356,6 +363,7 @@ pub fn EventModal(
                         is_visible: is_visible_val,
                         organizer_ids: organizer_ids_val,
                         points: parsed_points,
+                        checkin_type: checkin_type_val,
                     };
 
                     match create_event(slug, request).await {

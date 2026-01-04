@@ -23,10 +23,13 @@ pub struct Model {
     pub location: Option<String>,
     pub is_visible: bool,
     pub points: Option<i32>,
+    pub checkin_type: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::event_checkins::Entity")]
+    EventCheckins,
     #[sea_orm(has_many = "super::event_organizers::Entity")]
     EventOrganizers,
     #[sea_orm(
@@ -37,6 +40,12 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Hackathons,
+}
+
+impl Related<super::event_checkins::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventCheckins.def()
+    }
 }
 
 impl Related<super::event_organizers::Entity> for Entity {

@@ -42,4 +42,8 @@ pub struct ScheduleEvent {
     pub organizer_ids: Vec<i32>,
     /// Optional points value for gamification
     pub points: Option<i32>,
+    /// Check-in type: 'self_checkin' or 'qr_scan'
+    pub checkin_type: String,
+    /// Whether the current user has checked in (populated per-request)
+    pub is_checked_in: bool,
 }

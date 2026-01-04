@@ -652,7 +652,7 @@ fn FormFieldRenderer(
                                     id: "{field_id}",
                                     name: "{field_name}",
                                     r#type: "date",
-                                    class: "px-4 h-12 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem]",
+                                    class: "px-4 h-12 bg-background-neutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem]",
                                     required: field_required,
                                     value: "{value}",
                                     min: if is_signature_date { today.clone() } else { String::new() },
@@ -766,7 +766,7 @@ fn FormFieldRenderer(
 
 
 
-                                    div { class: "flex items-center gap-3 p-4 bg-background-brandNeutral-secondary rounded-lg",
+                                    div { class: "flex items-center gap-3 p-4 bg-background-neutral-secondary rounded-lg",
                                         Icon {
                                             width: 32,
                                             height: 32,
@@ -833,7 +833,7 @@ fn FormFieldRenderer(
 
                                 label {
                                     r#for: "{field_id}",
-                                    class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                    class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-neutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
                                     Icon { width: 20, height: 20, icon: LdFileText }
                                     if !value().is_empty() && !is_uploading() {
                                         "Change file"

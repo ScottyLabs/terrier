@@ -285,6 +285,7 @@ pub fn HackathonScheduleEdit(slug: String, event_id: i32) -> Element {
                     is_visible: true,
                     organizer_ids: organizer_ids_val,
                     points: parsed_points,
+                    checkin_type: "self".to_string(),
                 };
 
                 match update_event(slug.clone(), request).await {

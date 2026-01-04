@@ -70,7 +70,7 @@ pub fn EventDetailModal(
 
             // Modal
             div {
-                class: "bg-[var(--color-background-brandNeutral-secondary)] rounded-2xl  shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto",
+                class: "bg-[var(--color-background-neutral-secondary)] rounded-2xl  shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto",
                 onclick: move |e| e.stop_propagation(),
 
                 // Header with close button

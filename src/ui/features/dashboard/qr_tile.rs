@@ -68,7 +68,7 @@ fn QRDisplay(qr_svg: String, user_id: i32) -> Element {
     rsx! {
         div { class: "w-full h-full flex flex-col gap-1 flex items-center justify-center p-8",
             div {
-                class: "w-full h-full bg-background-brandNeutral-secondary rounded-xl",
+                class: "w-full h-full bg-background-neutral-secondary rounded-xl",
                 dangerous_inner_html: "{qr_svg}",
             }
             // user id for backup

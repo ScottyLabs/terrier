@@ -43,7 +43,8 @@ pub async fn get_user_schedule(
 
     let repo = HackathonRepository::new(&ctx.state.db);
 
-    repo.get_schedule(&slug, role_str, is_admin).await
+    repo.get_schedule(&slug, role_str, is_admin, ctx.user.id)
+        .await
 }
 
 use chrono::NaiveDateTime;
@@ -72,6 +73,8 @@ pub struct CreateEventRequest {
     pub organizer_ids: Vec<i32>,
     /// Optional points value for gamification
     pub points: Option<i32>,
+    /// Check-in type: 'self_checkin' or 'qr_scan'
+    pub checkin_type: String,
 }
 
 /// Create a new event (admin only)
@@ -130,6 +133,7 @@ pub async fn create_event(
         event_type: Set(request.event_type.clone()),
         is_visible: Set(request.is_visible),
         points: Set(request.points),
+        checkin_type: Set(request.checkin_type.clone()),
         created_at: Set(now),
         updated_at: Set(now),
         ..Default::default()
@@ -167,6 +171,8 @@ pub async fn create_event(
         is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
         points: inserted.points,
+        checkin_type: inserted.checkin_type,
+        is_checked_in: false,
     })
 }
 
@@ -186,6 +192,8 @@ pub struct UpdateEventRequest {
     pub organizer_ids: Vec<i32>,
     /// Optional points value for gamification
     pub points: Option<i32>,
+    /// Check-in type: 'self_checkin' or 'qr_scan'
+    pub checkin_type: String,
 }
 
 /// Update an existing event (admin only)
@@ -250,6 +258,7 @@ pub async fn update_event(
     event_model.event_type = Set(request.event_type.clone());
     event_model.is_visible = Set(request.is_visible);
     event_model.points = Set(request.points);
+    event_model.checkin_type = Set(request.checkin_type.clone());
     event_model.updated_at = Set(now);
 
     let updated = event_model
@@ -289,6 +298,8 @@ pub async fn update_event(
         is_visible: request.is_visible,
         organizer_ids: request.organizer_ids,
         points: updated.points,
+        checkin_type: updated.checkin_type,
+        is_checked_in: false,
     })
 }
 

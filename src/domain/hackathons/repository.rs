@@ -62,6 +62,7 @@ impl<'a> HackathonRepository<'a> {
         slug: &str,
         user_role: Option<&str>,
         is_admin: bool,
+        user_id: i32,
     ) -> Result<Vec<crate::domain::hackathons::types::ScheduleEvent>, ServerFnError> {
         use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder};
 
@@ -98,10 +99,22 @@ impl<'a> HackathonRepository<'a> {
         // Fetch organizers for all events
         let event_ids: Vec<i32> = events.iter().map(|e| e.id).collect();
         let organizers = crate::entities::event_organizers::Entity::find()
-            .filter(crate::entities::event_organizers::Column::EventId.is_in(event_ids))
+            .filter(crate::entities::event_organizers::Column::EventId.is_in(event_ids.clone()))
             .all(self.repo.db())
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to fetch organizers: {}", e)))?;
+
+        // Fetch user's check-ins for these events
+        let checkins = crate::entities::event_checkins::Entity::find()
+            .filter(crate::entities::event_checkins::Column::EventId.is_in(event_ids))
+            .filter(crate::entities::event_checkins::Column::UserId.eq(user_id))
+            .all(self.repo.db())
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch checkins: {}", e)))?;
+
+        // Create set of checked-in event IDs
+        let checked_in_event_ids: std::collections::HashSet<i32> =
+            checkins.iter().map(|c| c.event_id).collect();
 
         // Group organizers by event_id
         let mut organizer_map: std::collections::HashMap<i32, Vec<i32>> =
@@ -113,11 +126,12 @@ impl<'a> HackathonRepository<'a> {
                 .push(org.user_id);
         }
 
-        // Map events with their organizers
+        // Map events with their organizers and check-in status
         Ok(events
             .into_iter()
             .map(|e| {
                 let org_ids = organizer_map.get(&e.id).cloned().unwrap_or_default();
+                let is_checked_in = checked_in_event_ids.contains(&e.id);
                 crate::domain::hackathons::types::ScheduleEvent {
                     id: e.id,
                     name: e.name,
@@ -130,6 +144,8 @@ impl<'a> HackathonRepository<'a> {
                     is_visible: e.is_visible,
                     organizer_ids: org_ids,
                     points: e.points,
+                    checkin_type: e.checkin_type,
+                    is_checked_in,
                 }
             })
             .collect())

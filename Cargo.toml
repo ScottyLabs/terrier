@@ -51,7 +51,7 @@ utoipa-swagger-ui = { version = "9.0.2", features = [
 ], optional = true }
 migration = { path = "migration", optional = true }
 gloo-timers = { version = "0.3.0", features = ["futures"] }
-web-sys = { version = "0.3.83", features = ["Window", "console"] }
+web-sys = { version = "0.3.83", features = ["Window", "Storage", "console"] }
 gloo-events = "0.2.0"
 qrcodegen = "1.8.0"
 

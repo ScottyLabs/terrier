@@ -18,7 +18,7 @@ pub fn ModalBase(
 
             // Modal container
             div {
-                class: "bg-background-brandNeutral-secondary rounded-[20px] shadow-lg max-h-[{max_height}] overflow-y-auto relative",
+                class: "bg-background-neutral-secondary rounded-[20px] shadow-lg max-h-[{max_height}] overflow-y-auto relative",
                 style: "width: {width};",
                 onclick: move |e| e.stop_propagation(),
 

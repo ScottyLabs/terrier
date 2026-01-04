@@ -199,7 +199,7 @@ pub fn HackathonSchedule(slug: String) -> Element {
             }
 
             // Sidebar with event details
-            div { class: "w-full lg:w-80 flex-shrink-0 overflow-scroll",
+            div { class: "w-full lg:w-80 flex-shrink-0 overflow-auto",
                 div { class: "pt-11",
                     // Current events
                     EventSection {

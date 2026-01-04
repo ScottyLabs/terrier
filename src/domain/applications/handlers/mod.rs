@@ -1,6 +1,9 @@
 pub mod attendance;
 pub use attendance::*;
 
+pub mod checkin;
+pub use checkin::*;
+
 pub mod events;
 pub use events::*;
 

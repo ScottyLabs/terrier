@@ -14,6 +14,7 @@ mod m20251229_043000_add_event_organizers;
 mod m20251229_051500_add_event_location;
 mod m20251229_105000_add_event_visibility;
 mod m20251230_172700_add_event_points;
+mod m20260103_add_event_checkins;
 
 pub struct Migrator;
 
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251229_051500_add_event_location::Migration),
             Box::new(m20251229_105000_add_event_visibility::Migration),
             Box::new(m20251230_172700_add_event_points::Migration),
+            Box::new(m20260103_add_event_checkins::Migration),
         ]
     }
 }

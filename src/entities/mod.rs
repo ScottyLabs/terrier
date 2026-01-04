@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod applications;
+pub mod event_checkins;
 pub mod event_organizers;
 pub mod events;
 pub mod hackathons;
