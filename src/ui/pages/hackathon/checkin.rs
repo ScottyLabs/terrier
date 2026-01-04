@@ -3,11 +3,13 @@ use dioxus::prelude::*;
 use dioxus_free_icons::{
     Icon,
     icons::ld_icons::{
-        LdCalendar, LdCheck, LdExpand, LdLoader, LdLock, LdQrCode, LdSearch, LdSquare, LdTarget,
+        LdCalendar, LdCheck, LdChevronLeft, LdExpand, LdLoader, LdLock, LdQrCode, LdSearch,
+        LdSquare, LdStar, LdTarget,
     },
 };
 
 use crate::{
+    Route,
     auth::{
         CHECKIN_ROLES, HackathonRole, HackathonRoleType, hooks::use_require_access_or_redirect,
     },
@@ -102,6 +104,7 @@ fn ParticipantCheckinView(
     on_refresh: EventHandler<()>,
 ) -> Element {
     let user_role = use_context::<Option<HackathonRole>>();
+    let is_mobile = use_context::<Signal<bool>>();
     let user_id = user_role.as_ref().map(|r| r.user_id).unwrap_or(-1);
     let checkin_url = format!("terrier://check-in/{}", user_id);
     let qr_svg = generate_qr_svg(&checkin_url);
@@ -124,31 +127,28 @@ fn ParticipantCheckinView(
             h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary pt-11 pb-7",
                 "Event Check-In"
             }
-            div { class: "flex flex-col gap-6 flex-1 overflow-hidden lg:flex-row",
-                // Left panel - Event list
-                div { class: "mb-7 bg-background-neutral-primary rounded-[20px] flex-1 p-7 flex flex-col overflow-hidden",
-                    div { class: "flex items-center justify-between pb-4",
-                        p { class: "text-heading/5 font-semibold leading-[28px] text-foreground-neutral-primary",
+
+            if *is_mobile.read() {
+                // Mobile layout
+                div { class: "flex-1 overflow-y-auto pb-7",
+                    // Points and QR Code buttons
+                    div { class: "flex gap-3 mb-6",
+                        button { class: "flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-background-neutral-primary rounded-2xl",
+                            Icon { width: 18, height: 18, icon: LdTarget }
+                            span { class: "font-medium", "Points earned: {points}" }
+                        }
+                        button {
+                            class: "flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-background-neutral-primary rounded-2xl",
+                            onclick: move |_| show_qr_modal.set(true),
+                            span { class: "font-medium", "QR Code" }
+                        }
+                    }
+
+                    // Check-ins section
+                    div { class: "bg-background-neutral-primary rounded-[20px] p-5",
+                        p { class: "text-heading/5 font-semibold leading-[28px] text-foreground-neutral-primary mb-4",
                             "Check-ins"
                         }
-                    }
-                    // Search input
-                    div { class: "flex items-center gap-2 px-3 py-2 rounded-xl border border-stroke-neutral-1 bg-background-neutral-secondary mb-4",
-                        Icon {
-                            width: 16,
-                            height: 16,
-                            icon: LdSearch,
-                            class: "text-foreground-neutral-tertiary",
-                        }
-                        input {
-                            r#type: "text",
-                            class: "flex-1 bg-transparent text-foreground-neutral-primary placeholder:text-foreground-neutral-tertiary outline-none text-sm",
-                            placeholder: "Search events...",
-                            value: "{search_query}",
-                            oninput: move |e| search_query.set(e.value()),
-                        }
-                    }
-                    div { class: "flex-1 overflow-y-auto",
                         div { class: "flex flex-col gap-3",
                             for event in filtered_events.iter() {
                                 ParticipantEventCard {
@@ -160,46 +160,85 @@ fn ParticipantCheckinView(
                         }
                     }
                 }
-
-                // Right panel - Points and QR code
-                div { class: "w-full lg:w-80 flex-shrink-0 mb-7",
-                    div { class: "bg-background-neutral-primary rounded-[20px] p-6",
-                        // Points badge
-                        div { class: "flex items-center gap-2 mb-6",
-                            Icon {
-                                width: 20,
-                                height: 20,
-                                icon: LdTarget,
-                                class: "text-foreground-neutral-primary",
-                            }
-                            span { class: "text-lg font-semibold text-foreground-neutral-primary",
-                                "Points earned: {points}"
+            } else {
+                // Desktop layout
+                div { class: "flex flex-col gap-6 flex-1 overflow-hidden lg:flex-row",
+                    // Left panel - Event list
+                    div { class: "mb-7 bg-background-neutral-primary rounded-[20px] flex-1 p-7 flex flex-col overflow-hidden",
+                        div { class: "flex items-center justify-between pb-4",
+                            p { class: "text-heading/5 font-semibold leading-[28px] text-foreground-neutral-primary",
+                                "Check-ins"
                             }
                         }
-
-                        // QR code
-                        div { class: "mb-4",
-                            div { class: "flex items-center justify-between mb-3",
-                                p { class: "text-sm text-foreground-neutral-secondary",
-                                    "Your QR code"
-                                }
-                                button {
-                                    class: "p-1 hover:bg-background-neutral-secondary rounded transition-colors",
-                                    onclick: move |_| show_qr_modal.set(true),
-                                    Icon {
-                                        width: 16,
-                                        height: 16,
-                                        icon: LdExpand,
-                                        class: "text-foreground-neutral-secondary",
+                        // Search input
+                        div { class: "flex items-center gap-2 px-3 py-2 rounded-xl border border-stroke-neutral-1 bg-background-neutral-secondary mb-4",
+                            Icon {
+                                width: 16,
+                                height: 16,
+                                icon: LdSearch,
+                                class: "text-foreground-neutral-tertiary",
+                            }
+                            input {
+                                r#type: "text",
+                                class: "flex-1 bg-transparent text-foreground-neutral-primary placeholder:text-foreground-neutral-tertiary outline-none text-sm",
+                                placeholder: "Search events...",
+                                value: "{search_query}",
+                                oninput: move |e| search_query.set(e.value()),
+                            }
+                        }
+                        div { class: "flex-1 overflow-y-auto",
+                            div { class: "flex flex-col gap-3",
+                                for event in filtered_events.iter() {
+                                    ParticipantEventCard {
+                                        slug: slug.clone(),
+                                        event: event.clone(),
+                                        on_refresh,
                                     }
                                 }
                             }
-                            div {
-                                class: "bg-white rounded-xl p-4",
-                                dangerous_inner_html: "{qr_svg}",
+                        }
+                    }
+
+                    // Right panel - Points and QR code
+                    div { class: "w-full lg:w-80 flex-shrink-0 mb-7",
+                        div { class: "bg-background-neutral-primary rounded-[20px] p-6",
+                            // Points badge
+                            div { class: "flex items-center gap-2 mb-6",
+                                Icon {
+                                    width: 20,
+                                    height: 20,
+                                    icon: LdTarget,
+                                    class: "text-foreground-neutral-primary",
+                                }
+                                span { class: "text-lg font-semibold text-foreground-neutral-primary",
+                                    "Points earned: {points}"
+                                }
                             }
-                            p { class: "text-xs text-foreground-neutral-tertiary text-center mt-2",
-                                "User ID: {user_id}"
+
+                            // QR code
+                            div { class: "mb-4",
+                                div { class: "flex items-center justify-between mb-3",
+                                    p { class: "text-sm text-foreground-neutral-secondary",
+                                        "Your QR code"
+                                    }
+                                    button {
+                                        class: "p-1 hover:bg-background-neutral-secondary rounded transition-colors",
+                                        onclick: move |_| show_qr_modal.set(true),
+                                        Icon {
+                                            width: 16,
+                                            height: 16,
+                                            icon: LdExpand,
+                                            class: "text-foreground-neutral-secondary",
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "bg-white rounded-xl p-4",
+                                    dangerous_inner_html: "{qr_svg}",
+                                }
+                                p { class: "text-xs text-foreground-neutral-tertiary text-center mt-2",
+                                    "User ID: {user_id}"
+                                }
                             }
                         }
                     }
@@ -320,11 +359,12 @@ fn OrganizerCheckinView(
     on_refresh: EventHandler<()>,
 ) -> Element {
     let now = chrono::Local::now().naive_local();
+    let is_mobile = use_context::<Signal<bool>>();
 
     // Categorize events
     let (current, upcoming, past) = categorize_events(&events, now);
 
-    // Selected event state
+    // Selected event state (only used on desktop)
     let mut selected_event = use_signal(|| None::<ScheduleEvent>);
 
     rsx! {
@@ -332,56 +372,163 @@ fn OrganizerCheckinView(
             h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary pt-11 pb-7",
                 "Event Check-In"
             }
-            div { class: "flex flex-col gap-6 flex-1 overflow-hidden lg:flex-row",
-                // Left panel - Event list by category
-                div { class: "mb-7 bg-background-neutral-primary rounded-[20px] flex-1 p-7 flex flex-col overflow-hidden",
-                    div { class: "flex-1 overflow-y-auto",
+
+            if *is_mobile.read() {
+                // Mobile: full-width event list only
+                div { class: "flex-1 overflow-y-auto pb-7",
+                    div { class: "bg-background-neutral-primary rounded-[20px] p-5",
                         // Current
                         if !current.is_empty() {
-                            EventCategorySection {
+                            MobileEventCategorySection {
                                 title: "Current".to_string(),
                                 events: current.clone(),
-                                selected_event,
-                                on_select: move |e| selected_event.set(Some(e)),
+                                slug: slug.clone(),
                             }
                         }
 
                         // Upcoming
                         if !upcoming.is_empty() {
-                            EventCategorySection {
+                            MobileEventCategorySection {
                                 title: "Upcoming".to_string(),
                                 events: upcoming.clone(),
-                                selected_event,
-                                on_select: move |e| selected_event.set(Some(e)),
+                                slug: slug.clone(),
                             }
                         }
 
                         // Past
                         if !past.is_empty() {
-                            EventCategorySection {
+                            MobileEventCategorySection {
                                 title: "Past".to_string(),
                                 events: past.clone(),
-                                selected_event,
-                                on_select: move |e| selected_event.set(Some(e)),
+                                slug: slug.clone(),
                             }
                         }
                     }
                 }
+            } else {
+                // Desktop: side-by-side layout
+                div { class: "flex flex-col gap-6 flex-1 overflow-hidden lg:flex-row",
+                    // Left panel - Event list by category
+                    div { class: "mb-7 bg-background-neutral-primary rounded-[20px] flex-1 p-7 flex flex-col overflow-hidden",
+                        div { class: "flex-1 overflow-y-auto",
+                            // Current
+                            if !current.is_empty() {
+                                EventCategorySection {
+                                    title: "Current".to_string(),
+                                    events: current.clone(),
+                                    selected_event,
+                                    on_select: move |e| selected_event.set(Some(e)),
+                                }
+                            }
 
-                // Right panel - Event detail
-                div { class: "w-full lg:w-96 flex-shrink-0 mb-7",
-                    if let Some(event) = selected_event() {
-                        EventDetailPanel {
-                            slug: slug.clone(),
-                            event: event.clone(),
-                            on_refresh,
-                        }
-                    } else {
-                        div { class: "bg-background-neutral-primary rounded-[20px] p-6 h-full flex items-center justify-center",
-                            p { class: "text-foreground-neutral-secondary text-center",
-                                "Select an event to manage check-ins"
+                            // Upcoming
+                            if !upcoming.is_empty() {
+                                EventCategorySection {
+                                    title: "Upcoming".to_string(),
+                                    events: upcoming.clone(),
+                                    selected_event,
+                                    on_select: move |e| selected_event.set(Some(e)),
+                                }
+                            }
+
+                            // Past
+                            if !past.is_empty() {
+                                EventCategorySection {
+                                    title: "Past".to_string(),
+                                    events: past.clone(),
+                                    selected_event,
+                                    on_select: move |e| selected_event.set(Some(e)),
+                                }
                             }
                         }
+                    }
+
+                    // Right panel - Event detail
+                    div { class: "w-full lg:w-96 flex-shrink-0 mb-7",
+                        if let Some(event) = selected_event() {
+                            EventDetailPanel {
+                                slug: slug.clone(),
+                                event: event.clone(),
+                                on_refresh,
+                            }
+                        } else {
+                            div { class: "bg-background-neutral-primary rounded-[20px] p-6 h-full flex items-center justify-center",
+                                p { class: "text-foreground-neutral-secondary text-center",
+                                    "Select an event to manage check-ins"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Mobile event category section - navigates on click
+#[component]
+fn MobileEventCategorySection(title: String, events: Vec<ScheduleEvent>, slug: String) -> Element {
+    rsx! {
+        div { class: "mb-6",
+            h2 { class: "text-sm font-semibold text-foreground-neutral-secondary mb-3 tracking-wide",
+                "{title}"
+            }
+            div { class: "flex flex-col gap-2",
+                for event in events.iter() {
+                    MobileOrganizerEventCard { slug: slug.clone(), event: event.clone() }
+                }
+            }
+        }
+    }
+}
+
+/// Mobile event card that navigates on click
+#[component]
+fn MobileOrganizerEventCard(slug: String, event: ScheduleEvent) -> Element {
+    let nav = use_navigator();
+    let event_id = event.id;
+    let is_organizer_scan = event.checkin_type == "organizer_scan";
+    let event_clone = event.clone();
+
+    rsx! {
+        button {
+            class: "w-full bg-background-neutral-secondary rounded-2xl px-4 py-4 flex items-center gap-4 text-left",
+            onclick: move |_| {
+                nav.push(Route::HackathonCheckinEvent {
+                    slug: slug.clone(),
+                    event_id,
+                });
+            },
+            // Icon
+            div { class: "flex-shrink-0",
+                if is_organizer_scan {
+                    div { class: "w-10 h-10 rounded-lg border border-brand bg-background-neutral-primary flex items-center justify-center",
+                        Icon {
+                            width: 20,
+                            height: 20,
+                            icon: LdLock,
+                            class: "text-brand",
+                        }
+                    }
+                } else {
+                    div { class: "w-10 h-10 rounded-lg border border-stroke-neutral-1 bg-background-neutral-primary flex items-center justify-center",
+                        Icon {
+                            width: 20,
+                            height: 20,
+                            icon: LdSquare,
+                            class: "text-foreground-neutral-secondary",
+                        }
+                    }
+                }
+            }
+            // Event info
+            div { class: "flex-1",
+                p { class: "font-medium text-foreground-neutral-primary", "{event_clone.name}" }
+                p { class: "text-sm text-foreground-neutral-secondary",
+                    if is_organizer_scan {
+                        "Requires QR Scan by Organizer"
+                    } else {
+                        "Self Check-In"
                     }
                 }
             }
@@ -807,4 +954,88 @@ fn categorize_events(
     }
 
     (current, upcoming, past)
+}
+
+/// Mobile event detail page for organizer check-in
+#[component]
+pub fn HackathonCheckinEvent(slug: String, event_id: i32) -> Element {
+    if let Some(no_access) = use_require_access_or_redirect(CHECKIN_ROLES) {
+        return no_access;
+    }
+
+    let slug_for_resource = slug.clone();
+    let nav = use_navigator();
+
+    // Fetch schedule events to find the one we need
+    let schedule_resource = use_resource(move || {
+        let slug = slug_for_resource.clone();
+        async move {
+            let result: Result<Vec<ScheduleEvent>, _> = get_user_schedule(slug).await;
+            result.ok()
+        }
+    });
+
+    // Find the event
+    let event = schedule_resource
+        .read()
+        .as_ref()
+        .and_then(|events| events.as_ref())
+        .and_then(|events| events.iter().find(|e| e.id == event_id).cloned());
+
+    // Create a refresh handler
+    let mut schedule_resource_clone = schedule_resource.clone();
+    let on_refresh = move |_| {
+        schedule_resource_clone.restart();
+    };
+
+    rsx! {
+        div { class: "overflow-hidden h-full flex flex-col p-4",
+            // Back button
+            button {
+                class: "flex items-center gap-2 text-foreground-neutral-secondary mb-4",
+                onclick: move |_| {
+                    nav.push(Route::HackathonCheckin {
+                        slug: slug.clone(),
+                    });
+                },
+                Icon { width: 20, height: 20, icon: LdChevronLeft }
+                span { "Back to Events" }
+            }
+
+            if let Some(event) = event {
+                // Event header
+                div { class: "flex items-center justify-between mb-4",
+                    h1 { class: "text-2xl font-semibold text-foreground-neutral-primary",
+                        "{event.name}"
+                    }
+                    if let Some(pts) = event.points {
+                        div { class: "flex items-center gap-1 px-3 py-1 border border-stroke-neutral-1 rounded-lg",
+                            Icon { width: 16, height: 16, icon: LdStar }
+                            span { class: "text-sm", "{pts} Points" }
+                        }
+                    }
+                }
+
+                // EventDetailPanel content
+                EventDetailPanel {
+                    slug: slug.clone(),
+                    event: event.clone(),
+                    on_refresh,
+                }
+            } else {
+                div { class: "flex-1 flex items-center justify-center",
+                    if schedule_resource.read().is_none() {
+                        Icon {
+                            width: 24,
+                            height: 24,
+                            icon: LdLoader,
+                            class: "text-foreground-neutral-tertiary animate-spin",
+                        }
+                    } else {
+                        p { class: "text-foreground-neutral-secondary", "Event not found" }
+                    }
+                }
+            }
+        }
+    }
 }

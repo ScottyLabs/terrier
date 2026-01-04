@@ -86,6 +86,11 @@ pub enum Route {
                 HackathonCheckin {
                     slug: String
                 },
+            #[route("/checkin/event/:event_id")]
+                HackathonCheckinEvent {
+                    slug: String,
+                    event_id: i32
+                },
             #[route("/profile")]
                 HackathonProfile {
                     slug: String

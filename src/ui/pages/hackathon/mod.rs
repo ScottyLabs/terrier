@@ -16,6 +16,7 @@ mod team;
 pub use applicants::HackathonApplicants;
 pub use apply::HackathonApply;
 pub use checkin::HackathonCheckin;
+pub use checkin::HackathonCheckinEvent;
 pub use dashboard::HackathonDashboard;
 pub use event_detail::HackathonScheduleEvent;
 pub use event_edit::HackathonScheduleEdit;
