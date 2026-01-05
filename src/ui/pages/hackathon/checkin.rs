@@ -151,10 +151,32 @@ fn ParticipantCheckinView(
                         }
                         div { class: "flex flex-col gap-3",
                             for event in filtered_events.iter() {
-                                ParticipantEventCard {
-                                    slug: slug.clone(),
-                                    event: event.clone(),
-                                    on_refresh,
+                                {
+                                    let event_clone = event.clone();
+                                    let slug_for_action = slug.clone();
+                                    let refresh = on_refresh.clone();
+                                    let event_id = event.id;
+                                    let is_self_checkin = event.checkin_type == "self_checkin";
+                                    let is_checked_in = event.is_checked_in;
+                                    rsx! {
+                                        EventCard {
+                                            event: event_clone.clone(),
+                                            on_click: move |_: ScheduleEvent| {
+                                                if is_self_checkin {
+                                                    let slug = slug_for_action.clone();
+                                                    let refresh = refresh.clone();
+                                                    spawn(async move {
+                                                        if is_checked_in {
+                                                            let _ = remove_self_checkin(slug, event_id).await;
+                                                        } else {
+                                                            let _ = self_checkin(slug, event_id).await;
+                                                        }
+                                                        refresh.call(());
+                                                    });
+                                                }
+                                            },
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -189,10 +211,32 @@ fn ParticipantCheckinView(
                         div { class: "flex-1 overflow-y-auto",
                             div { class: "flex flex-col gap-3",
                                 for event in filtered_events.iter() {
-                                    ParticipantEventCard {
-                                        slug: slug.clone(),
-                                        event: event.clone(),
-                                        on_refresh,
+                                    {
+                                        let event_clone = event.clone();
+                                        let slug_for_action = slug.clone();
+                                        let refresh = on_refresh.clone();
+                                        let event_id = event.id;
+                                        let is_self_checkin = event.checkin_type == "self_checkin";
+                                        let is_checked_in = event.is_checked_in;
+                                        rsx! {
+                                            EventCard {
+                                                event: event_clone.clone(),
+                                                on_click: move |_: ScheduleEvent| {
+                                                    if is_self_checkin {
+                                                        let slug = slug_for_action.clone();
+                                                        let refresh = refresh.clone();
+                                                        spawn(async move {
+                                                            if is_checked_in {
+                                                                let _ = remove_self_checkin(slug, event_id).await;
+                                                            } else {
+                                                                let _ = self_checkin(slug, event_id).await;
+                                                            }
+                                                            refresh.call(());
+                                                        });
+                                                    }
+                                                },
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -257,74 +301,49 @@ fn ParticipantCheckinView(
     }
 }
 
-/// Event card for participant view
+/// Unified event card component for all views
 #[component]
-fn ParticipantEventCard(
-    slug: String,
+fn EventCard(
     event: ScheduleEvent,
-    on_refresh: EventHandler<()>,
+    #[props(default = false)] is_selected: bool,
+    on_click: EventHandler<ScheduleEvent>,
 ) -> Element {
     let is_self_checkin = event.checkin_type == "self_checkin";
     let is_checked_in = event.is_checked_in;
-    let slug_for_action = slug.clone();
-    let event_id = event.id;
+    let event_for_click = event.clone();
 
-    let bg_class = if is_checked_in {
-        "bg-green-50"
+    let bg_class = if is_selected {
+        "bg-background-neutral-secondary-pressed"
     } else {
         "bg-background-neutral-secondary"
     };
 
     rsx! {
-        div { class: "rounded-2xl px-4 py-4 flex items-center gap-4 shadow-sm {bg_class}",
+        button {
+            class: "w-full rounded-2xl px-4 py-4 flex items-center gap-4 text-left shadow-sm {bg_class} hover:bg-blue-gray-200 transition-colors",
+            onclick: move |_| on_click.call(event_for_click.clone()),
             // Icon/checkbox
-            if is_self_checkin {
-                button {
-                    class: "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-stroke-neutral-1 hover:bg-background-neutral-secondary transition-colors",
-                    onclick: move |_| {
-                        let slug = slug_for_action.clone();
-                        let refresh = on_refresh.clone();
-                        spawn(async move {
-                            if is_checked_in {
-                                let _ = remove_self_checkin(slug, event_id).await;
-                            } else {
-                                let _ = self_checkin(slug, event_id).await;
-                            }
-                            refresh.call(());
-                        });
-                    },
-                    if is_checked_in {
-                        Icon {
-                            width: 16,
-                            height: 16,
-                            icon: LdCheck,
-                            class: "text-green-600",
-                        }
-                    } else {
-                        Icon {
-                            width: 16,
-                            height: 16,
-                            icon: LdSquare,
-                            class: "text-foreground-neutral-secondary",
-                        }
+            div { class: "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                if is_checked_in {
+                    Icon {
+                        width: 16,
+                        height: 16,
+                        icon: LdCheck,
+                        class: "text-green-600",
                     }
-                }
-            } else {
-                div { class: "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                    if is_checked_in {
-                        Icon {
-                            width: 16,
-                            height: 16,
-                            icon: LdCheck,
-                            class: "text-green-600",
-                        }
-                    } else {
-                        Icon {
-                            width: 16,
-                            height: 16,
-                            icon: LdLock,
-                            class: "text-foreground-neutral-secondary",
-                        }
+                } else if is_self_checkin {
+                    Icon {
+                        width: 16,
+                        height: 16,
+                        icon: LdSquare,
+                        class: "text-foreground-neutral-secondary",
+                    }
+                } else {
+                    Icon {
+                        width: 16,
+                        height: 16,
+                        icon: LdLock,
+                        class: "text-foreground-neutral-secondary",
                     }
                 }
             }
@@ -343,7 +362,7 @@ fn ParticipantEventCard(
 
             // Points badge if any
             if let Some(pts) = event.points {
-                span { class: "text-xs bg-background-neutral-secondary text-foreground-neutral-secondary px-2 py-1 rounded-full",
+                span { class: "text-xs bg-background-neutral-primary text-foreground-neutral-secondary px-2 py-1 rounded-full",
                     "{pts} pts"
                 }
             }
@@ -361,8 +380,21 @@ fn OrganizerCheckinView(
     let now = chrono::Local::now().naive_local();
     let is_mobile = use_context::<Signal<bool>>();
 
-    // Categorize events
-    let (current, upcoming, past) = categorize_events(&events, now);
+    // Search state
+    let mut search_query = use_signal(|| String::new());
+
+    // Filter events by search query
+    let filtered_events: Vec<ScheduleEvent> = events
+        .iter()
+        .filter(|e| {
+            let query = search_query().to_lowercase();
+            query.is_empty() || e.name.to_lowercase().contains(&query)
+        })
+        .cloned()
+        .collect();
+
+    // Categorize filtered events
+    let (current, upcoming, past) = categorize_events(&filtered_events, now);
 
     // Selected event state (only used on desktop)
     let mut selected_event = use_signal(|| None::<ScheduleEvent>);
@@ -377,6 +409,23 @@ fn OrganizerCheckinView(
                 // Mobile: full-width event list only
                 div { class: "flex-1 overflow-y-auto pb-7",
                     div { class: "bg-background-neutral-primary rounded-[20px] p-5",
+                        // Search input
+                        div { class: "flex items-center gap-2 px-3 py-2 rounded-xl border border-stroke-neutral-1 bg-background-neutral-secondary mb-4",
+                            Icon {
+                                width: 16,
+                                height: 16,
+                                icon: LdSearch,
+                                class: "text-foreground-neutral-tertiary",
+                            }
+                            input {
+                                r#type: "text",
+                                class: "flex-1 bg-transparent text-foreground-neutral-primary placeholder:text-foreground-neutral-tertiary outline-none text-sm",
+                                placeholder: "Search events...",
+                                value: "{search_query}",
+                                oninput: move |e| search_query.set(e.value()),
+                            }
+                        }
+
                         // Current
                         if !current.is_empty() {
                             MobileEventCategorySection {
@@ -410,6 +459,23 @@ fn OrganizerCheckinView(
                 div { class: "flex flex-col gap-6 flex-1 overflow-hidden lg:flex-row",
                     // Left panel - Event list by category
                     div { class: "mb-7 bg-background-neutral-primary rounded-[20px] flex-1 p-7 flex flex-col overflow-hidden",
+                        // Search input
+                        div { class: "flex items-center gap-2 px-3 py-2 rounded-xl border border-stroke-neutral-1 bg-background-neutral-secondary mb-4",
+                            Icon {
+                                width: 16,
+                                height: 16,
+                                icon: LdSearch,
+                                class: "text-foreground-neutral-tertiary",
+                            }
+                            input {
+                                r#type: "text",
+                                class: "flex-1 bg-transparent text-foreground-neutral-primary placeholder:text-foreground-neutral-tertiary outline-none text-sm",
+                                placeholder: "Search events...",
+                                value: "{search_query}",
+                                oninput: move |e| search_query.set(e.value()),
+                            }
+                        }
+
                         div { class: "flex-1 overflow-y-auto",
                             // Current
                             if !current.is_empty() {
@@ -468,6 +534,8 @@ fn OrganizerCheckinView(
 /// Mobile event category section - navigates on click
 #[component]
 fn MobileEventCategorySection(title: String, events: Vec<ScheduleEvent>, slug: String) -> Element {
+    let nav = use_navigator();
+
     rsx! {
         div { class: "mb-6",
             h2 { class: "text-sm font-semibold text-foreground-neutral-secondary mb-3 tracking-wide",
@@ -475,60 +543,22 @@ fn MobileEventCategorySection(title: String, events: Vec<ScheduleEvent>, slug: S
             }
             div { class: "flex flex-col gap-2",
                 for event in events.iter() {
-                    MobileOrganizerEventCard { slug: slug.clone(), event: event.clone() }
-                }
-            }
-        }
-    }
-}
-
-/// Mobile event card that navigates on click
-#[component]
-fn MobileOrganizerEventCard(slug: String, event: ScheduleEvent) -> Element {
-    let nav = use_navigator();
-    let event_id = event.id;
-    let is_organizer_scan = event.checkin_type == "organizer_scan";
-    let event_clone = event.clone();
-
-    rsx! {
-        button {
-            class: "w-full bg-background-neutral-secondary rounded-2xl px-4 py-4 flex items-center gap-4 text-left",
-            onclick: move |_| {
-                nav.push(Route::HackathonCheckinEvent {
-                    slug: slug.clone(),
-                    event_id,
-                });
-            },
-            // Icon
-            div { class: "flex-shrink-0",
-                if is_organizer_scan {
-                    div { class: "w-10 h-10 rounded-lg border border-brand bg-background-neutral-primary flex items-center justify-center",
-                        Icon {
-                            width: 20,
-                            height: 20,
-                            icon: LdLock,
-                            class: "text-brand",
+                    {
+                        let event_clone = event.clone();
+                        let slug_for_nav = slug.clone();
+                        let nav_clone = nav.clone();
+                        rsx! {
+                            EventCard {
+                                event: event_clone.clone(),
+                                on_click: move |e: ScheduleEvent| {
+                                    nav_clone
+                                        .push(Route::HackathonCheckinEvent {
+                                            slug: slug_for_nav.clone(),
+                                            event_id: e.id,
+                                        });
+                                },
+                            }
                         }
-                    }
-                } else {
-                    div { class: "w-10 h-10 rounded-lg border border-stroke-neutral-1 bg-background-neutral-primary flex items-center justify-center",
-                        Icon {
-                            width: 20,
-                            height: 20,
-                            icon: LdSquare,
-                            class: "text-foreground-neutral-secondary",
-                        }
-                    }
-                }
-            }
-            // Event info
-            div { class: "flex-1",
-                p { class: "font-medium text-foreground-neutral-primary", "{event_clone.name}" }
-                p { class: "text-sm text-foreground-neutral-secondary",
-                    if is_organizer_scan {
-                        "Requires QR Scan by Organizer"
-                    } else {
-                        "Self Check-In"
                     }
                 }
             }
@@ -536,7 +566,7 @@ fn MobileOrganizerEventCard(slug: String, event: ScheduleEvent) -> Element {
     }
 }
 
-/// Event category section (Current/Upcoming/Past)
+/// Event category section (Current/Upcoming/Past) for desktop organizer
 #[component]
 fn EventCategorySection(
     title: String,
@@ -551,51 +581,10 @@ fn EventCategorySection(
             }
             div { class: "flex flex-col gap-2",
                 for event in events.iter() {
-                    OrganizerEventCard {
+                    EventCard {
                         event: event.clone(),
                         is_selected: selected_event().map(|e| e.id == event.id).unwrap_or(false),
                         on_click: on_select,
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Event card for organizer view
-#[component]
-fn OrganizerEventCard(
-    event: ScheduleEvent,
-    is_selected: bool,
-    on_click: EventHandler<ScheduleEvent>,
-) -> Element {
-    let event_for_click = event.clone();
-
-    let bg_class = if is_selected {
-        "bg-background-neutral-secondary-pressed"
-    } else {
-        "bg-background-neutral-secondary"
-    };
-
-    rsx! {
-        button {
-            class: "rounded-2xl px-4 py-4 flex items-center gap-4 text-left shadow-sm {bg_class} hover:bg-blue-gray-200 transition-colors",
-            onclick: move |_| on_click.call(event_for_click.clone()),
-            div { class: "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                Icon {
-                    width: 16,
-                    height: 16,
-                    icon: LdCalendar,
-                    class: "text-foreground-neutral-secondary",
-                }
-            }
-            div { class: "flex flex-col gap-0.5 flex-1",
-                p { class: "font-medium text-foreground-neutral-primary", "{event.name}" }
-                p { class: "text-sm text-foreground-neutral-secondary",
-                    if event.checkin_type == "self_checkin" {
-                        "Self Check-In"
-                    } else {
-                        "Requires QR Scan by Organizer"
                     }
                 }
             }
@@ -616,6 +605,7 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
     // Confirmation modal state
     let mut pending_participant: Signal<Option<ParticipantInfo>> = use_signal(|| None);
     let mut is_confirming = use_signal(|| false);
+    let mut error_message: Signal<Option<String>> = use_signal(|| None);
     let mut skip_confirmation = use_signal(|| {
         // Check localStorage for skip preference
         #[cfg(target_arch = "wasm32")]
@@ -704,19 +694,37 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                                 if should_skip {
                                     // Skip confirmation, check in directly
                                     spawn(async move {
-                                        let _ = organizer_checkin(slug, event_id, user_id).await;
-                                        refresh.call(());
-                                        attendees_resource.restart();
+                                        match organizer_checkin(slug, event_id, user_id).await {
+                                            Ok(()) => {
+                                                refresh.call(());
+                                                attendees_resource.restart();
+                                            }
+                                            Err(e) => {
+                                                let error_str = e.to_string();
+                                                if error_str.contains("ALREADY_CHECKED_IN") {
+                                                    error_message
+                                                        .set(
+                                                            // Show confirmation modal
+                                                            Some(
+                                                                // User not found, check in anyway
+                                                                "This participant has already been checked in to this event."
+                                                                    .to_string(),
+                                                            ),
+                                                        );
+                                                } else {
+                                                    error_message
+                                                        .set(Some(format!("Check-in failed: {}", error_str)));
+                                                }
+                                            }
+                                        }
                                     });
                                     participant_id_input.set(String::new());
                                 } else {
-                                    // Show confirmation modal
                                     is_confirming.set(true);
                                     spawn(async move {
                                         if let Ok(info) = get_participant_info(slug, user_id).await {
                                             pending_participant.set(Some(info));
                                         } else {
-                                            // User not found, check in anyway
                                             pending_participant
                                                 .set(
                                                     Some(ParticipantInfo {
@@ -871,9 +879,27 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                                     let slug = slug.clone();
                                     let refresh = refresh.clone();
                                     spawn(async move {
-                                        let _ = organizer_checkin(slug, event_id, user_id).await;
-                                        refresh.call(());
-                                        attendees_resource.restart();
+                                        match organizer_checkin(slug, event_id, user_id).await {
+                                            Ok(()) => {
+                                                refresh.call(());
+                                                attendees_resource.restart();
+                                            }
+                                            Err(e) => {
+                                                let error_str = e.to_string();
+                                                if error_str.contains("ALREADY_CHECKED_IN") {
+                                                    error_message
+                                                        .set(
+                                                            Some(
+                                                                "This participant has already been checked in to this event."
+                                                                    .to_string(),
+                                                            ),
+                                                        );
+                                                } else {
+                                                    error_message
+                                                        .set(Some(format!("Check-in failed: {}", error_str)));
+                                                }
+                                            }
+                                        }
                                     });
                                     pending_participant.set(None);
                                     participant_id_input.set(String::new());
@@ -889,6 +915,41 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                             },
                             "Cancel"
                         }
+                    }
+                }
+            }
+        }
+
+        // Error popup
+        if let Some(error) = error_message() {
+            div {
+                class: "fixed inset-0 flex items-center justify-center z-50",
+                style: "background-color: rgba(0, 0, 0, 0.5);",
+                onclick: move |_| error_message.set(None),
+
+                div {
+                    class: "bg-background-neutral-secondary rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4",
+                    onclick: move |e| e.stop_propagation(),
+
+                    // Error icon
+                    div { class: "flex justify-center mb-4",
+                        div { class: "w-12 h-12 rounded-full bg-red-100 flex items-center justify-center",
+                            span { class: "text-red-500 text-2xl font-bold", "!" }
+                        }
+                    }
+
+                    h2 { class: "text-lg font-semibold text-foreground-neutral-primary text-center mb-2",
+                        "Already Checked In"
+                    }
+
+                    p { class: "text-foreground-neutral-secondary text-center mb-6",
+                        "{error}"
+                    }
+
+                    button {
+                        class: "w-full px-4 py-2 rounded-xl bg-foreground-neutral-primary text-white font-medium",
+                        onclick: move |_| error_message.set(None),
+                        "OK"
                     }
                 }
             }

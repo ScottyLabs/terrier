@@ -137,6 +137,7 @@ pub async fn remove_self_checkin(slug: String, event_id: i32) -> Result<(), Serv
     ),
     responses(
         (status = 200, description = "User checked in successfully"),
+        (status = 400, description = "User already checked in"),
         (status = 403, description = "Not authorized to check in users"),
         (status = 404, description = "Event or user not found"),
         (status = 500, description = "Server error")
@@ -152,7 +153,7 @@ pub async fn organizer_checkin(
     use crate::domain::people::repository::UserRoleRepository;
     use crate::entities::event_checkins;
     use chrono::Utc;
-    use sea_orm::{ActiveModelTrait, Set};
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
     let ctx = RequestContext::extract(&user)
         .await?
@@ -172,6 +173,18 @@ pub async fn organizer_checkin(
         ));
     }
 
+    // Check if user is already checked in
+    let existing_checkin = event_checkins::Entity::find()
+        .filter(event_checkins::Column::EventId.eq(event_id))
+        .filter(event_checkins::Column::UserId.eq(target_user_id))
+        .one(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to check existing check-in: {}", e)))?;
+
+    if existing_checkin.is_some() {
+        return Err(ServerFnError::new("ALREADY_CHECKED_IN"));
+    }
+
     // Create check-in record
     let now = Utc::now().naive_utc();
     let checkin = event_checkins::ActiveModel {
@@ -182,8 +195,10 @@ pub async fn organizer_checkin(
         ..Default::default()
     };
 
-    // Insert (ignore if already exists)
-    let _ = checkin.insert(&ctx.state.db).await;
+    checkin
+        .insert(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to check in user: {}", e)))?;
 
     Ok(())
 }
