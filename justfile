@@ -21,6 +21,12 @@ migrate:
     devenv up postgres
     sea-orm-cli migrate up --migration-dir ./migration -u {{DATABASE_URL}}
 
+# Undo last migration
+undo-migration:
+    devenv up postgres
+    sea-orm-cli migrate down --migration-dir ./migration -u {{DATABASE_URL}}
+    
+
 # Fresh database (drop all tables and reapply migrations)
 fresh:
     devenv up postgres minio

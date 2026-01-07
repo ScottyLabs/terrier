@@ -13,6 +13,7 @@ pub struct Model {
     pub team_id: i32,
     #[sea_orm(column_type = "JsonBinary")]
     pub submission_data: Json,
+    pub submitted_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

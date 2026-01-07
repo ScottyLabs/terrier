@@ -15,6 +15,12 @@ impl MigrationTrait for Migration {
                     .col(pk_auto(Submission::Id))
                     .col(integer(Submission::TeamId))
                     .col(json_binary(Submission::SubmissionData))
+                    .col(
+                        ColumnDef::new(Submission::SubmittedAt)
+                            .timestamp()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .from(Submission::Table, Submission::TeamId)
@@ -108,6 +114,7 @@ enum Submission {
     Table,
     TeamId,
     SubmissionData,
+    SubmittedAt,
 }
 
 #[derive(DeriveIden)]

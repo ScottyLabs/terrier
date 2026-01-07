@@ -16,6 +16,7 @@ pub struct SubmissionData {
     pub team_id: i32,
     pub submission_data: JsonValue,
     pub prize_track_ids: Vec<i32>,
+    pub submitted_at: String,
 }
 
 /// Request payload for submitting a project
@@ -91,6 +92,7 @@ pub async fn get_submission(slug: String) -> Result<Option<SubmissionData>, Serv
                 team_id: sub.team_id,
                 submission_data: sub.submission_data,
                 prize_track_ids,
+                submitted_at: sub.submitted_at.to_string(),
             }))
         }
         None => Ok(None),
@@ -156,10 +158,12 @@ pub async fn submit_project(
             .map_err(|e| ServerFnError::new(format!("Failed to update submission: {}", e)))?
     } else {
         // Create new submission
+        let now = chrono::Utc::now().naive_utc();
         let new_sub = submission::ActiveModel {
             id: NotSet,
             team_id: Set(team_id),
             submission_data: Set(request.submission_data.clone()),
+            submitted_at: Set(now),
         };
 
         new_sub
@@ -195,6 +199,7 @@ pub async fn submit_project(
         team_id: sub.team_id,
         submission_data: sub.submission_data,
         prize_track_ids: request.prize_track_ids,
+        submitted_at: sub.submitted_at.to_string(),
     })
 }
 

@@ -170,6 +170,12 @@ pub fn HackathonSubmission(slug: String) -> Element {
                         prizes: prizes_resource.read().clone().flatten().unwrap_or_default(),
                         selected_prize_tracks,
                         hackathon_slug: slug.clone(),
+                        submitted_at: submission_resource
+                            .read()
+                            .as_ref()
+                            .and_then(|opt| opt.as_ref())
+                            .map(|s| s.submitted_at.clone())
+                            .unwrap_or_default(),
                         on_edit: move |_| show_submission_modal.set(true),
                     }
                 } else {
@@ -295,8 +301,28 @@ fn SubmittedView(
     prizes: Vec<PrizeInfo>,
     selected_prize_tracks: Signal<std::collections::HashSet<i32>>,
     hackathon_slug: String,
+    submitted_at: String,
     on_edit: EventHandler<()>,
 ) -> Element {
+    // Format the submitted_at timestamp for display
+    let formatted_time = use_memo(move || {
+        chrono::NaiveDateTime::parse_from_str(&submitted_at, "%Y-%m-%d %H:%M:%S%.f")
+            .or_else(|_| chrono::NaiveDateTime::parse_from_str(&submitted_at, "%Y-%m-%d %H:%M:%S"))
+            .map(|dt| {
+                let now = chrono::Utc::now().naive_utc();
+                let diff = now.signed_duration_since(dt);
+                if diff.num_minutes() < 1 {
+                    "Submitted just now".to_string()
+                } else if diff.num_minutes() < 60 {
+                    format!("Submitted {} min ago", diff.num_minutes())
+                } else if diff.num_hours() < 24 {
+                    format!("Submitted {} hr ago", diff.num_hours())
+                } else {
+                    format!("Submitted {}", dt.format("%b %d, %Y at %H:%M"))
+                }
+            })
+            .unwrap_or_else(|_| "Submitted".to_string())
+    });
     rsx! {
         div { class: "flex flex-col gap-8",
             // Enter for Prizes section
@@ -361,7 +387,7 @@ fn SubmittedView(
                             "Your Submission"
                         }
                         span { class: "text-sm text-foreground-neutral-secondary ml-2",
-                            "Submitted just now"
+                            "{formatted_time}"
                         }
                     }
                     Button {
@@ -404,10 +430,10 @@ fn PrizeTrackSelector(prize: PrizeInfo, is_selected: bool, on_toggle: EventHandl
     let mut is_expanded = use_signal(|| false);
 
     rsx! {
-        div { class: "border border-border-neutral-primary rounded-lg overflow-hidden",
+        div { class: "rounded-lg overflow-hidden",
             // Header row
             div {
-                class: "flex items-center gap-3 p-3 cursor-pointer hover:bg-background-neutral-secondary transition-colors",
+                class: "flex items-center gap-3 p-3 cursor-pointer bg-background-neutral-secondary hover:bg-background-neutral-subtle-pressed transition-colors",
                 onclick: move |_| on_toggle.call(()),
 
                 // Checkbox
@@ -415,9 +441,9 @@ fn PrizeTrackSelector(prize: PrizeInfo, is_selected: bool, on_toggle: EventHandl
                     class: format!(
                         "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors {}",
                         if is_selected {
-                            "bg-background-brand-primary border-background-brand-primary"
+                            "bg-black border-background-brand-primary"
                         } else {
-                            "border-border-neutral-primary bg-white"
+                            "border-border-neutral-primary bg-background-neutral-primary"
                         },
                     ),
                     if is_selected {
@@ -463,18 +489,18 @@ fn PrizeTrackSelector(prize: PrizeInfo, is_selected: bool, on_toggle: EventHandl
 
             // Expandable description
             if is_expanded() {
-                div { class: "px-3 pb-3 pt-0 border-t border-border-neutral-primary",
+                div { class: "px-3 pb-3 pt-0 bg-background-neutral-secondary rounded-b-lg",
                     if let Some(desc) = &prize.description {
                         p { class: "text-sm text-foreground-neutral-secondary pt-3",
                             "{desc}"
                         }
                     }
                     if let Some(cat) = &prize.category {
-                        p { class: "text-xs text-foreground-neutral-tertiary mt-2",
+                        p { class: "text-xs text-foreground-neutral-tertiary pt-2",
                             "Category: {cat}"
                         }
                     }
-                    p { class: "text-sm font-medium text-foreground-brand-primary mt-2",
+                    p { class: "text-sm font-medium text-foreground-brand-primary pt-2",
                         "{prize.value}"
                     }
                 }
