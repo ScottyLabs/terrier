@@ -78,6 +78,7 @@ pub async fn update_hackathon(
         background_url: hackathon.background_url,
         updated_at: hackathon.updated_at,
         form_config: hackathon.form_config,
+        submission_form: hackathon.submission_form,
     })
 }
 

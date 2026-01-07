@@ -109,6 +109,7 @@ pub async fn create_hackathon(req: CreateHackathonRequest) -> Result<HackathonIn
         background_url: hackathon.background_url,
         updated_at: hackathon.updated_at,
         form_config: hackathon.form_config,
+        submission_form: hackathon.submission_form,
     })
 }
 

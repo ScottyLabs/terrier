@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::{
     LdBookUser, LdBox, LdCalendar, LdClipboardPen, LdFileText, LdHome, LdMenu, LdMessageSquare,
-    LdQrCode, LdSettings, LdUser, LdUsers, LdX,
+    LdQrCode, LdSettings, LdTrophy, LdUser, LdUsers, LdX,
 };
 use dioxus_free_icons::{Icon, IconShape};
 
@@ -9,8 +9,8 @@ use crate::{
     Route,
     auth::{
         APPLICANTS_ROLES, APPLY_ROLES, CHECKIN_ROLES, DASHBOARD_ROLES, HackathonRole,
-        HackathonRoleType, PEOPLE_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES, SUBMISSION_ROLES,
-        TEAM_ROLES, has_access,
+        HackathonRoleType, PEOPLE_ROLES, PRIZE_TRACKS_ROLES, SCHEDULE_ROLES, SETTINGS_ROLES,
+        SUBMISSION_ROLES, TEAM_ROLES, has_access,
     },
     domain::applications::handlers::get_application,
     ui::foundation::components::{Header, HeaderSize},
@@ -29,6 +29,7 @@ fn NavItems(
     has_submission: bool,
     has_checkin: bool,
     has_apply: bool,
+    has_prize_tracks: bool,
     has_settings: bool,
     include_settings_in_nav: bool,
     on_item_click: Option<EventHandler<()>>,
@@ -146,6 +147,17 @@ fn NavItems(
                 }
             }
         }
+        if has_prize_tracks {
+            div { onclick: handle_click,
+                SidebarItem {
+                    label: "Prize Tracks".to_string(),
+                    icon: LdTrophy,
+                    to: Route::HackathonPrizeTracks {
+                        slug: slug.clone(),
+                    },
+                }
+            }
+        }
         if has_settings && include_settings_in_nav {
             div { onclick: handle_click,
                 SidebarItem {
@@ -202,6 +214,7 @@ pub fn Sidebar(
     let has_submission = has(SUBMISSION_ROLES);
     let has_checkin = has(CHECKIN_ROLES);
     let has_apply = has(APPLY_ROLES);
+    let has_prize_tracks = has(PRIZE_TRACKS_ROLES);
     let has_settings = has(SETTINGS_ROLES);
 
     rsx! {
@@ -249,6 +262,7 @@ pub fn Sidebar(
                             has_submission,
                             has_checkin,
                             has_apply,
+                            has_prize_tracks,
                             has_settings,
                             include_settings_in_nav: true,
                             on_item_click: move |_| menu_open.set(false),
@@ -281,6 +295,7 @@ pub fn Sidebar(
                         has_submission,
                         has_checkin,
                         has_apply,
+                        has_prize_tracks,
                         has_settings,
                         include_settings_in_nav: false,
                         on_item_click: None,
@@ -323,6 +338,7 @@ pub fn SidebarItem<I: IconShape + Clone + PartialEq + 'static>(
         (Route::HackathonCheckin { .. }, Route::HackathonCheckin { .. }) => true,
         (Route::HackathonProfile { .. }, Route::HackathonProfile { .. }) => true,
         (Route::HackathonApply { .. }, Route::HackathonApply { .. }) => true,
+        (Route::HackathonPrizeTracks { .. }, Route::HackathonPrizeTracks { .. }) => true,
         (Route::HackathonSettings { .. }, Route::HackathonSettings { .. }) => true,
         _ => false,
     };

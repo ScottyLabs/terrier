@@ -209,14 +209,14 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         if show_filter {
                             div { class: "relative",
                                 button {
-                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full py-[9px] flex gap-2 items-center cursor-pointer",
+                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full p-[9px] flex gap-2 items-center cursor-pointer",
                                     onclick: move |_| filter_open.set(!filter_open()),
                                     "Filter"
                                     Icon {
                                         width: 20,
                                         height: 20,
                                         icon: LdChevronDown,
-                                        class: "text-white",
+                                        class: "text-white inline-block",
                                     }
                                 }
 
@@ -348,6 +348,8 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         on_close: move |_| show_approve_all_modal.set(false),
                         width: "500px",
                         max_height: "auto",
+
+
 
 
 

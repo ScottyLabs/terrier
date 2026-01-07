@@ -169,6 +169,7 @@ impl From<hackathons::Model> for HackathonInfo {
             background_url: h.background_url,
             updated_at: h.updated_at,
             form_config: h.form_config,
+            submission_form: h.submission_form,
         }
     }
 }

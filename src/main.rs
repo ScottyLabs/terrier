@@ -103,6 +103,10 @@ pub enum Route {
                 HackathonApply {
                     slug: String
                 },
+            #[route("/prize-tracks")]
+                HackathonPrizeTracks {
+                    slug: String
+                },
         #[end_layout]
     #[end_nest]
     #[route("/:..route")]

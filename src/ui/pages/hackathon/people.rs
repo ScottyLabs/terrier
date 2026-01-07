@@ -163,7 +163,7 @@ pub fn HackathonPeople(slug: String) -> Element {
                                         width: 20,
                                         height: 20,
                                         icon: LdChevronDown,
-                                        class: "text-white",
+                                        class: "text-white inline-block",
                                     }
                                 }
 

@@ -4,7 +4,9 @@ use dioxus_free_icons::{
     icons::ld_icons::{LdChevronDown, LdSearch},
 };
 
-use crate::ui::foundation::components::{Button, ButtonVariant, Dropdown, DropdownOption, TabSwitcher};
+use crate::ui::foundation::components::{
+    Button, ButtonVariant, Dropdown, DropdownOption, TabSwitcher,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 enum ParticipantTab {
@@ -84,7 +86,7 @@ pub fn HackathonParticipants(slug: String) -> Element {
                                     width: 20,
                                     height: 20,
                                     icon: LdChevronDown,
-                                    class: "text-white",
+                                    class: "text-white inline-block",
                                 }
                             }
 

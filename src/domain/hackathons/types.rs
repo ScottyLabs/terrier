@@ -20,6 +20,7 @@ pub struct HackathonInfo {
     pub background_url: Option<String>,
     pub updated_at: NaiveDateTime,
     pub form_config: Option<serde_json::Value>,
+    pub submission_form: Option<serde_json::Value>,
 }
 
 /// Event schedule item
