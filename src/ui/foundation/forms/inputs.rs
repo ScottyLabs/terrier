@@ -32,7 +32,7 @@ pub fn Select(
             select {
                 id,
                 name,
-                class: "pl-4 pr-10 h-12 bg-background-brandNeutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] appearance-none",
+                class: "pl-4 pr-10 h-12 bg-background-neutral-secondary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] appearance-none",
                 required,
                 value: "{value}",
                 onchange: move |evt| {

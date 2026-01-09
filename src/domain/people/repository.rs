@@ -99,4 +99,13 @@ impl<'a> UserRoleRepository<'a> {
     pub async fn is_admin(&self, user_id: i32, hackathon_id: i32) -> Result<bool, ServerFnError> {
         self.has_role(user_id, hackathon_id, &["admin"]).await
     }
+
+    /// Check if user is organizer for a hackathon
+    pub async fn is_organizer(
+        &self,
+        user_id: i32,
+        hackathon_id: i32,
+    ) -> Result<bool, ServerFnError> {
+        self.has_role(user_id, hackathon_id, &["organizer"]).await
+    }
 }

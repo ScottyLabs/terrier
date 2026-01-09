@@ -177,7 +177,7 @@ enum Users {
 }
 
 #[derive(DeriveIden)]
-enum Hackathons {
+pub enum Hackathons {
     Table,
     Id,
     Name,

@@ -1192,7 +1192,7 @@ fn InvitationCard(
                     p { class: "text-base font-medium leading-6 text-foreground-neutral-primary",
                         "{invitation.team_name}"
                     }
-                    span { class: "px-2 py-0.5 text-xs bg-background-brandNeutral-secondary text-foreground-brandNeutral-primary rounded-md font-semibold",
+                    span { class: "px-2 py-0.5 text-xs bg-background-neutral-secondary text-foreground-brandNeutral-primary rounded-md font-semibold",
                         "Invitation"
                     }
                 }
@@ -1257,7 +1257,7 @@ fn OutgoingRequestCard(
                     p { class: "text-base font-medium leading-6 text-foreground-neutral-primary",
                         "{request.team_name}"
                     }
-                    span { class: "px-2 py-0.5 text-xs bg-background-brandNeutral-secondary text-foreground-brandNeutral-primary rounded-md font-semibold",
+                    span { class: "px-2 py-0.5 text-xs bg-background-neutral-secondary text-foreground-brandNeutral-primary rounded-md font-semibold",
                         "Pending Request"
                     }
                 }

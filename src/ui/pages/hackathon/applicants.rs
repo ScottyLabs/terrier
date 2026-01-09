@@ -176,20 +176,20 @@ pub fn HackathonApplicants(slug: String) -> Element {
         .unwrap_or_default();
 
     rsx! {
-        div { class: "flex flex-col h-full",
-            h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary pt-11 pb-7",
+        div { class: "flex flex-col h-full md:px-0",
+            h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary pt-6 md:pt-11 pb-4 md:pb-7",
                 "Applicants"
             }
 
-            div { class: "mb-6",
+            div { class: "mb-4 md:mb-6",
                 TabSwitcher { active_tab, tabs }
             }
 
-            div { class: "flex flex-col gap-7 flex-1 min-h-0",
-                div { class: "flex items-center justify-between",
-                    div { class: "flex items-center gap-2",
+            div { class: "flex flex-col gap-4 md:gap-7 flex-1 min-h-0",
+                div { class: "flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-0",
+                    div { class: "flex flex-col md:flex-row items-stretch md:items-center gap-2",
                         // Search bar
-                        div { class: "w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
+                        div { class: "w-full md:w-[405px] h-10 border border-stroke-neutral-1 rounded-full flex items-center px-3 py-1",
                             Icon {
                                 width: 20,
                                 height: 20,
@@ -209,14 +209,14 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         if show_filter {
                             div { class: "relative",
                                 button {
-                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full px-4 py-[9px] flex gap-2 items-center cursor-pointer",
+                                    class: "bg-foreground-neutral-primary text-white font-semibold text-sm leading-5 rounded-full p-[9px] flex gap-2 items-center cursor-pointer",
                                     onclick: move |_| filter_open.set(!filter_open()),
                                     "Filter"
                                     Icon {
                                         width: 20,
                                         height: 20,
                                         icon: LdChevronDown,
-                                        class: "text-white",
+                                        class: "text-white inline-block",
                                     }
                                 }
 
@@ -238,12 +238,12 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         size: ButtonSize::Compact,
                         disabled: pending_count == 0,
                         onclick: move |_| show_approve_all_modal.set(true),
-                        "Approve All"
+                        "Approve All ({pending_count})"
                     }
                 }
 
                 // Application list
-                div { class: "bg-background-neutral-primary rounded-[20px] p-7 flex flex-col overflow-y-auto flex-1",
+                div { class: "bg-background-neutral-primary rounded-[20px] p-4 md:p-7 flex flex-col overflow-y-auto flex-1",
                     match filtered_applications {
                         Some(apps) => rsx! {
                             if apps.is_empty() {
@@ -348,6 +348,10 @@ pub fn HackathonApplicants(slug: String) -> Element {
                         on_close: move |_| show_approve_all_modal.set(false),
                         width: "500px",
                         max_height: "auto",
+
+
+
+
 
                         div { class: "p-7",
                             h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-4",

@@ -70,7 +70,7 @@ enum TeamJoinRequests {
 }
 
 #[derive(DeriveIden)]
-enum Teams {
+pub enum Teams {
     Table,
     Id,
 }

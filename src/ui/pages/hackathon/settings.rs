@@ -1,3 +1,4 @@
+use chrono::{NaiveDate, NaiveDateTime};
 use dioxus::{logger::tracing, prelude::*};
 use dioxus_forms::*;
 
@@ -5,8 +6,8 @@ use crate::{
     auth::{SETTINGS_ROLES, hooks::use_require_access_or_redirect},
     domain::{
         hackathons::handlers::{
-            UpdateHackathonRequest, delete_banner, set_form_config, toggle_registration,
-            update_hackathon, upload_background, upload_banner,
+            UpdateHackathonRequest, delete_banner, set_form_config, set_submission_form_config,
+            toggle_registration, update_hackathon, upload_background, upload_banner,
         },
         hackathons::types::HackathonInfo,
     },
@@ -126,8 +127,8 @@ pub fn HackathonSettings(slug: String) -> Element {
 
     rsx! {
         div {
-            div { class: "flex justify-between items-center pt-11 pb-7",
-                h1 { class: "text-[30px] font-semibold leading-[38px] text-foreground-neutral-primary",
+            div { class: "flex flex-col md:flex-row justify-between md:items-center gap-3 pt-6 md:pt-11 pb-4 md:pb-7",
+                h1 { class: "text-2xl md:text-[30px] font-semibold leading-8 md:leading-[38px] text-foreground-neutral-primary",
                     "Settings"
                 }
                 SaveStatusIndicator {
@@ -137,7 +138,7 @@ pub fn HackathonSettings(slug: String) -> Element {
             }
 
             // Tab switcher
-            div { class: "mb-6",
+            div { class: "mb-4 md:mb-6",
                 TabSwitcher { active_tab, tabs }
             }
 
@@ -167,11 +168,24 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field.value.read().clone();
                                     let desc_val = desc_field.value.read().clone();
                                     let team_size_val = *team_size_field.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        // TODO: Update the other fields in a hackathon update request
+                                        .expect("Failed to parse start date");
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .expect("Failed to parse end date");
                                     spawn(async move {
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {
@@ -292,11 +306,23 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     let name_val = name_field2.value.read().clone();
                                     let desc_val = desc_field2.value.read().clone();
                                     let team_size_val = *max_team_size_for_save.value.read();
+                                    let start_date_val = NaiveDateTime::parse_from_str(
+                                            &start_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
+                                    let end_date_val = NaiveDateTime::parse_from_str(
+                                            &end_date_field.value.read().clone(),
+                                            "%Y-%m-%dT%H:%M",
+                                        )
+                                        .unwrap();
                                     spawn(async move {
                                         let req = UpdateHackathonRequest {
                                             name: name_val,
                                             description: desc_val,
                                             max_team_size: team_size_val,
+                                            start_date: start_date_val,
+                                            end_date: end_date_val,
                                         };
                                         match update_hackathon(slug_clone.clone(), req).await {
                                             Ok(updated_info) => {
@@ -320,7 +346,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     });
                                 },
-                                // Hidden fields for name, description, banner
                                 input {
                                     r#type: "hidden",
                                     name: "name",
@@ -388,7 +413,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                         let mut status = save_status;
                         rsx! {
                             div { class: "flex flex-col gap-6",
-                                // Registration Status Toggle
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Registration Status" }
                                     p { class: "text-foreground-neutral-secondary",
@@ -431,7 +455,6 @@ pub fn HackathonSettings(slug: String) -> Element {
                                         }
                                     }
                                 }
-                                // Preset Selector
                                 div { class: "flex flex-col gap-4",
                                     h2 { class: "text-xl font-semibold", "Application Form" }
                                     div { class: "flex flex-col gap-2",
@@ -495,6 +518,99 @@ pub fn HackathonSettings(slug: String) -> Element {
                                     } else {
                                         p { class: "text-sm text-foreground-neutral-secondary",
                                             "No form configured yet. Select and apply a preset to enable applications."
+                                        }
+                                    }
+                                }
+
+                                // Submission Form Section
+                                div { class: "flex flex-col gap-4",
+                                    h2 { class: "text-xl font-semibold", "Submission Form" }
+                                    {
+                                        let has_submission_form = hackathon.read().submission_form.is_some();
+                                        let initial_submission_preset = hackathon
+                                            .read()
+                                            .submission_form
+                                            .as_ref()
+                                            .map(|config| {
+                                                if let Ok(schema) = serde_json::from_value::<
+                                                    crate::domain::applications::types::FormSchema,
+                                                >(config.clone())
+                                                    && schema.fields.iter().any(|f| f.id == "project_name")
+                                                {
+                                                    return "tartanhacks_submission".to_string();
+                                                }
+                                                "custom".to_string()
+                                            })
+                                            .unwrap_or_else(|| "none".to_string());
+                                        let submission_preset_for_selected = initial_submission_preset.clone();
+                                        let submission_preset_for_original = initial_submission_preset.clone();
+                                        let mut selected_submission_preset = use_signal(move || submission_preset_for_selected);
+                                        let original_submission_preset = use_signal(move || submission_preset_for_original);
+                                        let slug_for_submission = slug.clone();
+                                        rsx! {
+                                            div { class: "flex flex-col gap-2",
+                                                label { class: "text-base font-medium text-foregrournd-neutral-primary", "Form Preset" }
+                                                select {
+                                                    class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] border border-border-neutral-primary",
+                                                    value: "{selected_submission_preset}",
+                                                    onchange: move |evt| {
+                                                        let new_value = evt.value();
+                                                        selected_submission_preset.set(new_value.clone());
+                                                        if new_value != original_submission_preset() {
+                                                            status.set(SaveStatus::Unsaved);
+                                                        } else {
+                                                            status.set(SaveStatus::Saved);
+                                                        }
+                                                    },
+                                                    option { value: "none", "Select a preset" }
+                                                    option { value: "tartanhacks_submission", "TartanHacks Submission" }
+                                                    if has_submission_form {
+                                                        option { value: "custom", disabled: true, "Custom / Unknown" }
+                                                    }
+                                                }
+                                            }
+                                            if selected_submission_preset() != "none" && selected_submission_preset() != "custom" {
+                                                div { class: "flex gap-4",
+                                                    Button {
+                                                        button_type: "button".to_string(),
+                                                        onclick: move |_| {
+                                                            status.set(SaveStatus::Saving);
+                                                            let slug = slug_for_submission.clone();
+                                                            let preset = selected_submission_preset();
+                                                            spawn(async move {
+                                                                use crate::domain::applications::presets::tartanhacks_submission_preset;
+                                                                let form_schema = match preset.as_str() {
+                                                                    "tartanhacks_submission" => tartanhacks_submission_preset(),
+                                                                    _ => return,
+                                                                };
+                                                                match set_submission_form_config(slug, form_schema).await {
+                                                                    Ok(_) => {
+                                                                        status.set(SaveStatus::Saved);
+                                                                        let _ = document::eval("alert('Submission form preset applied successfully!')");
+                                                                    }
+                                                                    Err(e) => {
+                                                                        status.set(SaveStatus::Unsaved);
+                                                                        let error_msg = e.to_string().replace("'", "\\'");
+                                                                        let _ = document::eval(
+                                                                            &format!("alert('Failed to apply preset: {}')", error_msg),
+                                                                        );
+                                                                    }
+                                                                }
+                                                            });
+                                                        },
+                                                        "Apply Preset"
+                                                    }
+                                                }
+                                            }
+                                            if hackathon.read().submission_form.is_some() {
+                                                p { class: "text-sm text-foreground-neutral-secondary",
+                                                    "A submission form is currently configured for this hackathon."
+                                                }
+                                            } else {
+                                                p { class: "text-sm text-foreground-neutral-secondary",
+                                                    "No submission form configured yet. Select and apply a preset to enable project submissions."
+                                                }
+                                            }
                                         }
                                     }
                                 }

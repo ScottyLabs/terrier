@@ -25,7 +25,15 @@ pub struct Config {
 #[cfg(feature = "server")]
 impl Config {
     pub fn from_env() -> Result<Self, Box<dyn Error>> {
-        dotenvy::dotenv().ok();
+        // Try to load .env from the project root (CARGO_MANIFEST_DIR at compile time)
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let env_path = std::path::Path::new(manifest_dir).join(".env");
+        if env_path.exists() {
+            dotenvy::from_path(&env_path).ok();
+        } else {
+            // Fallback to current directory
+            dotenvy::dotenv().ok();
+        }
 
         let admin_emails = dotenvy::var("ADMIN_EMAILS")
             .unwrap_or_default()

@@ -837,3 +837,111 @@ pub fn tartanhacks_preset() -> FormSchema {
         version: "1.0".to_string(),
     }
 }
+
+pub fn tartanhacks_submission_preset() -> FormSchema {
+    let mut order = 0;
+    let mut next_order = || {
+        let o = order;
+        order += 1;
+        o
+    };
+
+    FormSchema {
+        title: "Project Submission".to_string(),
+        description: Some("This is the information the judges will use to evaluate your project during deliberations!".to_string()),
+        fields: vec![
+            // Project Name
+            FormField {
+                id: "project_name".to_string(),
+                field_type: FieldType::Text {
+                    placeholder: Some("Enter your project name".to_string()),
+                    validation: None,
+                },
+                label: "Project Name".to_string(),
+                name: "project_name".to_string(),
+                required: true,
+                help_text: None,
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Details".to_string()),
+                conditional: None,
+            },
+            // Project Description
+            FormField {
+                id: "project_description".to_string(),
+                field_type: FieldType::Textarea {
+                    placeholder: Some("Add a description about your project".to_string()),
+                },
+                label: "Project Description".to_string(),
+                name: "project_description".to_string(),
+                required: true,
+                help_text: Some("Describe what your project does, the problem it solves, and any notable features.".to_string()),
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Details".to_string()),
+                conditional: None,
+            },
+            // Repo URL
+            FormField {
+                id: "repo_url".to_string(),
+                field_type: FieldType::Url {
+                    placeholder: Some("https://github.com/username/project".to_string()),
+                },
+                label: "Repo URL".to_string(),
+                name: "repo_url".to_string(),
+                required: true,
+                help_text: Some("Link to your project's source code repository.".to_string()),
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Links".to_string()),
+                conditional: None,
+            },
+            // Zipped File Link (optional)
+            FormField {
+                id: "project_zip_url".to_string(),
+                field_type: FieldType::Url {
+                    placeholder: Some("https://drive.google.com/file/...".to_string()),
+                },
+                label: "Zipped File Link (optional)".to_string(),
+                name: "project_zip_url".to_string(),
+                required: false,
+                help_text: Some("Link to a zip file of your project (e.g., Google Drive, Dropbox).".to_string()),
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Links".to_string()),
+                conditional: None,
+            },
+            // Presentation URL
+            FormField {
+                id: "presentation_url".to_string(),
+                field_type: FieldType::Url {
+                    placeholder: Some("https://docs.google.com/presentation/...".to_string()),
+                },
+                label: "Presentation URL".to_string(),
+                name: "presentation_url".to_string(),
+                required: false,
+                help_text: Some("Link to your project presentation slides.".to_string()),
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Links".to_string()),
+                conditional: None,
+            },
+            // Video URL
+            FormField {
+                id: "video_url".to_string(),
+                field_type: FieldType::Url {
+                    placeholder: Some("https://youtube.com/watch?v=...".to_string()),
+                },
+                label: "Video URL".to_string(),
+                name: "video_url".to_string(),
+                required: false,
+                help_text: Some("Link to a demo video of your project.".to_string()),
+                default_value: None,
+                order: next_order(),
+                section: Some("Project Links".to_string()),
+                conditional: None,
+            },
+        ],
+        version: "1.0".to_string(),
+    }
+}
