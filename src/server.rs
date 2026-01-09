@@ -100,7 +100,7 @@ pub async fn setup() {
                 tracing::info!("MinIO bucket already exists: {}", config.minio_bucket);
             }
 
-            // Set bucket policy to allow public read access to banner, background, and resume files
+            // Set bucket policy to allow public read access to banner, background, app-icon, and resume files
             let policy = serde_json::json!({
                 "Version": "2012-10-17",
                 "Statement": [{
@@ -110,6 +110,7 @@ pub async fn setup() {
                     "Resource": [
                         format!("arn:aws:s3:::{}/*/banner.*", config.minio_bucket),
                         format!("arn:aws:s3:::{}/*/background.*", config.minio_bucket),
+                        format!("arn:aws:s3:::{}/*/app-icon.*", config.minio_bucket),
                         format!("arn:aws:s3:::{}/*/resumes/*", config.minio_bucket)
                     ]
                 }]
@@ -224,6 +225,11 @@ pub async fn setup() {
             }),
         )
         .route("/health", get(|| async { "OK" }))
+        // Hackathon-specific manifest
+        .route(
+            "/h/{slug}/manifest.json",
+            get(crate::domain::hackathons::handlers::manifest::get_manifest),
+        )
         // Apply OIDC auth and session layers
         .layer(oidc_auth_service.clone())
         .layer(session_layer.clone())

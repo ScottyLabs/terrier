@@ -16,6 +16,7 @@ mod m20251229_105000_add_event_visibility;
 mod m20251230_172700_add_event_points;
 mod m20260103_add_event_checkins;
 mod m20260105_230608_add_project_submissions_and_prizes;
+mod m20260109_add_app_icon_and_theme;
 
 pub struct Migrator;
 
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251230_172700_add_event_points::Migration),
             Box::new(m20260103_add_event_checkins::Migration),
             Box::new(m20260105_230608_add_project_submissions_and_prizes::Migration),
+            Box::new(m20260109_add_app_icon_and_theme::Migration),
         ]
     }
 }

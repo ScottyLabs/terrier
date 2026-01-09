@@ -26,6 +26,9 @@ pub struct Model {
     pub background_url: Option<String>,
     #[sea_orm(column_type = "JsonBinary", nullable)]
     pub submission_form: Option<Json>,
+    pub app_icon_url: Option<String>,
+    pub theme_color: Option<String>,
+    pub background_color: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

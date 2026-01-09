@@ -170,6 +170,9 @@ impl From<hackathons::Model> for HackathonInfo {
             updated_at: h.updated_at,
             form_config: h.form_config,
             submission_form: h.submission_form,
+            app_icon_url: h.app_icon_url,
+            theme_color: h.theme_color,
+            background_color: h.background_color,
         }
     }
 }

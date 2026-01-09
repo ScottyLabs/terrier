@@ -1,4 +1,5 @@
 [application]
+asset_dir = "assets"
 ios_info_plist = "./mobile/Info.plist"
 android_manifest = "./mobile/AndroidManifest.xml"
 

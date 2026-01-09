@@ -110,6 +110,9 @@ pub async fn create_hackathon(req: CreateHackathonRequest) -> Result<HackathonIn
         updated_at: hackathon.updated_at,
         form_config: hackathon.form_config,
         submission_form: hackathon.submission_form,
+        app_icon_url: hackathon.app_icon_url,
+        theme_color: hackathon.theme_color,
+        background_color: hackathon.background_color,
     })
 }
 
@@ -349,4 +352,123 @@ async fn upload_background_impl(
         .map_err(|e| format!("Failed to update background URL: {}", e))?;
 
     Ok(background_url)
+}
+
+/// Upload an app icon for a hackathon
+#[cfg_attr(feature = "server", utoipa::path(
+    put,
+    path = "/api/hackathons/{slug}/app-icon",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    responses(
+        (status = 200, description = "App icon uploaded successfully", body = String),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Hackathon not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "hackathons"
+))]
+#[put("/api/hackathons/:slug/app-icon", user: SyncedUser)]
+pub async fn upload_app_icon(
+    slug: String,
+    file_data: Vec<u8>,
+    content_type: String,
+) -> Result<String, ServerFnError> {
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
+
+    upload_app_icon_impl(&ctx, &slug, file_data, content_type)
+        .await
+        .map_err(ServerFnError::new)
+}
+
+/// Shared implementation for app icon upload logic
+#[cfg(feature = "server")]
+async fn upload_app_icon_impl(
+    ctx: &RequestContext,
+    slug: &str,
+    file_data: Vec<u8>,
+    content_type: String,
+) -> Result<String, String> {
+    use minio::s3::args::{PutObjectArgs, RemoveObjectArgs};
+    use sea_orm::{ActiveModelTrait, Set};
+    use std::io::Cursor;
+
+    // Check permissions
+    Permissions::require_admin(ctx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let hackathon = ctx.hackathon().map_err(|e| e.to_string())?;
+
+    // Delete old app icon if exists
+    if let Some(old_url) = &hackathon.app_icon_url {
+        tracing::info!("Deleting old app icon: {}", old_url);
+        let url_parts: Vec<&str> = old_url.split('/').collect();
+        if url_parts.len() >= 2 {
+            let object_key = url_parts[url_parts.len() - 2..].join("/");
+
+            if let Ok(remove_args) =
+                RemoveObjectArgs::new(&ctx.state.config.minio_bucket, &object_key)
+            {
+                let _ = ctx.state.s3.remove_object(&remove_args).await;
+                tracing::info!("Old app icon deleted: {}", object_key);
+            }
+        }
+    }
+
+    // Upload new app icon
+    let extension = match content_type.as_str() {
+        "image/jpeg" | "image/jpg" => "jpg",
+        "image/png" => "png",
+        "image/webp" => "webp",
+        "image/gif" => "gif",
+        _ => "png",
+    };
+
+    let object_key = format!("{}/app-icon.{}", slug, extension);
+    tracing::info!(
+        "Uploading app icon: key={}, type={}, size={}",
+        object_key,
+        content_type,
+        file_data.len()
+    );
+
+    let file_size = file_data.len();
+    let mut cursor = Cursor::new(file_data);
+    let mut put_args = PutObjectArgs::new(
+        &ctx.state.config.minio_bucket,
+        &object_key,
+        &mut cursor,
+        Some(file_size),
+        None,
+    )
+    .map_err(|e| format!("Failed to create put args: {}", e))?;
+
+    put_args.content_type = content_type.as_str();
+
+    ctx.state
+        .s3
+        .put_object(&mut put_args)
+        .await
+        .map_err(|e| format!("Failed to upload to MinIO: {}", e))?;
+
+    let app_icon_url = format!(
+        "{}/{}/{}",
+        ctx.state.config.minio_public_endpoint, ctx.state.config.minio_bucket, object_key
+    );
+
+    // Update hackathon with app icon URL
+    let mut active_hackathon: crate::entities::hackathons::ActiveModel = hackathon.clone().into();
+    active_hackathon.app_icon_url = Set(Some(app_icon_url.clone()));
+    active_hackathon.updated_at = Set(Utc::now().naive_utc());
+    active_hackathon
+        .update(&ctx.state.db)
+        .await
+        .map_err(|e| format!("Failed to update app icon URL: {}", e))?;
+
+    Ok(app_icon_url)
 }

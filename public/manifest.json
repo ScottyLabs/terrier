@@ -1,0 +1,10 @@
+{
+    "name": "Terrier by ScottyLabs",
+    "short_name": "Terrier",
+    "description": "The app for all things Terrier!",
+    "start_url": "/",
+    "display": "fullscreen",
+    "background_color": "#F4F2F3",
+    "theme_color": "#F4F2F3",
+    "orientation": "portrait"
+}

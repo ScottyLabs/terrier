@@ -21,6 +21,9 @@ pub struct HackathonInfo {
     pub updated_at: NaiveDateTime,
     pub form_config: Option<serde_json::Value>,
     pub submission_form: Option<serde_json::Value>,
+    pub app_icon_url: Option<String>,
+    pub theme_color: Option<String>,
+    pub background_color: Option<String>,
 }
 
 /// Event schedule item

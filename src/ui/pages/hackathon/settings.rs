@@ -6,8 +6,9 @@ use crate::{
     auth::{SETTINGS_ROLES, hooks::use_require_access_or_redirect},
     domain::{
         hackathons::handlers::{
-            UpdateHackathonRequest, delete_banner, set_form_config, set_submission_form_config,
-            toggle_registration, update_hackathon, upload_background, upload_banner,
+            UpdateHackathonRequest, UpdateThemeColorsRequest, delete_app_icon, delete_banner,
+            set_form_config, set_submission_form_config, toggle_registration, update_hackathon,
+            update_theme_colors, upload_app_icon, upload_background, upload_banner,
         },
         hackathons::types::HackathonInfo,
     },
@@ -20,6 +21,7 @@ enum SettingsTab {
     General,
     Participation,
     Application,
+    Branding,
 }
 
 #[component]
@@ -123,6 +125,7 @@ pub fn HackathonSettings(slug: String) -> Element {
         (SettingsTab::General, "General".to_string()),
         (SettingsTab::Participation, "Participation".to_string()),
         (SettingsTab::Application, "Application".to_string()),
+        (SettingsTab::Branding, "Branding".to_string()),
     ];
 
     rsx! {
@@ -612,6 +615,265 @@ pub fn HackathonSettings(slug: String) -> Element {
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SettingsTab::Branding => {
+                        let mut app_icon_url = use_signal(|| hackathon.read().app_icon_url.clone());
+                        let mut app_icon_file = use_signal(|| None::<(Vec<u8>, String)>);
+                        let mut theme_color = use_signal(|| hackathon.read().theme_color.clone().unwrap_or_else(|| "#F4F2F3".to_string()));
+                        let mut background_color = use_signal(|| hackathon.read().background_color.clone().unwrap_or_else(|| "#F4F2F3".to_string()));
+                        let mut selected_app_icon_file = use_signal(|| None::<String>);
+                        let slug_for_branding = slug.clone();
+                        let slug_for_colors = slug.clone();
+                        let slug_for_icon_delete = slug.clone();
+
+                        rsx! {
+                            div { class: "flex flex-col gap-6",
+                                // App Icon Section
+                                div { class: "flex flex-col gap-4",
+                                    h2 { class: "text-xl font-semibold", "App Icon" }
+                                    p { class: "text-foreground-neutral-secondary",
+                                        "The app icon appears when users add the site to their home screen (PWA)."
+                                    }
+
+                                    if let Some(url) = app_icon_url() {
+                                        div { class: "flex flex-col gap-2",
+                                            div { class: "relative w-24 h-24 rounded-lg overflow-hidden border border-border-neutral-primary",
+                                                img {
+                                                    src: "{url}",
+                                                    class: "w-full h-full object-cover",
+                                                }
+                                            }
+                                            div { class: "flex gap-2",
+                                                input {
+                                                    r#type: "file",
+                                                    accept: "image/png,image/jpeg,image/webp",
+                                                    id: "app-icon-upload",
+                                                    class: "hidden",
+                                                    onchange: move |evt| async move {
+                                                        let files = evt.files();
+                                                        if let Some(file) = files.first() {
+                                                            let file_name = file.name().to_string();
+                                                            selected_app_icon_file.set(Some(file_name.clone()));
+                                                            let content_type = file_name
+                                                                .split('.')
+                                                                .next_back()
+                                                                .map(|ext| match ext {
+                                                                    "jpg" | "jpeg" => "image/jpeg",
+                                                                    "png" => "image/png",
+                                                                    "webp" => "image/webp",
+                                                                    _ => "image/png",
+                                                                })
+                                                                .unwrap_or("image/png")
+                                                                .to_string();
+                                                            match file.read_bytes().await {
+                                                                Ok(bytes) => {
+                                                                    app_icon_file.set(Some((bytes.to_vec(), content_type)));
+                                                                }
+                                                                Err(e) => {
+                                                                    tracing::error!("Failed to read file: {:?}", e);
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                }
+                                                label {
+                                                    r#for: "app-icon-upload",
+                                                    class: "flex items-center justify-center gap-2 h-10 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90",
+                                                    "Change icon"
+                                                }
+                                                Button {
+                                                    button_type: "button".to_string(),
+                                                    onclick: move |_| {
+                                                        let slug = slug_for_icon_delete.clone();
+                                                        spawn(async move {
+                                                            match delete_app_icon(slug).await {
+                                                                Ok(_) => {
+                                                                    app_icon_url.set(None);
+                                                                    let mut h = hackathon.write();
+                                                                    h.app_icon_url = None;
+                                                                }
+                                                                Err(e) => {
+                                                                    tracing::error!("Failed to delete app icon: {:?}", e);
+                                                                }
+                                                            }
+                                                        });
+                                                    },
+                                                    "Remove"
+                                                }
+                                            }
+                                            if let Some(file) = selected_app_icon_file() {
+                                                div { class: "text-sm text-foreground-neutral-secondary",
+                                                    "New file selected: {file}"
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        div { class: "flex flex-col gap-2",
+                                            input {
+                                                r#type: "file",
+                                                accept: "image/png,image/jpeg,image/webp",
+                                                id: "app-icon-upload",
+                                                class: "hidden",
+                                                onchange: move |evt| async move {
+                                                    let files = evt.files();
+                                                    if let Some(file) = files.first() {
+                                                        let file_name = file.name().to_string();
+                                                        selected_app_icon_file.set(Some(file_name.clone()));
+                                                        let content_type = file_name
+                                                            .split('.')
+                                                            .next_back()
+                                                            .map(|ext| match ext {
+                                                                "jpg" | "jpeg" => "image/jpeg",
+                                                                "png" => "image/png",
+                                                                "webp" => "image/webp",
+                                                                _ => "image/png",
+                                                            })
+                                                            .unwrap_or("image/png")
+                                                            .to_string();
+                                                        match file.read_bytes().await {
+                                                            Ok(bytes) => {
+                                                                app_icon_file.set(Some((bytes.to_vec(), content_type)));
+                                                            }
+                                                            Err(e) => {
+                                                                tracing::error!("Failed to read file: {:?}", e);
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                            }
+                                            label {
+                                                r#for: "app-icon-upload",
+                                                class: "flex items-center justify-center gap-2 h-12 px-4 bg-background-neutral-primary text-foreground-neutral-primary text-sm font-normal rounded-[0.625rem] cursor-pointer hover:opacity-90 w-fit",
+                                                "Choose file"
+                                            }
+                                            if let Some(file) = selected_app_icon_file() {
+                                                div { class: "text-sm text-foreground-neutral-secondary",
+                                                    "Selected: {file}"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Theme Colors Section
+                                div { class: "flex flex-col gap-4",
+                                    h2 { class: "text-xl font-semibold", "Theme Colors" }
+                                    p { class: "text-foreground-neutral-secondary",
+                                        "Colors used in the PWA manifest for the status bar and splash screen."
+                                    }
+
+                                    div { class: "flex flex-col md:flex-row gap-4",
+                                        div { class: "flex flex-col gap-2",
+                                            label { class: "text-base font-medium text-foreground-neutral-primary",
+                                                "Theme Color"
+                                            }
+                                            div { class: "flex items-center gap-2",
+                                                input {
+                                                    r#type: "color",
+                                                    value: "{theme_color}",
+                                                    class: "w-12 h-12 rounded-lg border border-border-neutral-primary cursor-pointer",
+                                                    onchange: move |evt| {
+                                                        theme_color.set(evt.value());
+                                                    },
+                                                }
+                                                input {
+                                                    r#type: "text",
+                                                    value: "{theme_color}",
+                                                    class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] w-32",
+                                                    oninput: move |evt| {
+                                                        theme_color.set(evt.value());
+                                                    },
+                                                }
+                                            }
+                                        }
+                                        div { class: "flex flex-col gap-2",
+                                            label { class: "text-base font-medium text-foreground-neutral-primary",
+                                                "Background Color"
+                                            }
+                                            div { class: "flex items-center gap-2",
+                                                input {
+                                                    r#type: "color",
+                                                    value: "{background_color}",
+                                                    class: "w-12 h-12 rounded-lg border border-border-neutral-primary cursor-pointer",
+                                                    onchange: move |evt| {
+                                                        background_color.set(evt.value());
+                                                    },
+                                                }
+                                                input {
+                                                    r#type: "text",
+                                                    value: "{background_color}",
+                                                    class: "px-4 h-12 bg-background-neutral-primary text-foreground-brandNeutral-secondary text-sm font-normal rounded-[0.625rem] w-32",
+                                                    oninput: move |evt| {
+                                                        background_color.set(evt.value());
+                                                    },
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Save Button
+                                div { class: "flex gap-4",
+                                    Button {
+                                        button_type: "button".to_string(),
+                                        onclick: move |_| {
+                                            save_status.set(SaveStatus::Saving);
+                                            let slug = slug_for_branding.clone();
+                                            let icon_file_data = app_icon_file();
+                                            let theme = theme_color();
+                                            let bg = background_color();
+                                            let colors_slug = slug_for_colors.clone();
+                                            spawn(async move {
+                                                // Upload icon if selected
+                                                if let Some((file_data, content_type)) = icon_file_data {
+                                                    match upload_app_icon(slug.clone(), file_data, content_type).await {
+                                                        Ok(url) => {
+                                                            tracing::info!("App icon uploaded: {}", url);
+                                                            app_icon_url.set(Some(url.clone()));
+                                                            app_icon_file.set(None);
+                                                            selected_app_icon_file.set(None);
+                                                            let mut h = hackathon.write();
+                                                            h.app_icon_url = Some(url);
+                                                        }
+                                                        Err(e) => {
+                                                            tracing::error!("Failed to upload app icon: {:?}", e);
+                                                            let error_msg = format!("App icon upload failed: {}", e);
+                                                            let _ = document::eval(
+                                                                &format!("alert('{}')", error_msg.replace("'", "\\'")),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+
+                                                // Update theme colors
+                                                let req = UpdateThemeColorsRequest {
+                                                    theme_color: Some(theme.clone()),
+                                                    background_color: Some(bg.clone()),
+                                                };
+                                                match update_theme_colors(colors_slug, req).await {
+                                                    Ok(_) => {
+                                                        let mut h = hackathon.write();
+                                                        h.theme_color = Some(theme);
+                                                        h.background_color = Some(bg);
+                                                        save_status.set(SaveStatus::Saved);
+                                                        let _ = document::eval("alert('Branding settings saved!')");
+                                                    }
+                                                    Err(e) => {
+                                                        tracing::error!("Failed to update theme colors: {:?}", e);
+                                                        save_status.set(SaveStatus::Unsaved);
+                                                        let error_msg = e.to_string().replace("'", "\\'");
+                                                        let _ = document::eval(
+                                                            &format!("alert('Failed to save: {}')", error_msg),
+                                                        );
+                                                    }
+                                                }
+                                            });
+                                        },
+                                        "Save Branding"
                                     }
                                 }
                             }
