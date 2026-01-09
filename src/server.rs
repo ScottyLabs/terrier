@@ -225,7 +225,12 @@ pub async fn setup() {
             }),
         )
         .route("/health", get(|| async { "OK" }))
-        // Hackathon-specific manifest
+        // Root manifest.json - serves hackathon-specific manifest based on Referer
+        .route(
+            "/api/manifest.json",
+            get(crate::domain::hackathons::handlers::manifest::get_root_manifest),
+        )
+        // Hackathon-specific manifest (direct access)
         .route(
             "/h/{slug}/manifest.json",
             get(crate::domain::hackathons::handlers::manifest::get_manifest),

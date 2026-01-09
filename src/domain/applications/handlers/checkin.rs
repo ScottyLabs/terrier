@@ -2,7 +2,9 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "server")]
-use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 #[cfg(feature = "server")]
 use utoipa::ToSchema;
 
@@ -162,12 +164,13 @@ pub async fn organizer_checkin(
 
     let hackathon = ctx.hackathon()?;
 
-    // Verify user is organizer or admin
+    // Verify user is organizer, admin, or global admin
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
     let is_organizer = role_repo.is_organizer(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin && !is_organizer {
+    if !is_global_admin && !is_admin && !is_organizer {
         return Err(ServerFnError::new(
             "Only organizers can check in participants",
         ));
@@ -236,12 +239,13 @@ pub async fn organizer_remove_checkin(
 
     let hackathon = ctx.hackathon()?;
 
-    // Verify user is organizer or admin
+    // Verify user is organizer, admin, or global admin
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
     let is_organizer = role_repo.is_organizer(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin && !is_organizer {
+    if !is_global_admin && !is_admin && !is_organizer {
         return Err(ServerFnError::new("Only organizers can remove check-ins"));
     }
 
@@ -284,12 +288,13 @@ pub async fn get_attendees(slug: String, event_id: i32) -> Result<Vec<Attendee>,
 
     let hackathon = ctx.hackathon()?;
 
-    // Verify user is organizer or admin
+    // Verify user is organizer, admin, or global admin
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
     let is_organizer = role_repo.is_organizer(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin && !is_organizer {
+    if !is_global_admin && !is_admin && !is_organizer {
         return Err(ServerFnError::new("Only organizers can view attendees"));
     }
 
@@ -412,12 +417,13 @@ pub async fn get_participant_info(
 
     let hackathon = ctx.hackathon()?;
 
-    // Verify user is organizer or admin
+    // Verify user is organizer, admin, or global admin
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
     let is_organizer = role_repo.is_organizer(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin && !is_organizer {
+    if !is_global_admin && !is_admin && !is_organizer {
         return Err(ServerFnError::new(
             "Only organizers can look up participants",
         ));

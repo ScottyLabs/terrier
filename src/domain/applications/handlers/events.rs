@@ -1,7 +1,9 @@
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
-use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 
 /// Get user schedule
 #[cfg_attr(feature = "server", utoipa::path(
@@ -111,11 +113,12 @@ pub async fn create_event(
 
     let hackathon = ctx.hackathon()?;
 
-    // Check if user is admin
+    // Check if user is admin (global or hackathon-level)
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
-    let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
+    let is_hackathon_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin {
+    if !is_global_admin && !is_hackathon_admin {
         return Err(ServerFnError::new("Only admins can create events"));
     }
 
@@ -231,11 +234,12 @@ pub async fn update_event(
 
     let hackathon = ctx.hackathon()?;
 
-    // Check if user is admin
+    // Check if user is admin (global or hackathon-level)
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
-    let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
+    let is_hackathon_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin {
+    if !is_global_admin && !is_hackathon_admin {
         return Err(ServerFnError::new("Only admins can update events"));
     }
 
@@ -332,11 +336,12 @@ pub async fn delete_event(slug: String, id: i32) -> Result<(), ServerFnError> {
 
     let hackathon = ctx.hackathon()?;
 
-    // Check if user is admin
+    // Check if user is admin (global or hackathon-level)
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
-    let is_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
+    let is_hackathon_admin = role_repo.is_admin(ctx.user.id, hackathon.id).await?;
 
-    if !is_admin {
+    if !is_global_admin && !is_hackathon_admin {
         return Err(ServerFnError::new("Only admins can delete events"));
     }
 

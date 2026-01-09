@@ -2,7 +2,9 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "server")]
-use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 
 #[cfg(feature = "server")]
 use utoipa::ToSchema;
@@ -107,7 +109,8 @@ pub async fn create_prize(
 
     let hackathon = ctx.hackathon()?;
 
-    // Check if user is admin or organizer
+    // Check if user is admin or organizer (global or hackathon-level)
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let user_role = role_repo.find_user_role(ctx.user.id, hackathon.id).await?;
 
@@ -116,7 +119,7 @@ pub async fn create_prize(
         .map(|r| r.role == "admin" || r.role == "organizer")
         .unwrap_or(false);
 
-    if !is_admin_or_organizer {
+    if !is_global_admin && !is_admin_or_organizer {
         return Err(ServerFnError::new(
             "Only admins and organizers can create prizes",
         ));
@@ -177,7 +180,8 @@ pub async fn delete_prize(slug: String, id: i32) -> Result<(), ServerFnError> {
 
     let hackathon = ctx.hackathon()?;
 
-    // Check if user is admin or organizer
+    // Check if user is admin or organizer (global or hackathon-level)
+    let is_global_admin = Permissions::is_global_admin(&ctx);
     let role_repo = UserRoleRepository::new(&ctx.state.db);
     let user_role = role_repo.find_user_role(ctx.user.id, hackathon.id).await?;
 
@@ -186,7 +190,7 @@ pub async fn delete_prize(slug: String, id: i32) -> Result<(), ServerFnError> {
         .map(|r| r.role == "admin" || r.role == "organizer")
         .unwrap_or(false);
 
-    if !is_admin_or_organizer {
+    if !is_global_admin && !is_admin_or_organizer {
         return Err(ServerFnError::new(
             "Only admins and organizers can delete prizes",
         ));
