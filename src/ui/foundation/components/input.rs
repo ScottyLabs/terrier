@@ -20,7 +20,7 @@ pub fn NumberInput(
     name: Option<String>,
 ) -> Element {
     let bg_class = match variant {
-        InputVariant::Primary => "bg-background-brandNeutral-secondary",
+        InputVariant::Primary => "bg-background-neutral-secondary",
         InputVariant::Secondary => "bg-background-neutral-primary",
     };
 
@@ -68,7 +68,7 @@ pub fn Input(
     };
 
     let bg_class = match variant {
-        InputVariant::Primary => "bg-background-brandNeutral-secondary",
+        InputVariant::Primary => "bg-background-neutral-secondary",
         InputVariant::Secondary => "bg-background-neutral-primary",
     };
 

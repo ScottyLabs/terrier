@@ -32,7 +32,7 @@ pub fn Button(
 ) -> Element {
     let bg_class = match variant {
         ButtonVariant::Default => "bg-foreground-neutral-primary",
-        ButtonVariant::Primary => "bg-background-brandNeutral-secondary",
+        ButtonVariant::Primary => "bg-background-neutral-secondary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
         ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
         ButtonVariant::Outline => "bg-transparent border border-stroke-neutral-1",
@@ -81,7 +81,7 @@ pub fn ButtonWithIcon<I: IconShape + Clone + PartialEq + 'static>(
 ) -> Element {
     let bg_class = match variant {
         ButtonVariant::Default => "bg-foreground-neutral-primary",
-        ButtonVariant::Primary => "bg-background-brandNeutral-secondary",
+        ButtonVariant::Primary => "bg-background-neutral-secondary",
         ButtonVariant::Secondary => "bg-background-neutral-primary",
         ButtonVariant::Tertiary => "bg-background-neutral-secondary-enabled",
         ButtonVariant::Outline => "bg-transparent border border-stroke-neutral-1",

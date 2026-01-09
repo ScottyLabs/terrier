@@ -56,7 +56,14 @@
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_17;
+    listen_addresses = "localhost";
+    port = 5432;
     initialDatabases = [ { name = "terrier"; } ];
+    initialScript = ''
+      CREATE USER terrier WITH PASSWORD 'terrier';
+      GRANT ALL PRIVILEGES ON DATABASE terrier TO terrier;
+      ALTER DATABASE terrier OWNER TO terrier;
+    '';
   };
 
   services.minio = {

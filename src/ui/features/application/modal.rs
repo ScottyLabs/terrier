@@ -79,7 +79,7 @@ pub fn ApplicationModal(
                         for (section_name , fields) in grouped_fields().iter() {
                             div {
                                 key: "{section_name}",
-                                class: "bg-white rounded-xl p-5",
+                                class: "bg-[var(--color-background-neutral-secondary)] rounded-xl p-5",
                                 h3 { class: "text-lg font-semibold text-foreground-neutral-primary mb-4",
                                     "{section_name}"
                                 }

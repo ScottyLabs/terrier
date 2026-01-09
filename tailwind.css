@@ -13,9 +13,8 @@
     --color-stroke-neutral-1: #d6d6d6;
     --color-stroke-neutral-2: #e6e6e6;
 
-    --color-background-brandNeutral-secondary: #f0f4f8;
-    --color-foreground-brandNeutral-primary: #4a5662;
-    --color-foreground-brandNeutral-secondary: #7a8fa3;
+    --color-background-neutral-secondary: #f0f4f8;
+    --color-background-neutral-secondary-pressed: #e6e6e6;
 
     --color-status-danger-foreground: #c4213e;
     --color-status-warning-foreground: #f3c033;

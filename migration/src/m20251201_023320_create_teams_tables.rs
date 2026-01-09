@@ -113,7 +113,7 @@ enum Hackathons {
 }
 
 #[derive(DeriveIden)]
-enum Teams {
+pub enum Teams {
     Table,
     Id,
     HackathonId,

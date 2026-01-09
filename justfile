@@ -18,12 +18,18 @@ new-migration NAME:
 
 # Run database migrations
 migrate:
-    devenv up -d postgres
+    devenv up postgres
     sea-orm-cli migrate up --migration-dir ./migration -u {{DATABASE_URL}}
+
+# Undo last migration
+undo-migration:
+    devenv up postgres
+    sea-orm-cli migrate down --migration-dir ./migration -u {{DATABASE_URL}}
+    
 
 # Fresh database (drop all tables and reapply migrations)
 fresh:
-    devenv up -d postgres minio
+    devenv up postgres minio
     @echo "Clearing MinIO bucket..."
     mc alias set local http://localhost:9000 {{MINIO_ROOT_USER}} {{MINIO_ROOT_PASSWORD}} 2>/dev/null || true
     mc rm --recursive --force local/{{MINIO_BUCKET}}/ 2>/dev/null || true
@@ -31,12 +37,12 @@ fresh:
 
 # Check migration status
 status:
-    devenv up -d postgres
+    devenv up postgres
     sea-orm-cli migrate status --migration-dir ./migration -u {{DATABASE_URL}}
 
 # Generate entities from database
 generate-entities:
-    devenv up -d postgres
+    devenv up postgres
     sea-orm-cli generate entity -o ./src/entities --with-serde both --model-extra-derives "utoipa::ToSchema" -u {{DATABASE_URL}}
 
 # Start database, run migrations, and generate entities
