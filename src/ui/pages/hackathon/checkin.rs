@@ -106,7 +106,8 @@ fn ParticipantCheckinView(
     let user_role = use_context::<Option<HackathonRole>>();
     let is_mobile = use_context::<Signal<bool>>();
     let user_id = user_role.as_ref().map(|r| r.user_id).unwrap_or(-1);
-    let checkin_url = format!("terrier://check-in/{}", user_id);
+    // Use HTTPS URL for Universal Links (works with iOS camera app)
+    let checkin_url = format!("https://terrier.scottylabs.org/h/{}/scan/{}", slug, user_id);
     let qr_svg = generate_qr_svg(&checkin_url);
     let mut show_qr_modal = use_signal(|| false);
 

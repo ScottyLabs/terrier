@@ -91,6 +91,11 @@ pub enum Route {
                     slug: String,
                     event_id: i32
                 },
+            #[route("/scan/:user_id")]
+                HackathonScan {
+                    slug: String,
+                    user_id: i32
+                },
             #[route("/profile")]
                 HackathonProfile {
                     slug: String

@@ -4,15 +4,21 @@ use dioxus_free_icons::{
     icons::ld_icons::{LdExpand, LdQrCode},
 };
 
-use crate::{auth::HackathonRole, ui::foundation::utils::generate_qr_svg};
+use crate::{
+    auth::HackathonRole, domain::hackathons::types::HackathonInfo,
+    ui::foundation::utils::generate_qr_svg,
+};
 
 /// QR Tile component - QR code (using nayuki/QR-Code-generator) with deep link to check-in page with hacker id,
 /// "Check in QR Code" text, and an expandable QR code
 #[component]
 pub fn QRTile() -> Element {
     let user_role = use_context::<Option<HackathonRole>>();
+    let hackathon = use_context::<Signal<HackathonInfo>>();
     let user_id = user_role.as_ref().map(|r| r.user_id).unwrap_or(-1);
-    let checkin_url = format!("terrier://check-in/{}", user_id);
+    let slug = hackathon.read().slug.clone();
+    // Use HTTPS URL for Universal Links (works with iOS camera app)
+    let checkin_url = format!("https://terrier.scottylabs.org/h/{}/scan/{}", slug, user_id);
     let qr_svg = generate_qr_svg(&checkin_url);
     let mut show_modal = use_signal(|| false);
     let is_mobile = use_context::<Signal<bool>>();

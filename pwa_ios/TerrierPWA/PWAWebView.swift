@@ -24,14 +24,18 @@ struct PWAConfig {
         "microsoftonline.com",    // Microsoft/Azure AD
         "login.microsoftonline.com",
         "api.github.com",
-        "duosecurity.com"         // Duo Security
+        "github.com",                 // GitHub OAuth
+        "duosecurity.com"             // Duo Security
     ]
     
-    // Providers that MUST use external browser (Safari)
-    // Note: Google OAuth now works in modern WKWebView via redirect flow
-    // Only add providers here if they explicitly block WebView
-    static let externalBrowserAuthHosts = [
-        "github.com"              // GitHub prefers external browser
+    // Providers that MUST use external browser (ASWebAuthenticationSession)
+    // NOTE: Until Universal Links are fully configured (TEAMID in AASA file),
+    // external browser auth won't work. Keep this list empty for now.
+    // Once Universal Links are working, add providers that block WebView here.
+    static let externalBrowserAuthHosts: [String] = [
+        "accounts.google.com",  // Enable after Universal Links work
+        "google.com",             // Google domains
+        "github.com",           // Enable after Universal Links work
     ]
     
     // Callback URL scheme for deep links
@@ -147,14 +151,8 @@ struct PWAWebView: UIViewRepresentable {
             }
         }
         
-        // Enable pull-to-refresh
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(
-            context.coordinator,
-            action: #selector(Coordinator.handleRefresh(_:)),
-            for: .valueChanged
-        )
-        webView.scrollView.refreshControl = refreshControl
+        // Pull-to-refresh disabled - not needed for this app
+        webView.scrollView.refreshControl = nil
         
         // Allow back/forward swipe gestures
         webView.allowsBackForwardNavigationGestures = true
@@ -374,7 +372,7 @@ struct PWAWebView: UIViewRepresentable {
     
     // MARK: - Coordinator
     
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIScrollViewDelegate, ASWebAuthenticationPresentationContextProviding, SFSafariViewControllerDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIScrollViewDelegate, ASWebAuthenticationPresentationContextProviding {
         var parent: PWAWebView
         
         init(_ parent: PWAWebView) {
@@ -393,85 +391,59 @@ struct PWAWebView: UIViewRepresentable {
         
         // MARK: - External Browser Authentication (for Google, etc.)
         
-        var safariVC: SFSafariViewController?
+        var authSession: ASWebAuthenticationSession?
         
-        /// Start authentication using SFSafariViewController for providers that block WebView
-        /// Google accepts SFSafariViewController as a "system browser" (not an embedded webview)
-        /// Unlike ASWebAuthenticationSession, this works with the server's HTTPS callback URL
+        /// Start authentication using ASWebAuthenticationSession
+        /// This provides passkey support and password autofill from the system keychain
+        /// Using nil callbackURLScheme to work with Universal Links (HTTPS callbacks)
         func startExternalBrowserAuth(url: URL) {
-            print("[AUTH] 🌐 Opening SFSafariViewController for: \(url.absoluteString)")
+            print("[AUTH] 🌐 Starting ASWebAuthenticationSession for: \(url.absoluteString)")
             
-            let config = SFSafariViewController.Configuration()
-            config.entersReaderIfAvailable = false
-            config.barCollapsingEnabled = true
+            // Cancel any existing auth session
+            authSession?.cancel()
             
-            let safari = SFSafariViewController(url: url, configuration: config)
-            safari.delegate = self
-            safari.preferredControlTintColor = .systemBlue
-            safari.dismissButtonStyle = .cancel
-            
-            safariVC = safari
-            
-            // Present the Safari view controller
-            DispatchQueue.main.async {
-                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let rootVC = scene.windows.first?.rootViewController {
-                    // Find the topmost presented view controller
-                    var topVC = rootVC
-                    while let presented = topVC.presentedViewController {
-                        topVC = presented
+            // Use nil callbackURLScheme to enable Universal Links (HTTPS callbacks)
+            // This requires apple-app-site-association file on the server
+            let session = ASWebAuthenticationSession(
+                url: url,
+                callbackURLScheme: nil  // nil enables Universal Links
+            ) { [weak self] callbackURL, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    let nsError = error as NSError
+                    if nsError.domain == ASWebAuthenticationSessionErrorDomain,
+                       nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                        print("[AUTH] ⏹️ User cancelled authentication")
+                    } else {
+                        print("[AUTH] ❌ Auth error: \(error.localizedDescription)")
                     }
-                    topVC.present(safari, animated: true)
-                    print("[AUTH] ✅ SFSafariViewController presented")
-                } else {
-                    print("[AUTH] ❌ Could not find root view controller")
+                    return
                 }
-            }
-        }
-        
-        /// Called when Safari view finishes loading - check if we've returned to the app domain after auth
-        func safariViewController(_ controller: SFSafariViewController, didCompleteInitialLoad didLoadSuccessfully: Bool) {
-            print("[AUTH] 📄 Safari initial load complete, success: \(didLoadSuccessfully)")
-        }
-        
-        /// Called when the user taps Done button or Safari redirects
-        func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
-            print("[AUTH] ⏹️ User dismissed Safari view controller")
-            safariVC = nil
-            
-            // Sync cookies and reload the WebView to pick up any session changes
-            print("[AUTH] 🍪 Syncing cookies after Safari dismiss...")
-            syncCookiesToWebView { [weak self] in
+                
+                guard let callbackURL = callbackURL else {
+                    print("[AUTH] ❌ No callback URL received")
+                    return
+                }
+                
+                print("[AUTH] ✅ Received callback: \(callbackURL.absoluteString)")
+                
+                // Callback URL is already HTTPS, load it directly in WebView
                 DispatchQueue.main.async {
-                    self?.parent.state.webView?.reload()
+                    self.parent.state.webView?.load(URLRequest(url: callbackURL))
                 }
             }
-        }
-        
-        /// Called when Safari redirects to a URL - detect auth completion
-        func safariViewController(_ controller: SFSafariViewController, initialLoadDidRedirectTo URL: URL) {
-            print("[AUTH] 🔀 Safari redirected to: \(URL.absoluteString)")
             
-            // Check if we've returned to our app's domain after auth callback
-            if let host = URL.host?.lowercased(),
-               host.contains("scottylabs.org"),
-               !URL.path.contains("/realms/") {  // Not still in Keycloak login
-                
-                // Auth likely completed - dismiss Safari and sync session
-                print("[AUTH] ✅ Detected return to app domain, dismissing Safari...")
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                    controller.dismiss(animated: true) {
-                        self?.safariVC = nil
-                        print("[AUTH] 🍪 Syncing cookies after auth completion...")
-                        self?.syncCookiesToWebView {
-                            DispatchQueue.main.async {
-                                // Reload to the current URL (which is the auth callback result)
-                                self?.parent.state.webView?.load(URLRequest(url: URL))
-                            }
-                        }
-                    }
-                }
+            session.presentationContextProvider = self
+            // Share cookies with Safari so user's existing sessions can be used
+            session.prefersEphemeralWebBrowserSession = false
+            
+            authSession = session
+            
+            if session.start() {
+                print("[AUTH] ✅ ASWebAuthenticationSession started")
+            } else {
+                print("[AUTH] ❌ Failed to start ASWebAuthenticationSession")
             }
         }
         

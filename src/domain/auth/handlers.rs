@@ -27,7 +27,7 @@ pub async fn login(
     // OidcLoginLayer will have handled login, so redirect the user back at this point
     let redirect_to = params
         .redirect_uri
-        .filter(|uri| uri.starts_with(&state.config.app_base_url))
+        .filter(|uri| uri.starts_with(&state.config.app_base_url) || uri.starts_with("terrier://"))
         .unwrap_or_else(|| state.config.app_base_url.clone());
 
     Redirect::to(&redirect_to)
