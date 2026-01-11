@@ -27,34 +27,32 @@ pub fn HackathonLayout(slug: String) -> Element {
             // Both loaded successfully
             let role = role_opt.as_ref();
 
-            // Redirect applicants to Apply page if they're on the dashboard
-            let current_route = use_route::<Route>();
-            if let Route::HackathonDashboard { slug: route_slug } = current_route
-                && let Some(user_role) = role
-                && user_role.role == "applicant"
-            {
-                use_effect(move || {
-                    nav.push(Route::HackathonApply {
-                        slug: route_slug.clone(),
-                    });
-                });
-                return rsx! {
-                    div { class: "flex items-center justify-center h-screen",
-                        p { class: "text-foreground-neutral-primary", "Redirecting..." }
-                    }
-                };
-            }
-
             // Provide context for child pages as a signal so it can be updated
+            // IMPORTANT: These must be provided BEFORE any conditional returns
+            // so that child pages can always access them
             let hackathon_signal = use_context_provider(|| Signal::new(hackathon.clone()));
             use_context_provider(|| role.cloned());
 
             // Provide a refresh trigger for application status
             let application_refresh_trigger = use_context_provider(|| Signal::new(0u32));
 
+            // Redirect applicants to Apply page if they're on the dashboard
+            let current_route = use_route::<Route>();
+            let should_redirect = matches!(current_route, Route::HackathonDashboard { .. })
+                && role.map(|r| r.role == "applicant").unwrap_or(false);
+
+            let slug_for_redirect = slug.clone();
+            use_effect(move || {
+                if should_redirect {
+                    nav.push(Route::HackathonApply {
+                        slug: slug_for_redirect.clone(),
+                    });
+                }
+            });
+
             rsx! {
                 div {
-                    class: "flex bg-cover bg-center bg-no-repeat w-screen flex-col md:flex-row md:h-screen md:gap-9 md:p-7",
+                    class: "flex bg-cover bg-center bg-no-repeat w-screen h-screen flex-col md:flex-row md:h-screen md:gap-9 md:p-7",
                     style: if let Some(bg_url) = &hackathon.background_url { format!("background-image: url('{}')", bg_url) } else { String::new() },
                     Sidebar {
                         slug,
@@ -66,12 +64,24 @@ pub fn HackathonLayout(slug: String) -> Element {
                 }
             }
         }
-        (Some(Ok(None)), _) | (Some(Err(_)), _) => {
-            // Hackathon not found or error, navigate to 404
+        (Some(Ok(None)), _) => {
+            // Hackathon not found, navigate to 404
             use_effect(move || {
                 nav.push(Route::NotFound {
                     route: vec!["h".to_string(), slug.clone()],
                 });
+            });
+
+            rsx! {
+                div { class: "flex items-center justify-center h-screen",
+                    p { class: "text-foreground-neutral-primary", "Redirecting..." }
+                }
+            }
+        }
+        (Some(Err(_)), _) | (_, Some(Err(_))) => {
+            // Error fetching hackathon or role - redirect to home
+            use_effect(move || {
+                nav.push(Route::Home {});
             });
 
             rsx! {

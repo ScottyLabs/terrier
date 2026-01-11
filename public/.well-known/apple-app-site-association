@@ -1,0 +1,27 @@
+{
+    "applinks": {
+        "apps": [],
+        "details": [
+            {
+                "appIDs": ["TEAMID.org.scottylabs.terrier"],
+                "paths": [
+                    "/auth/*",
+                    "/h/*/auth/*"
+                ],
+                "components": [
+                    {
+                        "/": "/auth/*",
+                        "comment": "OAuth callback paths"
+                    },
+                    {
+                        "/": "/h/*/auth/*",
+                        "comment": "Hackathon-specific auth paths"
+                    }
+                ]
+            }
+        ]
+    },
+    "webcredentials": {
+        "apps": ["TEAMID.org.scottylabs.terrier"]
+    }
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Associated Domains for universal links and web credentials -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:terrier.scottylabs.org</string>
+		<string>webcredentials:terrier.scottylabs.org</string>
+	</array>
+	
+	<!-- Web Browser Configuration -->
+	<key>com.apple.developer.web-browser</key>
+	<false/>
+	
+	<!-- Push Notifications (optional, for future use) -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
