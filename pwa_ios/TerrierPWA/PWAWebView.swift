@@ -6,7 +6,7 @@ import SafariServices
 
 /// Configuration for the PWA
 struct PWAConfig {
-    static let pwaURL = URL(string: "https://terrier.scottylabs.org")!
+    static let pwaURL = URL(string: "https://terrier.scottylabs.org/h/tartanhacks-2026")!
     
     // Main app domain
     static let allowedHosts = ["scottylabs.org"]
@@ -372,9 +372,8 @@ struct PWAWebView: UIViewRepresentable {
     
     // MARK: - Coordinator
     
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIScrollViewDelegate, ASWebAuthenticationPresentationContextProviding {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIScrollViewDelegate, ASWebAuthenticationPresentationContextProviding, SFSafariViewControllerDelegate {
         var parent: PWAWebView
-        var authSession: ASWebAuthenticationSession?
         
         init(_ parent: PWAWebView) {
             self.parent = parent
@@ -392,60 +391,89 @@ struct PWAWebView: UIViewRepresentable {
         
         // MARK: - External Browser Authentication (for Google, etc.)
         
-        /// Start authentication in Safari for providers that block WebView
-        /// We use SFSafariViewController which shares cookies with Safari
-        /// When auth completes, the callback URL will open the app via Universal Links
+        var safariVC: SFSafariViewController?
+        
+        /// Start authentication using SFSafariViewController for providers that block WebView
+        /// Google accepts SFSafariViewController as a "system browser" (not an embedded webview)
+        /// Unlike ASWebAuthenticationSession, this works with the server's HTTPS callback URL
         func startExternalBrowserAuth(url: URL) {
-            print("[AUTH] 🌐 Opening Safari for auth: \(url.absoluteString)")
-            print("[AUTH] 💡 After sign-in, the app should reopen automatically via Universal Links")
-            print("[AUTH] 💡 If not, user can return to app and pull-to-refresh")
+            print("[AUTH] 🌐 Opening SFSafariViewController for: \(url.absoluteString)")
             
-            // Open in Safari (external browser)
-            // Safari will handle the OAuth flow and cookies will be stored in Safari's cookie store
-            // When auth completes at terrier.scottylabs.org/auth/callback, 
-            // Universal Links will open the app if configured
-            UIApplication.shared.open(url, options: [:]) { success in
-                if success {
-                    print("[AUTH] ✅ Opened Safari successfully")
+            let config = SFSafariViewController.Configuration()
+            config.entersReaderIfAvailable = false
+            config.barCollapsingEnabled = true
+            
+            let safari = SFSafariViewController(url: url, configuration: config)
+            safari.delegate = self
+            safari.preferredControlTintColor = .systemBlue
+            safari.dismissButtonStyle = .cancel
+            
+            safariVC = safari
+            
+            // Present the Safari view controller
+            DispatchQueue.main.async {
+                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let rootVC = scene.windows.first?.rootViewController {
+                    // Find the topmost presented view controller
+                    var topVC = rootVC
+                    while let presented = topVC.presentedViewController {
+                        topVC = presented
+                    }
+                    topVC.present(safari, animated: true)
+                    print("[AUTH] ✅ SFSafariViewController presented")
                 } else {
-                    print("[AUTH] ❌ Failed to open Safari")
+                    print("[AUTH] ❌ Could not find root view controller")
                 }
             }
         }
         
-        /// Handle the callback URL from external auth
-        private func handleAuthCallback(_ callbackURL: URL) {
-            // The callback URL will be like: terrier://auth/callback?code=xxx&state=yyy
-            // We need to convert it to: https://terrier.scottylabs.org/auth/callback?code=xxx&state=yyy
+        /// Called when Safari view finishes loading - check if we've returned to the app domain after auth
+        func safariViewController(_ controller: SFSafariViewController, didCompleteInitialLoad didLoadSuccessfully: Bool) {
+            print("[AUTH] 📄 Safari initial load complete, success: \(didLoadSuccessfully)")
+        }
+        
+        /// Called when the user taps Done button or Safari redirects
+        func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+            print("[AUTH] ⏹️ User dismissed Safari view controller")
+            safariVC = nil
             
-            var pathComponents = [String]()
-            if let host = callbackURL.host {
-                pathComponents.append(host)
+            // Sync cookies and reload the WebView to pick up any session changes
+            print("[AUTH] 🍪 Syncing cookies after Safari dismiss...")
+            syncCookiesToWebView { [weak self] in
+                DispatchQueue.main.async {
+                    self?.parent.state.webView?.reload()
+                }
             }
-            if !callbackURL.path.isEmpty && callbackURL.path != "/" {
-                pathComponents.append(String(callbackURL.path.dropFirst()))
-            }
-            let path = pathComponents.joined(separator: "/")
+        }
+        
+        /// Called when Safari redirects to a URL - detect auth completion
+        func safariViewController(_ controller: SFSafariViewController, initialLoadDidRedirectTo URL: URL) {
+            print("[AUTH] 🔀 Safari redirected to: \(URL.absoluteString)")
             
-            var webURLString = "https://terrier.scottylabs.org/\(path)"
-            if let query = callbackURL.query {
-                webURLString += "?\(query)"
-            }
-            
-            // Sync cookies from the shared HTTP cookie storage to WKWebView
-            // ASWebAuthenticationSession stores cookies in HTTPCookieStorage.shared
-            print("[AUTH] 🍪 Syncing cookies from system store to WKWebView...")
-            self.syncCookiesToWebView {
-                if let webURL = URL(string: webURLString) {
-                    print("[AUTH] 🔄 Loading callback in WebView: \(webURL.absoluteString)")
-                    DispatchQueue.main.async {
-                        self.parent.state.webView?.load(URLRequest(url: webURL))
+            // Check if we've returned to our app's domain after auth callback
+            if let host = URL.host?.lowercased(),
+               host.contains("scottylabs.org"),
+               !URL.path.contains("/realms/") {  // Not still in Keycloak login
+                
+                // Auth likely completed - dismiss Safari and sync session
+                print("[AUTH] ✅ Detected return to app domain, dismissing Safari...")
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    controller.dismiss(animated: true) {
+                        self?.safariVC = nil
+                        print("[AUTH] 🍪 Syncing cookies after auth completion...")
+                        self?.syncCookiesToWebView {
+                            DispatchQueue.main.async {
+                                // Reload to the current URL (which is the auth callback result)
+                                self?.parent.state.webView?.load(URLRequest(url: URL))
+                            }
+                        }
                     }
                 }
             }
         }
         
-        /// Sync cookies from HTTPCookieStorage.shared to WKWebView's cookie store
+        /// Sync cookies from Safari's shared cookie storage to WKWebView
         private func syncCookiesToWebView(completion: @escaping () -> Void) {
             let sharedCookies = HTTPCookieStorage.shared.cookies ?? []
             let wkCookieStore = WKWebsiteDataStore.default().httpCookieStore
