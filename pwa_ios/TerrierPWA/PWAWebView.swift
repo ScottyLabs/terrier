@@ -16,6 +16,9 @@ struct PWAConfig {
     static let authProviderHosts = [
         "login.cmu.edu",          // CMU Shibboleth
         "idp.cmu.edu",            // CMU Identity Provider
+        "accounts.google.com",    // Google OAuth
+        "google.com",             // Google domains
+        "googleapis.com",         // Google APIs
         "auth0.com",              // Auth0
         "okta.com",               // Okta
         "microsoftonline.com",    // Microsoft/Azure AD
@@ -25,12 +28,10 @@ struct PWAConfig {
     ]
     
     // Providers that MUST use external browser (Safari)
-    // Google blocks sign-in from embedded WebViews for security
+    // Note: Google OAuth now works in modern WKWebView via redirect flow
+    // Only add providers here if they explicitly block WebView
     static let externalBrowserAuthHosts = [
-        "accounts.google.com",
-        "google.com",
-        "googleapis.com",
-        "github.com"              // GitHub also prefers external browser
+        "github.com"              // GitHub prefers external browser
     ]
     
     // Callback URL scheme for deep links
@@ -44,6 +45,7 @@ struct PWAConfig {
 class WebViewState: ObservableObject {
     @Published var isLoading = true
     @Published var error: String?
+    @Published var isOffline = false
     @Published var canGoBack = false
     @Published var canGoForward = false
     @Published var currentURL: URL?
@@ -750,24 +752,41 @@ struct PWAWebView: UIViewRepresentable {
                 print("      Underlying Error: \(underlyingError)")
             }
             
-            // Ignore cancelled requests
-            if nsError.code == NSURLErrorCancelled {
-                print("[NET] ⏭️ Request was cancelled (usually normal)")
+            // Ignore cancelled requests and frame load interrupted
+            // Frame load interrupted (error 102) is normal during OAuth redirects
+            let ignoredErrors = [
+                NSURLErrorCancelled,
+                102  // WebKitErrorFrameLoadInterruptedError
+            ]
+            
+            if ignoredErrors.contains(nsError.code) || nsError.domain == "WebKitErrorDomain" && nsError.code == 102 {
+                print("[NET] ⏭️ Ignoring expected error: \(nsError.code) (\(nsError.domain))")
                 return
             }
             
             DispatchQueue.main.async {
                 self.parent.state.isLoading = false
                 
-                // Provide user-friendly error messages
-                switch nsError.code {
-                case NSURLErrorNotConnectedToInternet:
-                    self.parent.state.error = "No internet connection. Please check your network settings."
-                case NSURLErrorTimedOut:
-                    self.parent.state.error = "The request timed out. Please try again."
-                case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost:
-                    self.parent.state.error = "Cannot connect to server. Please try again later."
-                default:
+                // Check if this is a network connectivity error - use offline view instead
+                let isNetworkError = [
+                    NSURLErrorNotConnectedToInternet,
+                    NSURLErrorNetworkConnectionLost,
+                    NSURLErrorDataNotAllowed,
+                    NSURLErrorInternationalRoamingOff,
+                    NSURLErrorCallIsActive,
+                    NSURLErrorTimedOut,
+                    NSURLErrorCannotFindHost,
+                    NSURLErrorCannotConnectToHost,
+                    NSURLErrorDNSLookupFailed
+                ].contains(nsError.code)
+                
+                if isNetworkError {
+                    // Set isOffline flag - this will trigger the themed offline view
+                    print("[NET] 📴 Network error detected, showing offline view")
+                    self.parent.state.isOffline = true
+                    self.parent.state.error = nil  // Don't show error overlay
+                } else {
+                    // Non-network error - show error overlay
                     self.parent.state.error = "Failed to load page: \(error.localizedDescription)"
                 }
             }
@@ -872,6 +891,13 @@ struct PWAWebView: UIViewRepresentable {
                     parent.state.webView?.load(URLRequest(url: webURL))
                 }
                 decisionHandler(.cancel)
+                return
+                
+            case "about", "data", "blob", "javascript":
+                // Allow internal WebView schemes used for iframes, popups, and scripts
+                // Google OAuth uses about:blank for popup authentication
+                print("[NET] ✅ ALLOW - Internal scheme '\(scheme)'")
+                decisionHandler(.allow)
                 return
                 
             default:

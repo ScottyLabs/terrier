@@ -8,10 +8,7 @@
 		<string>applinks:terrier.scottylabs.org</string>
 		<string>webcredentials:terrier.scottylabs.org</string>
 	</array>
-	
-	<!-- Web Browser Configuration -->
-	<key>com.apple.developer.web-browser</key>
-	<false/>
+
 	
 	<!-- Push Notifications (optional, for future use) -->
 	<key>aps-environment</key>

@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct TerrierPWAApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var networkMonitor = NetworkMonitor.shared
     
     var body: some Scene {
         WindowGroup {
@@ -17,6 +18,10 @@ struct TerrierPWAApp: App {
                 // Handle Universal Links (HTTPS links that open the app)
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
                     handleUniversalLink(userActivity)
+                }
+                // Monitor network status changes
+                .onReceive(networkMonitor.$isConnected) { isConnected in
+                    appState.isOffline = !isConnected
                 }
         }
     }

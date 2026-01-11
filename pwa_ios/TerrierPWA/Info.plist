@@ -2,138 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- App Display Name -->
-	<key>CFBundleDisplayName</key>
-	<string>TH 26</string>
-	
-	<key>CFBundleName</key>
-	<string>TartanHacks Mosaic</string>
-	
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	
-	<key>CFBundleVersion</key>
-	<string>1</string>
-	
-	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
-	
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
-	
+	<key>CFBundleDisplayName</key>
+	<string>TH 26</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	
-	<!-- Minimum iOS Version -->
-	<key>MinimumOSVersion</key>
-	<string>15.0</string>
-	
-	<!-- Required Device Capabilities -->
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>arm64</string>
-	</array>
-	
-	<!-- Supported Interface Orientations (iPhone) -->
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	
-	<!-- Supported Interface Orientations (iPad) -->
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	
-	<!-- Launch Screen Storyboard -->
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	
-	<!-- Status Bar Style -->
-	<key>UIStatusBarStyle</key>
-	<string>UIStatusBarStyleDefault</string>
-	
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
-	
-	<!-- App Uses Non-Exempt Encryption (for App Store) -->
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	
-	<!-- App Transport Security Settings -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- Allow HTTPS connections -->
-		<key>NSAllowsArbitraryLoads</key>
-		<false/>
-		
-		<!-- Exception for the PWA domain -->
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>scottylabs.org</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<false/>
-				<key>NSExceptionRequiresForwardSecrecy</key>
-				<true/>
-				<key>NSExceptionMinimumTLSVersion</key>
-				<string>TLSv1.2</string>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
-	
-	<!-- App-Bound Domains for Service Worker Support -->
-	<key>WKAppBoundDomains</key>
-	<array>
-		<string>terrier.scottylabs.org</string>
-		<string>idp.scottylabs.org</string>
-		<string>scottylabs.org</string>
-	</array>
-	
-	<!-- Privacy Usage Descriptions -->
-	<key>NSCameraUsageDescription</key>
-	<string>Terrier needs camera access to scan QR codes and take photos for your profile or submissions.</string>
-	
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Terrier needs photo library access to upload images for your profile or submissions.</string>
-	
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Terrier needs permission to save images to your photo library.</string>
-	
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Terrier needs microphone access for video recording features.</string>
-	
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Terrier uses your location to help you find nearby events and venues.</string>
-	
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to quickly and securely sign in to Terrier.</string>
-	
-	<!-- URL Schemes the app can open -->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>mailto</string>
-		<string>tel</string>
-		<string>sms</string>
-		<string>https</string>
-		<string>http</string>
-	</array>
-	
-	<!-- URL Types for deep linking -->
+	<key>CFBundleName</key>
+	<string>TartanHacks Mosaic</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -145,16 +29,51 @@
 			</array>
 		</dict>
 	</array>
-	
-	<!-- Support for full screen on all devices -->
-	<key>UIRequiresFullScreen</key>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	
-	<!-- Supports multiple windows on iPad -->
-	<key>UIApplicationSupportsMultipleScenes</key>
-	<false/>
-	
-	<!-- Application Scene Manifest -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>mailto</string>
+		<string>tel</string>
+		<string>sms</string>
+		<string>https</string>
+		<string>http</string>
+	</array>
+	<key>MinimumOSVersion</key>
+	<string>15.0</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>scottylabs.org</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Terrier needs camera access to scan QR codes and take photos for your profile or submissions.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to quickly and securely sign in to Terrier.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Terrier uses your location to help you find nearby events and venues.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Terrier needs microphone access for video recording features.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Terrier needs permission to save images to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Terrier needs photo library access to upload images for your profile or submissions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -162,12 +81,43 @@
 		<key>UISceneConfigurations</key>
 		<dict/>
 	</dict>
-	
-	<!-- Background Modes (if needed for notifications) -->
+	<key>UIApplicationSupportsMultipleScenes</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>terrier.scottylabs.org</string>
+		<string>idp.scottylabs.org</string>
+		<string>scottylabs.org</string>
 	</array>
 </dict>
 </plist>
