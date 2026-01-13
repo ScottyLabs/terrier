@@ -235,7 +235,7 @@ pub async fn setup() {
             "/h/{slug}/manifest.json",
             get(crate::domain::hackathons::handlers::manifest::get_manifest),
         )
-        // Apply OIDC auth and session layers
+        // Apply OIDC auth and session layers (for routes above this line that need auth context)
         .layer(oidc_auth_service.clone())
         .layer(session_layer.clone())
         .with_state(app_state.clone());
@@ -251,9 +251,22 @@ pub async fn setup() {
         .layer(session_layer.clone())
         .layer(Extension(app_state.clone()));
 
+    // Truly public routes - no auth layers at all
+    let public_router = Router::new().route(
+        "/.well-known/apple-app-site-association",
+        get(|| async {
+            let content =
+                crate::domain::applications::presets::tartanhacks_apple_app_site_association();
+            tracing::info!("Apple App Site Association: {}", content);
+            ([(http::header::CONTENT_TYPE, "application/json")], content)
+        }),
+    );
+
     // Create the main router with API routes and Dioxus app
-    let router = api_router
-        .merge(dioxus_router)
+    // Note: public_router is merged first so its routes take precedence
+    let router = dioxus_router
+        .merge(api_router)
+        .merge(public_router)
         .layer(DefaultBodyLimit::max(10 * 1024 * 1024)); // 10 MB limit for file uploads
 
     // Get address from CLI config or default to localhost:8080

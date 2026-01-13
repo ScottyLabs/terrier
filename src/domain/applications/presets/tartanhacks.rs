@@ -945,3 +945,46 @@ pub fn tartanhacks_submission_preset() -> FormSchema {
         version: "1.0".to_string(),
     }
 }
+
+pub fn tartanhacks_apple_app_site_association() -> String {
+    let content = "
+    \"applinks\": {
+        \"apps\": [],
+        \"details\": [
+            {
+                \"appIDs\": [
+                    \"4Y39FMA838.org.scottylabs.terrier\",
+                    \"X39S5JJUD8.org.scottylabs.terrier\"
+                ],
+                \"paths\": [
+                    \"/auth/*\",
+                    \"/h/*\",
+                    \"/h/*/scan/*\"
+                ],
+                \"components\": [
+                    {
+                        \"/\": \"/auth/*\",
+                        \"comment\": \"OAuth callback - opens app for auth completion\"
+                    },
+                    {
+                        \"/\": \"/h/*\",
+                        \"comment\": \"Hackathon pages - deep link to specific hackathon\"
+                    },
+                    {
+                        \"/\": \"/h/*/scan/*\",
+                        \"comment\": \"QR scan check-in - deep link for organizer check-in\"
+                    }
+                ]
+            }
+        ]
+    },
+    \"webcredentials\": {
+        \"apps\": [
+            \"4Y39FMA838.org.scottylabs.terrier\",
+            \"X39S5JJUD8.org.scottylabs.terrier\"
+        ]
+    }
+}";
+
+    content.to_string()
+}
