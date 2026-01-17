@@ -68,7 +68,7 @@ Terrier uses [devenv](https://devenv.sh) for development environment management,
 3. Create the environment variables:
 
     ```bash
-    cp examples/.env.dev .env
+    cp example/.env.dev .env
     ```
 
     Then, edit the `.env` file to set the necessary environment variables. You need to set `OIDC_CLIENT_SECRET` and change `ADMIN_EMAILS` to your Andrew email.
