@@ -24,6 +24,10 @@ pub struct HackathonInfo {
     pub app_icon_url: Option<String>,
     pub theme_color: Option<String>,
     pub background_color: Option<String>,
+    // Judging fields
+    pub submissions_closed: bool,
+    pub judging_started: bool,
+    pub judge_session_timeout_minutes: i32,
 }
 
 /// Event schedule item

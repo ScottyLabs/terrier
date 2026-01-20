@@ -3,8 +3,10 @@ use dioxus_free_icons::{Icon, icons::ld_icons::LdPlus};
 
 use crate::{
     auth::{PRIZE_TRACKS_ROLES, hooks::use_require_access_or_redirect},
+    domain::judging::handlers::get_features,
     domain::prizes::handlers::{
-        CreatePrizeRequest, PrizeInfo, create_prize, delete_prize, get_prizes,
+        CreatePrizeRequest, PrizeFeatureWeightInfo, PrizeInfo, UpdatePrizeFeatureWeightsRequest,
+        create_prize, delete_prize, get_prizes, update_prize_feature_weights,
     },
     ui::{
         features::prizes::PrizeCard,
@@ -31,12 +33,37 @@ pub fn HackathonPrizeTracks(slug: String) -> Element {
     let mut category = use_signal(String::new);
     let mut value = use_signal(String::new);
 
+    // State for editing weights
+    let mut editing_weights = use_signal(|| Vec::<PrizeFeatureWeightInfo>::new());
+    let mut show_add_feature = use_signal(|| false);
+    let mut weight_error = use_signal(|| None::<String>);
+
+    // Reset weights when prize is selected
+    use_effect(move || {
+        if let Some(prize) = selected_prize() {
+            editing_weights.set(prize.feature_weights.clone());
+        } else {
+            editing_weights.set(Vec::new());
+            weight_error.set(None);
+            show_add_feature.set(false);
+        }
+    });
+
     // Fetch prizes
     let mut prizes_resource = use_resource({
         let slug = slug.clone();
         move || {
             let slug = slug.clone();
             async move { get_prizes(slug).await.ok() }
+        }
+    });
+
+    // Fetch features
+    let features_resource = use_resource({
+        let slug = slug.clone();
+        move || {
+            let slug = slug.clone();
+            async move { get_features(slug).await.ok() }
         }
     });
 
@@ -247,17 +274,18 @@ pub fn HackathonPrizeTracks(slug: String) -> Element {
                 rsx! {
                     ModalBase {
                         on_close: move |_| selected_prize.set(None),
-                        width: "500px",
+                        width: "600px",
                         max_height: "90vh",
 
-                    // Prize image if available
 
 
+                        // Feature Weights Section
 
+                        // Add Feature Dropdown
 
+                        // Weights List
 
-
-
+                        // Sum validation
 
                         div { class: "p-7",
                             if let Some(img_url) = &prize.image_url {
@@ -270,8 +298,25 @@ pub fn HackathonPrizeTracks(slug: String) -> Element {
                                 }
                             }
 
-                            h2 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-2",
-                                "{prize.name}"
+                            div { class: "flex justify-between items-start mb-2",
+                                h2 { class: "text-2xl font-semibold text-foreground-neutral-primary", "{prize.name}" }
+                                Button {
+                                    variant: ButtonVariant::Danger,
+                                    size: ButtonSize::Compact,
+                                    onclick: {
+                                        let slug = slug.clone();
+                                        move |_| {
+                                            let slug = slug.clone();
+                                            spawn(async move {
+                                                if delete_prize(slug, prize_id).await.is_ok() {
+                                                    selected_prize.set(None);
+                                                    prizes_resource.restart();
+                                                }
+                                            });
+                                        }
+                                    },
+                                    "Delete Prize"
+                                }
                             }
 
                             if let Some(cat) = &prize.category {
@@ -288,27 +333,168 @@ pub fn HackathonPrizeTracks(slug: String) -> Element {
                                 p { class: "text-foreground-neutral-secondary mb-6", "{desc}" }
                             }
 
-                            div { class: "flex gap-3 justify-end",
+                            hr { class: "border-border-neutral-tertiary my-6" }
+
+                            div { class: "mb-6",
+                                div { class: "flex justify-between items-center mb-4",
+                                    h3 { class: "text-lg font-semibold text-foreground-neutral-primary",
+                                        "Feature Weights"
+                                    }
+                                    Button {
+                                        size: ButtonSize::Compact,
+                                        variant: ButtonVariant::Tertiary,
+                                        onclick: move |_| show_add_feature.set(true),
+                                        if show_add_feature() {
+                                            "Cancel Add"
+                                        } else {
+                                            "Add Feature"
+                                        }
+                                    }
+                                }
+
+                                if show_add_feature() {
+                                    if let Some(Some(features)) = features_resource.read().as_ref() {
+                                        div { class: "bg-background-neutral-secondary rounded-lg p-3 mb-4",
+                                            p { class: "text-sm text-foreground-neutral-secondary mb-2",
+                                                "Select a feature to add:"
+                                            }
+                                            div { class: "flex flex-wrap gap-2",
+                                                for feature in features.iter().filter(|f| !editing_weights().iter().any(|w| w.feature_id == f.id)) {
+                                                    {
+                                                        let feature = feature.clone();
+                                                        rsx! {
+                                                            button {
+                                                                class: "px-3 py-1.5 bg-background-neutral-primary hover:bg-background-neutral-tertiary-hover rounded-md text-sm transition-colors",
+                                                                onclick: move |_| {
+                                                                    let mut current = editing_weights();
+                                                                    current
+                                                                        .push(PrizeFeatureWeightInfo {
+                                                                            feature_id: feature.id,
+                                                                            weight: 0.0,
+                                                                        });
+                                                                    editing_weights.set(current);
+                                                                    show_add_feature.set(false);
+                                                                },
+                                                                "{feature.name}"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                div { class: "flex flex-col gap-3",
+                                    if editing_weights().is_empty() {
+                                        p { class: "text-sm text-foreground-neutral-secondary italic",
+                                            "No features assigned to this prize (all features will be weighted equally)."
+                                        }
+                                    } else {
+                                        for (idx , w) in editing_weights().iter().enumerate() {
+                                            if let Some(Some(features)) = features_resource.read().as_ref() {
+                                                if let Some(feature) = features.iter().find(|f| f.id == w.feature_id) {
+                                                    div { class: "flex items-center justify-between bg-background-neutral-secondary rounded-lg px-3 py-2",
+                                                        span { class: "text-sm font-medium", "{feature.name}" }
+                                                        div { class: "flex items-center gap-2",
+                                                            input {
+                                                                class: "w-20 px-2 h-8 bg-background-neutral-primary rounded border border-border-neutral-primary text-sm text-right",
+                                                                r#type: "number",
+                                                                step: "0.01",
+                                                                min: "0",
+                                                                max: "1",
+                                                                value: "{w.weight}",
+                                                                oninput: move |e| {
+                                                                    if let Ok(val) = e.value().parse::<f32>() {
+                                                                        let mut current = editing_weights();
+                                                                        current[idx].weight = val;
+                                                                        editing_weights.set(current);
+                                                                    }
+                                                                },
+                                                            }
+                                                            button {
+                                                                class: "text-foreground-neutral-secondary hover:text-status-danger-foreground p-1",
+                                                                onclick: move |_| {
+                                                                    let mut current = editing_weights();
+                                                                    current.remove(idx);
+                                                                    editing_weights.set(current);
+                                                                },
+                                                                "×"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                {
+                                    let total: f32 = editing_weights().iter().map(|w| w.weight).sum();
+                                    let weight_class = if (total - 1.0).abs() > 0.001
+
+                                        && !editing_weights().is_empty()
+                                    {
+
+                                        "text-status-danger-foreground"
+                                    } else {
+                                        "text-foreground-neutral-secondary"
+                                    };
+                                    rsx! {
+                                        div { class: "mt-4 flex justify-between items-center text-sm",
+                                            span { class: "{weight_class}", "Total Weight: {total:.2}" }
+                                            if let Some(err) = weight_error() {
+                                                span { class: "text-status-danger-foreground", "{err}" }
+                                            }
+                                            Button {
+                                                size: ButtonSize::Compact,
+                                                disabled: (total - 1.0).abs() > 0.001 && !editing_weights().is_empty(),
+                                                onclick: {
+                                                    let slug = slug.clone();
+                                                    move |_| {
+                                                        let slug = slug.clone();
+                                                        spawn(async move {
+                                                            let weights = editing_weights();
+                                                            if !weights.is_empty() {
+                                                                let total: f32 = weights.iter().map(|w| w.weight).sum();
+                                                                if (total - 1.0).abs() > 0.001 {
+                                                                    weight_error.set(Some("Weights must sum to 1.0".to_string()));
+                                                                    return;
+                                                                }
+                                                            }
+
+                                                            match update_prize_feature_weights(
+                                                                    slug.clone(),
+                                                                    prize_id,
+                                                                    UpdatePrizeFeatureWeightsRequest {
+                                                                        weights,
+                                                                    },
+                                                                )
+                                                                .await
+                                                            {
+                                                                Ok(_) => {
+                                                                    selected_prize.set(None);
+                                                                    prizes_resource.restart();
+                                                                }
+                                                                Err(e) => {
+                                                                    weight_error.set(Some(e.to_string()));
+                                                                }
+                                                            }
+                                                        });
+                                                    }
+                                                },
+                                                "Save Weights"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            div { class: "flex gap-3 justify-end mt-6",
                                 Button {
                                     variant: ButtonVariant::Default,
                                     onclick: move |_| selected_prize.set(None),
                                     "Close"
-                                }
-                                Button {
-                                    variant: ButtonVariant::Danger,
-                                    onclick: {
-                                        let slug = slug.clone();
-                                        move |_| {
-                                            let slug = slug.clone();
-                                            spawn(async move {
-                                                if delete_prize(slug, prize_id).await.is_ok() {
-                                                    selected_prize.set(None);
-                                                    prizes_resource.restart();
-                                                }
-                                            });
-                                        }
-                                    },
-                                    "Delete"
                                 }
                             }
                         }

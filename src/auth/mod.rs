@@ -111,8 +111,74 @@ pub const APPLY_ROLES: &[HackathonRoleType] = &[
 pub const PRIZE_TRACKS_ROLES: &[HackathonRoleType] =
     &[HackathonRoleType::Admin, HackathonRoleType::Organizer];
 
+pub const JUDGE_ROLES: &[HackathonRoleType] = &[
+    HackathonRoleType::Judge,
+    HackathonRoleType::Admin,
+    HackathonRoleType::Organizer,
+];
+
+pub const JUDGING_ADMIN_ROLES: &[HackathonRoleType] = &[HackathonRoleType::Admin];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(ToSchema))]
 pub struct LoginQuery {
     pub redirect_uri: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_judging_permissions() {
+        // Mock Roles
+        let admin_role = HackathonRole {
+            user_id: 1,
+            hackathon_id: 1,
+            role: "admin".to_string(),
+            slug: "test".to_string(),
+        };
+
+        let organizer_role = HackathonRole {
+            user_id: 2,
+            hackathon_id: 1,
+            role: "organizer".to_string(),
+            slug: "test".to_string(),
+        };
+
+        let judge_role = HackathonRole {
+            user_id: 3,
+            hackathon_id: 1,
+            role: "judge".to_string(),
+            slug: "test".to_string(),
+        };
+
+        // Judging Admin Page Permissions
+        assert!(
+            has_access(&admin_role, JUDGING_ADMIN_ROLES),
+            "Admin should access Judging Admin"
+        );
+        assert!(
+            !has_access(&organizer_role, JUDGING_ADMIN_ROLES),
+            "Organizer should NOT access Judging Admin"
+        );
+        assert!(
+            !has_access(&judge_role, JUDGING_ADMIN_ROLES),
+            "Judge should NOT access Judging Admin"
+        );
+
+        // Judge Page Permissions
+        assert!(
+            has_access(&admin_role, JUDGE_ROLES),
+            "Admin should access Judge Page"
+        );
+        assert!(
+            has_access(&organizer_role, JUDGE_ROLES),
+            "Organizer should access Judge Page"
+        );
+        assert!(
+            has_access(&judge_role, JUDGE_ROLES),
+            "Judge should access Judge Page"
+        );
+    }
 }

@@ -173,6 +173,9 @@ impl From<hackathons::Model> for HackathonInfo {
             app_icon_url: h.app_icon_url,
             theme_color: h.theme_color,
             background_color: h.background_color,
+            submissions_closed: h.submissions_closed,
+            judging_started: h.judging_started,
+            judge_session_timeout_minutes: h.judge_session_timeout_minutes,
         }
     }
 }

@@ -15,12 +15,35 @@ pub struct Model {
     pub image_url: Option<String>,
     pub category: Option<String>,
     pub value: String,
+    pub hackathon_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::hackathons::Entity",
+        from = "Column::HackathonId",
+        to = "super::hackathons::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    Hackathons,
+    #[sea_orm(has_many = "super::prize_feature_weight::Entity")]
+    PrizeFeatureWeight,
     #[sea_orm(has_many = "super::prize_track_entry::Entity")]
     PrizeTrackEntry,
+}
+
+impl Related<super::hackathons::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Hackathons.def()
+    }
+}
+
+impl Related<super::prize_feature_weight::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PrizeFeatureWeight.def()
+    }
 }
 
 impl Related<super::prize_track_entry::Entity> for Entity {

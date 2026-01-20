@@ -54,6 +54,8 @@ gloo-timers = { version = "0.3.0", features = ["futures"] }
 web-sys = { version = "0.3.83", features = ["Window", "Storage", "console"] }
 gloo-events = "0.2.0"
 qrcodegen = "1.8.0"
+rand = "0.9.2"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [features]
 default = []

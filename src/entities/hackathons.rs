@@ -29,6 +29,9 @@ pub struct Model {
     pub app_icon_url: Option<String>,
     pub theme_color: Option<String>,
     pub background_color: Option<String>,
+    pub submissions_closed: bool,
+    pub judging_started: bool,
+    pub judge_session_timeout_minutes: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -37,6 +40,12 @@ pub enum Relation {
     Applications,
     #[sea_orm(has_many = "super::events::Entity")]
     Events,
+    #[sea_orm(has_many = "super::feature::Entity")]
+    Feature,
+    #[sea_orm(has_many = "super::prize::Entity")]
+    Prize,
+    #[sea_orm(has_many = "super::project_visit::Entity")]
+    ProjectVisit,
     #[sea_orm(has_many = "super::teams::Entity")]
     Teams,
     #[sea_orm(has_many = "super::user_hackathon_roles::Entity")]
@@ -52,6 +61,24 @@ impl Related<super::applications::Entity> for Entity {
 impl Related<super::events::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Events.def()
+    }
+}
+
+impl Related<super::feature::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Feature.def()
+    }
+}
+
+impl Related<super::prize::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Prize.def()
+    }
+}
+
+impl Related<super::project_visit::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectVisit.def()
     }
 }
 

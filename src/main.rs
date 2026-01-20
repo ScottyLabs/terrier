@@ -112,6 +112,14 @@ pub enum Route {
                 HackathonPrizeTracks {
                     slug: String
                 },
+            #[route("/judge")]
+                HackathonJudge {
+                    slug: String
+                },
+            #[route("/judging-admin")]
+                HackathonJudgingAdmin {
+                    slug: String
+                },
         #[end_layout]
     #[end_nest]
     #[route("/:..route")]
