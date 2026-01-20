@@ -60,14 +60,6 @@ pub fn HackathonApply(slug: String) -> Element {
                             "Applications are not currently being accepted for this hackathon."
                         }
                     }
-                } else if role.as_ref().map(|r| r.role == "participant").unwrap_or(false) {
-                    // User has been accepted and is now a participant
-                    ApplicationStatus {
-                        variant: ApplicationStatusVariant::Accepted,
-                        hackathon_slug: slug.clone(),
-                        application_status,
-                        application_refresh_trigger,
-                    }
                 } else if let Some(Some(status)) = application_status.read().as_ref() {
                     // User has submitted an application
                     if status == "confirmed" {
@@ -762,7 +754,11 @@ fn FormFieldRenderer(
 
 
 
+
+
+
                                 if !value().is_empty() && !is_uploading() {
+
 
 
 
