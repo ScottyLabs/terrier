@@ -17,6 +17,7 @@ use dioxus::prelude::*;
 use dioxus_fullstack::FullstackContext;
 #[cfg(feature = "server")]
 use dioxus_fullstack::extract::FromRef;
+#[cfg(target_arch = "wasm32")]
 use ui::foundation::hooks::use_window_width;
 use ui::pages::*;
 

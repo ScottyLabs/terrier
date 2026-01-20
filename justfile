@@ -3,10 +3,10 @@
 set dotenv-load
 
 # Environment variables
-DATABASE_URL := env_var("DATABASE_URL")
-MINIO_ROOT_USER := env_var("MINIO_ROOT_USER")
-MINIO_ROOT_PASSWORD := env_var("MINIO_ROOT_PASSWORD")
-MINIO_BUCKET := env_var("MINIO_BUCKET")
+DATABASE_URL := env("DATABASE_URL")
+MINIO_ROOT_USER := env("MINIO_ROOT_USER")
+MINIO_ROOT_PASSWORD := env("MINIO_ROOT_PASSWORD")
+MINIO_BUCKET := env("MINIO_BUCKET")
 
 # Show this help message
 help:
@@ -25,7 +25,6 @@ migrate:
 undo-migration:
     devenv up postgres
     sea-orm-cli migrate down --migration-dir ./migration -u {{DATABASE_URL}}
-    
 
 # Fresh database (drop all tables and reapply migrations)
 fresh:
@@ -54,15 +53,15 @@ dev:
     dx serve --platform web
 
 # Start iOS development server
-ios:
-    process-compose up -D postgres redis minio
-    xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
-    dx serve --platform ios
+# ios:
+#     process-compose up -D postgres redis minio
+#     xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
+#     dx serve --platform ios
 
 # Start Android development server
-android:
-    process-compose up -D postgres redis minio
-    dx serve --platform android
+# android:
+#     process-compose up -D postgres redis minio
+#     dx serve --platform android
 
 # Display service logs
 attach:

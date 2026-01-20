@@ -2,7 +2,7 @@
   description = "Terrier";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/4d2b249a94fd32c0d09046c37e80b83a1c5cb1fc";
     devenv.url = "github:cachix/devenv";
 
     rust-overlay.url = "github:oxalica/rust-overlay";
@@ -55,7 +55,7 @@
             nativeBuildInputs = with pkgs; [
               dioxus-cli
               pkg-config
-              wasm-bindgen-cli_0_2_105 # pinned in Cargo.lock
+              wasm-bindgen-cli_0_2_108 # pinned in Cargo.lock
               binaryen # for wasm-opt
             ];
 
