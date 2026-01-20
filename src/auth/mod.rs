@@ -119,6 +119,12 @@ pub const JUDGE_ROLES: &[HackathonRoleType] = &[
 
 pub const JUDGING_ADMIN_ROLES: &[HackathonRoleType] = &[HackathonRoleType::Admin];
 
+pub const RESULTS_ROLES: &[HackathonRoleType] = &[
+    HackathonRoleType::Judge,
+    HackathonRoleType::Admin,
+    HackathonRoleType::Organizer,
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(ToSchema))]
 pub struct LoginQuery {

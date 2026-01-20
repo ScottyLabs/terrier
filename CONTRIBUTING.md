@@ -12,7 +12,7 @@ Terrier uses [devenv](https://devenv.sh) for development environment management,
 
 1. Nix (package manager)
 
-    Install Nix using the Determinate Systems installer (recommended):
+    Install Nix using the Determinate Systems installer (recommended for macOS/Linux):
 
     ```bash
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
@@ -24,7 +24,7 @@ Terrier uses [devenv](https://devenv.sh) for development environment management,
     sudo darwin-rebuild switch --flake /etc/nix-darwin
     ```
     
-    Or see [nixos.org/download](https://nixos.org/download/) for other options.
+    Or see [nixos.org/download](https://nixos.org/download/) for other options, including for WSL.
 
 2. [devenv](https://devenv.sh/) (development environment manager)
 
@@ -63,7 +63,7 @@ Terrier uses [devenv](https://devenv.sh) for development environment management,
     direnv allow
     ```
 
-    This will download and build the necessary development environment.  It may take a while.
+    This will download and build the necessary development environment. It may take a while.
 
 3. Create the environment variables:
 
@@ -91,7 +91,6 @@ Run `just` to see all available commands:
 
 ```bash
 Available recipes:
-    android            # Start Android development server
     attach             # Display service logs
     clean              # Clean devenv state (removes all service data)
     dev                # Start development server
@@ -100,7 +99,6 @@ Available recipes:
     generate-entities  # Generate entities from database
     help               # Show this help message
     init               # Start database, run migrations, and generate entities
-    ios                # Start iOS development server
     migrate            # Run database migrations
     new-migration NAME # Create new migration
     status             # Check migration status

@@ -286,6 +286,9 @@
   .top-\[20px\] {
     top: 20px;
   }
+  .top-\[calc\(100\%\+4px\)\] {
+    top: calc(100% + 4px);
+  }
   .top-\[calc\(100\%\+5px\)\] {
     top: calc(100% + 5px);
   }
@@ -704,6 +707,9 @@
   .min-w-\[150px\] {
     min-width: 150px;
   }
+  .min-w-\[200px\] {
+    min-width: 200px;
+  }
   .min-w-max {
     min-width: max-content;
   }
@@ -879,6 +885,9 @@
   }
   .overflow-hidden {
     overflow: hidden;
+  }
+  .overflow-x-auto {
+    overflow-x: auto;
   }
   .overflow-y-auto {
     overflow-y: auto;
@@ -1568,6 +1577,18 @@
       color: var(--color-foreground-neutral-tertiary);
     }
   }
+  .first\:rounded-t-lg {
+    &:first-child {
+      border-top-left-radius: var(--radius-lg);
+      border-top-right-radius: var(--radius-lg);
+    }
+  }
+  .last\:rounded-b-lg {
+    &:last-child {
+      border-bottom-right-radius: var(--radius-lg);
+      border-bottom-left-radius: var(--radius-lg);
+    }
+  }
   .hover\:border-stroke-neutral-2 {
     &:hover {
       @media (hover: hover) {
@@ -1642,6 +1663,13 @@
     &:hover {
       @media (hover: hover) {
         color: var(--color-blue-800);
+      }
+    }
+  }
+  .hover\:text-foreground-neutral-primary {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-foreground-neutral-primary);
       }
     }
   }

@@ -55,7 +55,7 @@ pub struct JudgingStatus {
 }
 
 /// Feature definition for judging
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(ToSchema))]
 pub struct FeatureInfo {
     pub id: i32,
@@ -202,4 +202,59 @@ pub struct JudgeInfo {
 pub struct FeatureWithJudges {
     pub feature: FeatureInfo,
     pub judges: Vec<JudgeInfo>,
+}
+
+// ============================================================================
+// Results Page Types
+// ============================================================================
+
+/// Feature rank for a project in the results view
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(ToSchema))]
+pub struct FeatureRankInfo {
+    pub feature_id: i32,
+    pub feature_name: String,
+    pub rank: Option<i32>,
+}
+
+/// Results data for a project in a prize track
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(ToSchema))]
+pub struct ProjectResultInfo {
+    pub submission_id: i32,
+    pub project_name: Option<String>,
+    pub team_name: String,
+    pub weighted_score: Option<f32>,
+    pub rank: i32,
+    pub feature_ranks: Vec<FeatureRankInfo>,
+    pub description: Option<String>,
+    pub repo_url: Option<String>,
+    pub presentation_url: Option<String>,
+    pub video_url: Option<String>,
+    pub ai_summary: Option<String>,
+}
+
+/// Full results for a prize track
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(ToSchema))]
+pub struct PrizeTrackResults {
+    pub prize_id: i32,
+    pub prize_name: String,
+    pub features: Vec<FeatureInfo>,
+    pub projects: Vec<ProjectResultInfo>,
+}
+
+/// Judge's notes on a specific project (from their visit)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(ToSchema))]
+pub struct JudgeVisitNotes {
+    pub visited: bool,
+    pub notes: Option<String>,
+}
+
+/// Response containing a generated AI summary
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(ToSchema))]
+pub struct AiSummaryResponse {
+    pub summary: String,
 }

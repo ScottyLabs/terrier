@@ -20,6 +20,7 @@ pub struct Config {
     pub oidc_client_id: String,
     pub oidc_client_secret: String,
     pub admin_emails: Vec<String>,
+    pub openrouter_api_key: Option<String>,
 }
 
 #[cfg(feature = "server")]
@@ -55,6 +56,7 @@ impl Config {
             oidc_client_id: dotenvy::var("OIDC_CLIENT_ID")?,
             oidc_client_secret: dotenvy::var("OIDC_CLIENT_SECRET")?,
             admin_emails,
+            openrouter_api_key: dotenvy::var("OPENROUTER_API_KEY").ok(),
         })
     }
 }

@@ -1849,3 +1849,435 @@ pub async fn get_features_with_judges(
 
     Ok(result)
 }
+
+// ============================================================================
+// Results Page Endpoints
+// ============================================================================
+
+/// Get results for a specific prize track
+#[cfg_attr(feature = "server", utoipa::path(
+    get,
+    path = "/api/hackathons/{slug}/judging/results/{prize_id}",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug"),
+        ("prize_id" = i32, Path, description = "Prize track ID")
+    ),
+    responses(
+        (status = 200, description = "Prize track results", body = PrizeTrackResults),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Prize not found"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "judging"
+))]
+#[get("/api/hackathons/:slug/judging/results/:prize_id", user: SyncedUser)]
+pub async fn get_prize_track_results(
+    slug: String,
+    prize_id: i32,
+) -> Result<PrizeTrackResults, ServerFnError> {
+    use crate::entities::{feature, prize, prize_feature_weight, submission, teams};
+    use rand::Rng;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
+
+    let hackathon = ctx.hackathon()?;
+
+    // Get the prize
+    let prize_model = prize::Entity::find_by_id(prize_id)
+        .one(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch prize: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Prize not found"))?;
+
+    // Get all features for this hackathon
+    let features = feature::Entity::find()
+        .filter(feature::Column::HackathonId.eq(hackathon.id))
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch features: {}", e)))?;
+
+    let feature_infos: Vec<FeatureInfo> = features
+        .iter()
+        .map(|f| FeatureInfo {
+            id: f.id,
+            name: f.name.clone(),
+            description: f.description.clone(),
+        })
+        .collect();
+
+    // Get feature weights for this prize
+    let weights = prize_feature_weight::Entity::find()
+        .filter(prize_feature_weight::Column::PrizeId.eq(prize_id))
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch weights: {}", e)))?;
+
+    let weight_map: std::collections::HashMap<i32, f32> =
+        weights.iter().map(|w| (w.feature_id, w.weight)).collect();
+
+    // Get all team IDs for this hackathon
+    let team_ids: Vec<i32> = teams::Entity::find()
+        .filter(teams::Column::HackathonId.eq(hackathon.id))
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch teams: {}", e)))?
+        .iter()
+        .map(|t| t.id)
+        .collect();
+
+    // Get all submissions for these teams
+    let submissions = submission::Entity::find()
+        .filter(submission::Column::TeamId.is_in(team_ids.clone()))
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch submissions: {}", e)))?;
+
+    // Get team info for each submission
+    let teams_list = teams::Entity::find()
+        .filter(teams::Column::HackathonId.eq(hackathon.id))
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch teams: {}", e)))?;
+
+    let team_map: std::collections::HashMap<i32, String> =
+        teams_list.iter().map(|t| (t.id, t.name.clone())).collect();
+
+    // Build project results with mocked random scores
+    // NOTE: In production, this would use the actual pairwise comparison algorithm
+    let mut rng = rand::thread_rng();
+    let mut projects: Vec<ProjectResultInfo> = Vec::new();
+
+    for sub in &submissions {
+        let team_name = team_map
+            .get(&sub.team_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown Team".to_string());
+
+        // Extract data from submission_data JSON
+        let project_name = sub
+            .submission_data
+            .get("projectName")
+            .and_then(|n| n.as_str())
+            .map(|s| s.to_string());
+
+        let description = sub
+            .submission_data
+            .get("description")
+            .and_then(|d| d.as_str())
+            .map(|s| s.to_string());
+
+        let repo_url = sub
+            .submission_data
+            .get("repoUrl")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string());
+
+        let presentation_url = sub
+            .submission_data
+            .get("presentationUrl")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string());
+
+        let video_url = sub
+            .submission_data
+            .get("videoUrl")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string());
+
+        // Generate mocked random scores for each feature
+        // In production, these would come from the pairwise comparison algorithm
+        let mut feature_ranks: Vec<FeatureRankInfo> = Vec::new();
+        let mut weighted_score: f32 = 0.0;
+
+        for feat in &features {
+            // Mock: random score between 0.0 and 1.0
+            let score: f32 = rng.r#gen();
+            let weight = weight_map
+                .get(&feat.id)
+                .copied()
+                .unwrap_or(1.0 / features.len() as f32);
+            weighted_score += score * weight;
+
+            feature_ranks.push(FeatureRankInfo {
+                feature_id: feat.id,
+                feature_name: feat.name.clone(),
+                rank: None, // Will be computed after sorting
+            });
+        }
+
+        // Mock AI summary with Lorem Ipsum
+        let ai_summary = Some(
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
+             Fusce consequat tincidunt urna placerat pulvinar. \
+             Sed facilisis felis sed vehicula consequat. \
+             Sed nisl augue, sollicitudin vel diam quis, lobortis posuere diam."
+                .to_string(),
+        );
+
+        projects.push(ProjectResultInfo {
+            submission_id: sub.id,
+            project_name,
+            team_name,
+            weighted_score: Some(weighted_score),
+            rank: 0, // Will be set after sorting
+            feature_ranks,
+            description,
+            repo_url,
+            presentation_url,
+            video_url,
+            ai_summary,
+        });
+    }
+
+    // Sort projects by weighted score (descending)
+    projects.sort_by(|a, b| {
+        b.weighted_score
+            .unwrap_or(0.0)
+            .partial_cmp(&a.weighted_score.unwrap_or(0.0))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Assign overall ranks
+    for (idx, project) in projects.iter_mut().enumerate() {
+        project.rank = (idx + 1) as i32;
+    }
+
+    // Compute feature-specific ranks
+    // For each feature, rank projects by their score in that feature
+    for feat_idx in 0..features.len() {
+        // Get scores for this feature (use random for mock)
+        let mut feature_scores: Vec<(usize, f32)> = projects
+            .iter()
+            .enumerate()
+            .map(|(i, _)| (i, rng.r#gen::<f32>()))
+            .collect();
+
+        feature_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Assign ranks
+        for (rank, (proj_idx, _)) in feature_scores.iter().enumerate() {
+            if feat_idx < projects[*proj_idx].feature_ranks.len() {
+                projects[*proj_idx].feature_ranks[feat_idx].rank = Some((rank + 1) as i32);
+            }
+        }
+    }
+
+    Ok(PrizeTrackResults {
+        prize_id: prize_model.id,
+        prize_name: prize_model.name,
+        features: feature_infos,
+        projects,
+    })
+}
+
+/// Get the current user's visit notes for a specific project
+#[cfg_attr(feature = "server", utoipa::path(
+    get,
+    path = "/api/hackathons/{slug}/judging/my-notes/{submission_id}",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug"),
+        ("submission_id" = i32, Path, description = "Submission ID")
+    ),
+    responses(
+        (status = 200, description = "Visit notes", body = JudgeVisitNotes),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "judging"
+))]
+#[get("/api/hackathons/:slug/judging/my-notes/:submission_id", user: SyncedUser)]
+pub async fn get_my_visit_notes(
+    slug: String,
+    submission_id: i32,
+) -> Result<JudgeVisitNotes, ServerFnError> {
+    use crate::entities::project_visit;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
+
+    let hackathon = ctx.hackathon()?;
+
+    // Find the most recent visit by this judge for this submission
+    let visit = project_visit::Entity::find()
+        .filter(project_visit::Column::JudgeId.eq(ctx.user.id))
+        .filter(project_visit::Column::HackathonId.eq(hackathon.id))
+        .filter(project_visit::Column::SubmissionId.eq(submission_id))
+        .order_by_desc(project_visit::Column::StartTime)
+        .one(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch visit: {}", e)))?;
+
+    match visit {
+        Some(v) => Ok(JudgeVisitNotes {
+            visited: true,
+            notes: v.notes,
+        }),
+        None => Ok(JudgeVisitNotes {
+            visited: false,
+            notes: None,
+        }),
+    }
+}
+
+/// Generate an AI summary for a project based on all judge notes and description
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/judging/generate-summary/{submission_id}",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug"),
+        ("submission_id" = i32, Path, description = "Submission ID")
+    ),
+    responses(
+        (status = 200, description = "AI summary generated", body = AiSummaryResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "judging"
+))]
+#[post("/api/hackathons/:slug/judging/generate-summary/:submission_id", user: SyncedUser)]
+pub async fn generate_ai_summary(
+    slug: String,
+    submission_id: i32,
+) -> Result<AiSummaryResponse, ServerFnError> {
+    use crate::entities::{project_visit, submission, teams};
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
+
+    let hackathon = ctx.hackathon()?;
+
+    // Get the submission
+    let sub = submission::Entity::find_by_id(submission_id)
+        .one(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch submission: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Submission not found"))?;
+
+    // Get team name
+    let team = teams::Entity::find_by_id(sub.team_id)
+        .one(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch team: {}", e)))?
+        .ok_or_else(|| ServerFnError::new("Team not found"))?;
+
+    // Get project description
+    let description = sub
+        .submission_data
+        .get("description")
+        .and_then(|d| d.as_str())
+        .unwrap_or("No description provided.");
+
+    let project_name = sub
+        .submission_data
+        .get("projectName")
+        .and_then(|n| n.as_str())
+        .unwrap_or("Untitled Project");
+
+    // Get all judge visits/notes for this submission
+    let visits = project_visit::Entity::find()
+        .filter(project_visit::Column::HackathonId.eq(hackathon.id))
+        .filter(project_visit::Column::SubmissionId.eq(submission_id))
+        .filter(project_visit::Column::CompletionTime.is_not_null())
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch visits: {}", e)))?;
+
+    // Collect all judge notes
+    let judge_notes: Vec<String> = visits
+        .iter()
+        .filter_map(|v| v.notes.clone())
+        .filter(|n| !n.trim().is_empty())
+        .collect();
+
+    // Check if we have an API key
+    let api_key = match &ctx.state.config.openrouter_api_key {
+        Some(key) if !key.is_empty() => key.clone(),
+        _ => {
+            // Return a fallback summary if no API key
+            return Ok(AiSummaryResponse {
+                summary: format!(
+                    "Project '{}' by team '{}'. {} judge(s) have reviewed this project. \
+                     Configure OPENROUTER_API_KEY to enable AI summaries.",
+                    project_name,
+                    team.name,
+                    visits.len()
+                ),
+            });
+        }
+    };
+
+    // Build the prompt
+    let notes_text = if judge_notes.is_empty() {
+        "No judge notes available.".to_string()
+    } else {
+        judge_notes
+            .iter()
+            .enumerate()
+            .map(|(i, n)| format!("Judge {}: {}", i + 1, n))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let prompt = format!(
+        "You are summarizing a hackathon project for judges and organizers. \
+         Be concise but informative. Focus on the key aspects and any feedback from judges.\n\n\
+         Project Name: {}\n\
+         Team Name: {}\n\n\
+         Project Description:\n{}\n\n\
+         Judge Notes:\n{}\n\n\
+         Please provide a brief summary (2-3 sentences) of this project and the key points from the judge feedback.",
+        project_name, team.name, description, notes_text
+    );
+
+    // Call OpenRouter API
+    let client = reqwest::Client::new();
+    let response = client
+        .post("https://openrouter.ai/api/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "model": "openai/gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 300,
+            "temperature": 0.7
+        }))
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to call OpenRouter: {}", e)))?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "OpenRouter API error: {}",
+            error_text
+        )));
+    }
+
+    let response_json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to parse OpenRouter response: {}", e)))?;
+
+    let summary = response_json["choices"]
+        .get(0)
+        .and_then(|c| c["message"]["content"].as_str())
+        .unwrap_or("Failed to generate summary.")
+        .to_string();
+
+    Ok(AiSummaryResponse { summary })
+}
