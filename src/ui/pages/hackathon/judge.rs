@@ -17,6 +17,16 @@ use crate::{
     ui::foundation::components::{Button, ButtonVariant},
 };
 
+const PRIZE_COLORS: &[&str] = &[
+    "bg-blue-50",
+    "bg-purple-50",
+    "bg-amber-50",
+    "bg-orange-50",
+    "bg-green-50",
+    "bg-pink-50",
+    "bg-indigo-50",
+];
+
 #[component]
 pub fn HackathonJudge(slug: String) -> Element {
     if let Some(no_access) = use_require_access_or_redirect(JUDGE_ROLES) {
@@ -327,18 +337,16 @@ pub fn HackathonJudge(slug: String) -> Element {
                     }
                 } else if let Some(ref project) = s.current_project {
                     // In-progress state
-                    div { class: "bg-background-neutral-primary rounded-[20px] p-7",
-                        InProgressView {
-                            project: project.clone(),
-                            features: s.features.clone(),
-                            selections: selections.clone(),
-                            feature_notes: feature_notes.clone(),
-                            expanded_cards: expanded_cards.clone(),
-                            project_notes: project_notes.clone(),
-                            loading: *loading.read(),
-                            on_submit: submit_all,
-                            on_skip: skip_project,
-                        }
+                    InProgressView {
+                        project: project.clone(),
+                        features: s.features.clone(),
+                        selections: selections.clone(),
+                        feature_notes: feature_notes.clone(),
+                        expanded_cards: expanded_cards.clone(),
+                        project_notes: project_notes.clone(),
+                        loading: *loading.read(),
+                        on_submit: submit_all,
+                        on_skip: skip_project,
                     }
                 }
             } else {
@@ -360,7 +368,7 @@ fn PreJudgingView(
     on_start: EventHandler<()>,
 ) -> Element {
     rsx! {
-        div { class: "max-w-md mx-auto",
+        div { class: "max-w-6xl mx-auto",
             h1 { class: "text-2xl font-semibold text-foreground-neutral-primary mb-6",
                 "Judging"
             }
@@ -369,11 +377,11 @@ fn PreJudgingView(
                 "You are judging the following prizes:"
             }
 
-            div { class: "space-y-3 mb-8",
-                for feature in features.iter() {
+            div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-8",
+                for (i, feature) in features.iter().enumerate() {
                     div {
                         key: "{feature.feature_id}",
-                        class: "p-4 bg-background-brand-secondary rounded-lg border border-border-brand-primary flex items-center justify-between",
+                        class: "p-4 {PRIZE_COLORS[i % PRIZE_COLORS.len()]} rounded-lg flex items-center justify-between",
                         div {
                             p { class: "font-medium text-foreground-neutral-primary",
                                 "{feature.feature_name}"
@@ -386,7 +394,7 @@ fn PreJudgingView(
                         }
                         // Checkbox icon
                         svg {
-                            class: "w-5 h-5 text-foreground-brand-primary",
+                            class: "w-5 h-5 text-foreground-neutral-secondary",
                             fill: "none",
                             stroke: "currentColor",
                             view_box: "0 0 24 24",
@@ -444,7 +452,7 @@ fn InProgressView(
             }
 
             // Project header
-            div { class: "bg-background-neutral-secondary-enabled p-6 rounded-lg mb-6 border border-stroke-neutral-1",
+            div { class: "bg-background-neutral-primary p-6 rounded-lg mb-6",
                 div { class: "flex flex-wrap gap-x-8 gap-y-2 mb-4",
                     div {
                         span { class: "text-foreground-neutral-secondary", "Project: " }
@@ -476,11 +484,12 @@ fn InProgressView(
 
             // Prize cards
             div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8",
-                for feature in features.iter() {
+                for (i, feature) in features.iter().enumerate() {
                     PrizeCard {
                         key: "{feature.feature_id}",
                         feature: feature.clone(),
                         current_project: project.clone(),
+                        header_bg_color: PRIZE_COLORS[i % PRIZE_COLORS.len()].to_string(),
                         selections: selections.clone(),
                         feature_notes: feature_notes.clone(),
                         expanded_cards: expanded_cards.clone(),
@@ -489,13 +498,13 @@ fn InProgressView(
             }
 
             // General project notes
-            div { class: "mb-8",
+            div { class: "mb-8 bg-background-neutral-primary p-6 rounded-lg",
                 h3 { class: "font-medium text-foreground-neutral-primary mb-2", "General Notes" }
                 p { class: "text-sm text-foreground-neutral-secondary mb-3",
                     "Add any general thoughts about this project (optional). These are for your reference."
                 }
                 textarea {
-                    class: "w-full p-3 text-sm border border-border-neutral-tertiary rounded-lg bg-background-neutral-primary-enabled text-foreground-neutral-primary resize-y min-h-[100px]",
+                    class: "w-full p-3 text-sm rounded-lg bg-background-neutral-secondary-enabled text-foreground-neutral-primary resize-y min-h-[100px]",
                     placeholder: "Enter your notes here...",
                     value: "{project_notes.read()}",
                     oninput: move |e| {
@@ -507,7 +516,6 @@ fn InProgressView(
             // Submit button
             div { class: "flex justify-center items-center gap-4",
                 Button {
-                    variant: ButtonVariant::Danger,
                     disabled: loading,
                     onclick: move |_| on_skip.call(()),
                     if loading {
@@ -533,6 +541,7 @@ fn InProgressView(
 fn PrizeCard(
     feature: JudgeFeatureState,
     current_project: CurrentProject,
+    header_bg_color: String,
     mut selections: Signal<std::collections::HashMap<i32, i32>>,
     mut feature_notes: Signal<std::collections::HashMap<i32, String>>,
     mut expanded_cards: Signal<std::collections::HashSet<i32>>,
@@ -556,18 +565,18 @@ fn PrizeCard(
         .unwrap_or_default();
 
     // Determine card background based on state
-    let card_bg = if selected_winner.is_some() {
-        "bg-background-success-secondary border-border-success-primary"
+    let selection_border = if selected_winner.is_some() {
+        "ring-2 ring-green-500"
     } else {
-        "bg-background-neutral-primary-enabled border-border-neutral-tertiary"
+        ""
     };
 
     rsx! {
-        div { class: "rounded-lg border {card_bg} overflow-hidden",
+        div { class: "rounded-lg overflow-hidden {selection_border}",
             // Header
-            div { class: "p-4 bg-background-brand-secondary border-b border-border-brand-primary",
+            div { class: "p-4 {header_bg_color}",
                 div { class: "flex items-center justify-between",
-                    h3 { class: "font-medium text-foreground-neutral-primary",
+                    h3 { class: "font-semibold text-foreground-neutral-primary text-base",
                         "{feature.feature_name}"
                     }
                     button {
@@ -604,12 +613,12 @@ fn PrizeCard(
                     }
                 }
                 if let Some(desc) = &feature.feature_description {
-                    p { class: "text-sm text-foreground-neutral-secondary mt-1", "{desc}" }
+                    p { class: "text-xs text-foreground-neutral-secondary mt-1", "{desc}" }
                 }
             }
 
             // Body
-            div { class: "p-4",
+            div { class: "p-4 bg-background-neutral-primary",
                 // Project to compare
                 if has_previous_best {
                     div { class: "mb-4",
@@ -647,7 +656,7 @@ fn PrizeCard(
                                     onchange: move |_| {
                                         selections.write().insert(feature_id, current_submission_id);
                                     },
-                                    class: "w-4 h-4 text-foreground-brand-primary",
+                                    class: "w-4 h-4 accent-black",
                                 }
                                 span { class: "text-foreground-neutral-primary", "{current_team_name}" }
                             }
@@ -662,7 +671,7 @@ fn PrizeCard(
                                         onchange: move |_| {
                                             selections.write().insert(feature_id, best_id);
                                         },
-                                        class: "w-4 h-4 text-foreground-brand-primary",
+                                        class: "w-4 h-4 accent-black",
                                     }
                                     span { class: "text-foreground-neutral-primary",
                                         "{best_team_name}"
@@ -689,7 +698,7 @@ fn PrizeCard(
                                         sels.insert(feature_id, current_submission_id);
                                     }
                                 },
-                                class: "w-4 h-4 text-foreground-brand-primary",
+                                class: "w-4 h-4 accent-black",
                             }
                             span { class: "text-foreground-neutral-primary",
                                 "Mark as current best for this prize"
@@ -705,7 +714,7 @@ fn PrizeCard(
                             "Notes"
                         }
                         textarea {
-                            class: "w-full p-2 text-sm border border-border-neutral-tertiary rounded-lg bg-background-neutral-primary-enabled text-foreground-neutral-primary",
+                            class: "w-full p-2 text-sm rounded-lg bg-background-neutral-primary-enabled text-foreground-neutral-primary",
                             rows: 3,
                             placeholder: "Add notes for this prize...",
                             value: "{current_notes}",
