@@ -220,12 +220,49 @@ pub async fn reset_judging(slug: String) -> Result<(), ServerFnError> {
 
     if !feature_ids.is_empty() {
         pairwise_comparison::Entity::delete_many()
-            .filter(pairwise_comparison::Column::FeatureId.is_in(feature_ids))
+            .filter(pairwise_comparison::Column::FeatureId.is_in(feature_ids.clone()))
             .exec(&txn)
             .await
             .map_err(|e| {
                 ServerFnError::new(format!("Failed to delete pairwise comparisons: {}", e))
             })?;
+
+        // 4. Delete all project feature scores
+        crate::entities::project_feature_score::Entity::delete_many()
+            .filter(
+                crate::entities::project_feature_score::Column::FeatureId
+                    .is_in(feature_ids.clone()),
+            )
+            .exec(&txn)
+            .await
+            .map_err(|e| {
+                ServerFnError::new(format!("Failed to delete project feature scores: {}", e))
+            })?;
+
+        // 5. Reset judge assignments (clear best submission and notes)
+        // This is important so that judges see the "first project" view again
+        use crate::entities::judge_feature_assignment;
+        use sea_orm::QueryOrder; // Added manually if needed, but not for update_many
+        use sea_orm::Statement; // Not needed
+        use sea_orm::sea_query::{Expr, Query}; // For update_many col_expr if needed, but we can use ActiveModel
+
+        // SeaORM update_many with col_expr is a bit complex with Option,
+        // let's just update them all.
+        // Actually, let's use a simpler way: find all and update
+        let assignments = judge_feature_assignment::Entity::find()
+            .filter(judge_feature_assignment::Column::FeatureId.is_in(feature_ids))
+            .all(&txn)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch assignments: {}", e)))?;
+
+        for assignment in assignments {
+            let mut active: judge_feature_assignment::ActiveModel = assignment.into();
+            active.current_best_submission_id = Set(None);
+            active.notes = Set(None);
+            active.update(&txn).await.map_err(|e| {
+                ServerFnError::new(format!("Failed to reset judge assignment: {}", e))
+            })?;
+        }
     }
 
     // Commit transaction
