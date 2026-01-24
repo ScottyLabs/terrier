@@ -93,77 +93,6 @@ pub fn QRModal(
 ) -> Element {
     let show_scanner = on_scan.is_some();
 
-    // Scanner logic
-    if let Some(scan_handler) = on_scan {
-        let mut eval = document::eval(
-            r#"
-            const scanHandler = await dioxus.recv();
-            
-            function onScanSuccess(decodedText, decodedResult) {
-
-                // Check if URL matches our expected format
-                if (decodedText.includes("/scan/")) {
-                    
-                    const parts = decodedText.split("/scan/");
-                    if (parts.length === 2) {
-                        const userId = parts[1];
-                        
-                        // Stop scanning immediately
-                        if (window.html5QrcodeScanner) {
-                            window.html5QrcodeScanner.clear().then(() => {
-                                // Send back to Rust after clearing
-                                dioxus.send(userId);
-                            }).catch(err => {
-                                console.error("Failed to clear scanner", err);
-                                dioxus.send(userId);
-                            });
-                        } else {
-                            dioxus.send(userId);
-                        }
-                    }
-                }
-            }
-
-            function onScanFailure(error) {
-                alert(`Scan failed: ${error}`);
-            }
-            
-            // Listen for stop signal
-            // simple check: if the component unmounts, we can't easily run cleanup JS unless we have a handle
-            // But we can check if the element exists
-            // Or better: We rely on the Rust side to re-render or the user to navigate away.
-            // However, for manual close, we might want a global cleanup function.
-            window.stopQrScanner = function() {
-                 if (window.html5QrcodeScanner) {
-                    window.html5QrcodeScanner.clear();
-                 }
-            };
-
-            setTimeout(() => {
-                if (document.getElementById('reader')) {
-                    window.html5QrcodeScanner = new Html5QrcodeScanner(
-                    "reader",
-                    { fps: 10, qrbox: {width: 250, height: 250} },
-                    false);
-                    window.html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-                }
-            }, 100);
-            "#,
-        );
-
-        // Handle scan result
-        use_future(move || {
-            let mut eval = eval.clone();
-            let scan_handler = scan_handler.clone();
-            async move {
-                eval.send(true).unwrap(); // Start the script
-                if let Ok(scanned_user_id) = eval.recv::<String>().await {
-                    scan_handler.call(scanned_user_id);
-                }
-            }
-        });
-    }
-
     rsx! {
         // Backdrop - covers entire screen with semi-transparent grey
         div {
@@ -185,16 +114,8 @@ pub fn QRModal(
 
                 // Display Area
                 div { class: "w-[95vmin] h-[95vmin] max-w-[500px] max-h-[500px] flex flex-col items-center justify-center gap-4 bg-background-neutral-primary rounded-2xl p-4",
-                    if show_scanner {
-                        div { class: "w-full text-center text-lg font-semibold mb-2", "Scan Participant QR" }
-                        div {
-                            id: "reader",
-                            class: "w-full bg-black rounded-xl overflow-hidden shadow-lg border border-gray-800",
-                            style: "min-height: 300px;"
-                        }
-                        div { class: "text-sm text-foreground-neutral-secondary text-center mt-2",
-                            "Point camera at a check-in QR Code"
-                        }
+                    if let Some(handler) = on_scan {
+                        Scanner { on_scan: handler }
                     } else {
                         div {
                             class: "w-full h-full bg-background-neutral-primary rounded-2xl",
@@ -204,6 +125,85 @@ pub fn QRModal(
                     }
                 }
             }
+        }
+    }
+}
+
+#[component]
+fn Scanner(on_scan: EventHandler<String>) -> Element {
+    // Use eval to initialize the scanner
+    // We use use_future to run this once on mount
+    let mut eval = document::eval(
+        r#"
+        const scanHandler = await dioxus.recv();
+        
+        function onScanSuccess(decodedText, decodedResult) {
+
+            // Check if URL matches our expected format
+            if (decodedText.includes("/scan/")) {
+                const parts = decodedText.split("/scan/");
+                if (parts.length === 2) {
+                    const userId = parts[1];
+                    
+                    // Stop scanning immediately
+                    if (window.html5QrcodeScanner) {
+                        window.html5QrcodeScanner.clear().then(() => {
+                            // Send back to Rust after clearing
+                            dioxus.send(userId);
+                        }).catch(err => {
+                            console.error("Failed to clear scanner", err);
+                            dioxus.send(userId);
+                        });
+                    } else {
+                        dioxus.send(userId);
+                    }
+                }
+            }
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure
+        }
+        
+        window.stopQrScanner = function() {
+             if (window.html5QrcodeScanner) {
+                window.html5QrcodeScanner.clear();
+             }
+        };
+
+        setTimeout(() => {
+            if (document.getElementById('reader')) {
+                window.html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                { fps: 10, qrbox: {width: 250, height: 250} },
+                false);
+                window.html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            }
+        }, 100);
+        "#,
+    );
+
+    // Handle scan result
+    use_future(move || {
+        let mut eval = eval.clone();
+        let scan_handler = on_scan.clone();
+        async move {
+            eval.send(true).unwrap(); // Start the script
+            if let Ok(scanned_user_id) = eval.recv::<String>().await {
+                scan_handler.call(scanned_user_id);
+            }
+        }
+    });
+
+    rsx! {
+        div { class: "w-full text-center text-lg font-semibold mb-2", "Scan Participant QR" }
+        div {
+            id: "reader",
+            class: "w-full bg-black rounded-xl overflow-hidden shadow-lg border border-gray-800",
+            style: "min-height: 300px;"
+        }
+        div { class: "text-sm text-foreground-neutral-secondary text-center mt-2",
+            "Point camera at a check-in QR Code"
         }
     }
 }
