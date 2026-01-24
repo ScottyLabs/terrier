@@ -597,6 +597,8 @@ fn EventCategorySection(
 #[component]
 fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler<()>) -> Element {
     let slug_for_attendees = slug.clone();
+    let slug_for_scanner = slug.clone();
+    let nav = use_navigator();
     let event_id = event.id;
 
     // Participant ID input
@@ -606,6 +608,7 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
     // Confirmation modal state
     let mut pending_participant: Signal<Option<ParticipantInfo>> = use_signal(|| None);
     let mut is_confirming = use_signal(|| false);
+    let mut show_scanner_modal = use_signal(|| false);
     let mut error_message: Signal<Option<String>> = use_signal(|| None);
     let mut skip_confirmation = use_signal(|| {
         // Check localStorage for skip preference
@@ -668,8 +671,10 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                     "Check-in"
                 }
 
-                // Scan QR placeholder
-                button { class: "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-stroke-neutral-1 hover:bg-background-neutral-secondary transition-colors mb-3",
+                // Scan QR Code
+                button {
+                    class: "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-stroke-neutral-1 hover:bg-background-neutral-secondary transition-colors mb-3",
+                    onclick: move |_| show_scanner_modal.set(true),
                     Icon { width: 20, height: 20, icon: LdQrCode }
                     span { class: "text-foreground-neutral-primary", "Scan QR code" }
                 }
@@ -811,8 +816,25 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
             }
         }
 
-        // Confirmation modal
-        if let Some(participant) = pending_participant() {
+            // Scanner Modal
+            if show_scanner_modal() {
+                QRModal {
+                    // Props for QRModal (dummy values for scanner mode)
+                    qr_svg: String::new(),
+                    user_id: 0,
+                    on_close: move |_| show_scanner_modal.set(false),
+                    on_scan: move |scanned_id: String| {
+                        let slug = slug_for_scanner.clone();
+                        show_scanner_modal.set(false);
+                         if let Ok(user_id) = scanned_id.parse::<i32>() {
+                            nav.push(Route::HackathonScan { slug: slug.clone(), user_id });
+                        }
+                    }
+                }
+            }
+
+            // Confirmation modal
+            if let Some(participant) = pending_participant() {
             div {
                 class: "fixed inset-0 flex items-center justify-center z-50",
                 style: "background-color: rgba(0, 0, 0, 0.5);",
