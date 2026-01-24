@@ -1,9 +1,10 @@
+use super::types::*;
 use dioxus::prelude::*;
 
-use super::types::*;
-
 #[cfg(feature = "server")]
-use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
+use crate::core::auth::{
+    context::RequestContext, middleware::SyncedUser, permissions::Permissions,
+};
 
 /// Close submissions for a hackathon (prerequisite for starting judging)
 #[cfg_attr(feature = "server", utoipa::path(
