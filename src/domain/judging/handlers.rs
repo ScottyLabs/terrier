@@ -61,7 +61,7 @@ pub async fn close_submissions(slug: String) -> Result<(), ServerFnError> {
         (status = 200, description = "Judging started successfully"),
         (status = 400, description = "Submissions must be closed first"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -76,7 +76,7 @@ pub async fn start_judging(slug: String) -> Result<(), ServerFnError> {
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
     let hackathon = ctx.hackathon()?;
 
     if !hackathon.submissions_closed {
@@ -112,7 +112,7 @@ pub async fn start_judging(slug: String) -> Result<(), ServerFnError> {
     responses(
         (status = 200, description = "Judging stopped successfully"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -127,7 +127,7 @@ pub async fn stop_judging(slug: String) -> Result<(), ServerFnError> {
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
     let hackathon = ctx.hackathon()?;
 
     let mut active: hackathons::ActiveModel = hackathons::Entity::find_by_id(hackathon.id)
@@ -157,7 +157,7 @@ pub async fn stop_judging(slug: String) -> Result<(), ServerFnError> {
     responses(
         (status = 200, description = "Judging reset successfully"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -174,7 +174,7 @@ pub async fn reset_judging(slug: String) -> Result<(), ServerFnError> {
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
     let hackathon = ctx.hackathon()?;
 
     // Start transaction
@@ -943,7 +943,7 @@ pub async fn get_features(slug: String) -> Result<Vec<FeatureInfo>, ServerFnErro
     responses(
         (status = 200, description = "Feature created", body = FeatureInfo),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -961,7 +961,7 @@ pub async fn create_feature(
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
     let hackathon = ctx.hackathon()?;
 
     let new_feature = feature::ActiveModel {
@@ -995,7 +995,7 @@ pub async fn create_feature(
     responses(
         (status = 200, description = "Feature updated", body = FeatureInfo),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 404, description = "Feature not found"),
         (status = 500, description = "Server error")
     ),
@@ -1056,7 +1056,7 @@ pub async fn update_feature(
     responses(
         (status = 200, description = "Feature deleted"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 404, description = "Feature not found"),
         (status = 500, description = "Server error")
     ),
@@ -1105,7 +1105,7 @@ pub async fn delete_feature(slug: String, feature_id: i32) -> Result<(), ServerF
         (status = 200, description = "Submissions re-opened successfully"),
         (status = 400, description = "Judging already started"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -1688,7 +1688,7 @@ pub async fn get_feature_judges(
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
     let assignments = judge_feature_assignment::Entity::find()
         .filter(judge_feature_assignment::Column::FeatureId.eq(feature_id))
@@ -1726,7 +1726,7 @@ pub async fn get_feature_judges(
     responses(
         (status = 200, description = "Judges assigned"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -1745,7 +1745,7 @@ pub async fn assign_judges(
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
     for judge_id in request.judge_ids {
         let new_assignment = judge_feature_assignment::ActiveModel {
@@ -1776,7 +1776,7 @@ pub async fn assign_judges(
     responses(
         (status = 200, description = "Judge unassigned"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -1795,7 +1795,7 @@ pub async fn unassign_judge(
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
 
     let assignment = judge_feature_assignment::Entity::find()
         .filter(judge_feature_assignment::Column::FeatureId.eq(feature_id))
