@@ -5,10 +5,6 @@ use super::types::*;
 #[cfg(feature = "server")]
 use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
 
-// ============================================================================
-// Judging Control Endpoints (Admin Only)
-// ============================================================================
-
 /// Close submissions for a hackathon (prerequisite for starting judging)
 #[cfg_attr(feature = "server", utoipa::path(
     post,
@@ -19,7 +15,7 @@ use crate::core::auth::{context::RequestContext, middleware::SyncedUser};
     responses(
         (status = 200, description = "Submissions closed successfully"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Forbidden - not an admin"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Server error")
     ),
     tag = "judging"
@@ -34,7 +30,7 @@ pub async fn close_submissions(slug: String) -> Result<(), ServerFnError> {
         .with_hackathon(&slug)
         .await?;
 
-    // TODO: Check if user is admin/organizer
+    Permissions::require_admin_or_organizer(&ctx).await?;
     let hackathon = ctx.hackathon()?;
 
     let mut active: hackathons::ActiveModel = hackathons::Entity::find_by_id(hackathon.id)
