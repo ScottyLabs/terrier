@@ -57,11 +57,10 @@ pub enum Route {
                 HackathonPeople {
                     slug: String
                 },
-            // Teams feature temporarily disabled
-            // #[route("/team")]
-            //     HackathonTeam {
-            //         slug: String
-            //     },
+            #[route("/team")]
+                HackathonTeam {
+                    slug: String
+                },
             #[route("/schedule")]
                 HackathonSchedule {
                     slug: String

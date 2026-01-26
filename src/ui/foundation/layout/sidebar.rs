@@ -24,8 +24,7 @@ fn NavItems(
     has_dashboard: bool,
     has_applicants: bool,
     has_people: bool,
-    // Teams feature temporarily disabled
-    // has_team: bool,
+    has_team: bool,
     has_schedule: bool,
     has_submission: bool,
     has_checkin: bool,
@@ -75,18 +74,17 @@ fn NavItems(
                 }
             }
         }
-        // Teams feature temporarily disabled
-        // if has_team {
-        //     div { onclick: handle_click,
-        //         SidebarItem {
-        //             label: "Team".to_string(),
-        //             icon: LdUsers,
-        //             to: Route::HackathonTeam {
-        //                 slug: slug.clone(),
-        //             },
-        //         }
-        //     }
-        // }
+        if has_team {
+            div { onclick: handle_click,
+                SidebarItem {
+                    label: "Team".to_string(),
+                    icon: LdUsers,
+                    to: Route::HackathonTeam {
+                        slug: slug.clone(),
+                    },
+                }
+            }
+        }
         if has_schedule {
             div { onclick: handle_click,
                 SidebarItem {
@@ -211,8 +209,7 @@ pub fn Sidebar(
     let has_dashboard = has(DASHBOARD_ROLES);
     let has_applicants = has(APPLICANTS_ROLES);
     let has_people = has(PEOPLE_ROLES);
-    // Teams feature temporarily disabled
-    // let has_team = has(TEAM_ROLES) && has_submitted_application;
+    let has_team = has(TEAM_ROLES) && has_submitted_application;
     let has_schedule = has(SCHEDULE_ROLES);
     let has_submission = has(SUBMISSION_ROLES);
     let has_checkin = has(CHECKIN_ROLES);
@@ -260,8 +257,7 @@ pub fn Sidebar(
                             has_dashboard,
                             has_applicants,
                             has_people,
-                            // Teams feature temporarily disabled
-                            // has_team,
+                            has_team,
                             has_schedule,
                             has_submission,
                             has_checkin,
@@ -294,8 +290,7 @@ pub fn Sidebar(
                         has_dashboard,
                         has_applicants,
                         has_people,
-                        // Teams feature temporarily disabled
-                        // has_team,
+                        has_team,
                         has_schedule,
                         has_submission,
                         has_checkin,
@@ -336,8 +331,7 @@ pub fn SidebarItem<I: IconShape + Clone + PartialEq + 'static>(
         (Route::HackathonDashboard { .. }, Route::HackathonDashboard { .. }) => true,
         (Route::HackathonApplicants { .. }, Route::HackathonApplicants { .. }) => true,
         (Route::HackathonPeople { .. }, Route::HackathonPeople { .. }) => true,
-        // Teams feature temporarily disabled
-        // (Route::HackathonTeam { .. }, Route::HackathonTeam { .. }) => true,
+        (Route::HackathonTeam { .. }, Route::HackathonTeam { .. }) => true,
         (Route::HackathonSchedule { .. }, Route::HackathonSchedule { .. }) => true,
         (Route::HackathonMessages { .. }, Route::HackathonMessages { .. }) => true,
         (Route::HackathonSubmission { .. }, Route::HackathonSubmission { .. }) => true,
