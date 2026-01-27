@@ -268,6 +268,38 @@ pub async fn reset_judging(slug: String) -> Result<(), ServerFnError> {
     Ok(())
 }
 
+/// Force recalculation of rankings for a hackathon
+#[cfg_attr(feature = "server", utoipa::path(
+    post,
+    path = "/api/hackathons/{slug}/judging/recalculate",
+    params(
+        ("slug" = String, Path, description = "Hackathon slug")
+    ),
+    responses(
+        (status = 200, description = "Rankings recalculated successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Server error")
+    ),
+    tag = "judging"
+))]
+#[post("/api/hackathons/:slug/judging/recalculate", user: SyncedUser)]
+pub async fn recalculate_rankings(slug: String) -> Result<(), ServerFnError> {
+    use crate::domain::judging::score::update_hackathon_rankings;
+
+    let ctx = RequestContext::extract(&user)
+        .await?
+        .with_hackathon(&slug)
+        .await?;
+
+    Permissions::require_admin_or_organizer(&ctx).await?;
+    let hackathon = ctx.hackathon()?;
+
+    update_hackathon_rankings(&ctx.state.db, hackathon.id).await?;
+
+    Ok(())
+}
+
 /// Re-open submissions for a hackathon
 #[cfg_attr(feature = "server", utoipa::path(
     post,

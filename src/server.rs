@@ -90,6 +90,27 @@ pub async fn setup() {
         .expect("Failed to connect to database");
     tracing::info!("Database connected successfully");
 
+    // Spawn periodic ranking task
+    let ranking_db = db.clone();
+    tokio::spawn(async move {
+        // Wait for initial startup before first run
+        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+            tracing::info!("Starting periodic ranking update...");
+            if let Err(e) =
+                crate::domain::judging::score::update_all_active_rankings(&ranking_db).await
+            {
+                tracing::error!("Periodic ranking update failed: {}", e);
+            }
+            tracing::info!("Periodic ranking update completed.");
+        }
+    });
+
     // Run database migrations
     tracing::info!("Running database migrations...");
     Migrator::up(&db, None)

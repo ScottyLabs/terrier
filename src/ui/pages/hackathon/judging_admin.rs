@@ -11,8 +11,9 @@ use crate::{
         judging::{
             handlers::{
                 assign_judges, close_submissions, create_feature, delete_feature, get_features,
-                get_features_with_judges, get_judging_status, reopen_submissions, reset_judging,
-                start_judging, stop_judging, unassign_judge, update_feature,
+                get_features_with_judges, get_judging_status, recalculate_rankings,
+                reopen_submissions, reset_judging, start_judging, stop_judging, unassign_judge,
+                update_feature,
             },
             types::{
                 AssignJudgesRequest, CreateFeatureRequest, FeatureInfo, FeatureWithJudges,
@@ -231,6 +232,31 @@ pub fn HackathonJudgingAdmin(slug: String) -> Element {
                     }
                     Err(e) => {
                         error_msg.set(Some(format!("Failed to reset judging: {}", e)));
+                    }
+                }
+                loading.set(false);
+            });
+        }
+    };
+
+    let do_recalculate_rankings = {
+        let slug = slug.clone();
+        let refresh = refresh_data.clone();
+        move |_| {
+            let slug = slug.clone();
+            let refresh = refresh.clone();
+            spawn(async move {
+                loading.set(true);
+                error_msg.set(None);
+                success_msg.set(None);
+
+                match recalculate_rankings(slug).await {
+                    Ok(()) => {
+                        success_msg.set(Some("Rankings recalculated successfully.".to_string()));
+                        refresh();
+                    }
+                    Err(e) => {
+                        error_msg.set(Some(format!("Failed to recalculate rankings: {}", e)));
                     }
                 }
                 loading.set(false);
@@ -646,6 +672,19 @@ pub fn HackathonJudgingAdmin(slug: String) -> Element {
                                     "Stopping..."
                                 } else {
                                     "Stop Judging"
+                                }
+                            }
+                        }
+
+                        if s.submissions_closed {
+                            Button {
+                                variant: ButtonVariant::Secondary,
+                                disabled: *loading.read(),
+                                onclick: do_recalculate_rankings,
+                                if *loading.read() {
+                                    "Recalculating..."
+                                } else {
+                                    "Recalculate Results"
                                 }
                             }
                         }

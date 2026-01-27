@@ -45,4 +45,6 @@
 //! - [`types`] - DTOs for request/response data
 
 pub mod handlers;
+pub mod rank;
+pub mod score;
 pub mod types;

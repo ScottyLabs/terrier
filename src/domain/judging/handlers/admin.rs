@@ -323,9 +323,21 @@ pub async fn get_prize_track_results(
     let team_map: std::collections::HashMap<i32, String> =
         teams_list.iter().map(|t| (t.id, t.name.clone())).collect();
 
-    // Build project results with mocked random scores
-    // NOTE: In production, this would use the actual pairwise comparison algorithm
-    let mut rng = rand::rng();
+    // Get all feature scores for these submissions
+    let scores = crate::entities::project_feature_score::Entity::find()
+        .filter(
+            crate::entities::project_feature_score::Column::SubmissionId
+                .is_in(submissions.iter().map(|s| s.id).collect::<Vec<_>>()),
+        )
+        .all(&ctx.state.db)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch scores: {}", e)))?;
+
+    let score_map: std::collections::HashMap<(i32, i32), f32> = scores
+        .iter()
+        .filter_map(|s| s.score.map(|val| ((s.submission_id, s.feature_id), val)))
+        .collect();
+
     let mut projects: Vec<ProjectResultInfo> = Vec::new();
 
     for sub in &submissions {
@@ -364,12 +376,11 @@ pub async fn get_prize_track_results(
             .and_then(|u| u.as_str())
             .map(|s| s.to_string());
 
-        // Generate mocked random scores for each feature
         let mut feature_ranks: Vec<FeatureRankInfo> = Vec::new();
         let mut weighted_score: f32 = 0.0;
 
         for feat in &features {
-            let score: f32 = rng.random();
+            let score = score_map.get(&(sub.id, feat.id)).copied().unwrap_or(0.0);
             let weight = weight_map
                 .get(&feat.id)
                 .copied()
@@ -379,16 +390,9 @@ pub async fn get_prize_track_results(
             feature_ranks.push(FeatureRankInfo {
                 feature_id: feat.id,
                 feature_name: feat.name.clone(),
-                rank: None,
+                rank: None, // Will be computed below
             });
         }
-
-        let ai_summary = Some(
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
-             Fusce consequat tincidunt urna placerat pulvinar. \
-             Sed facilisis felis sed vehicula consequat."
-                .to_string(),
-        );
 
         projects.push(ProjectResultInfo {
             submission_id: sub.id,
@@ -402,7 +406,7 @@ pub async fn get_prize_track_results(
             repo_url,
             presentation_url,
             video_url,
-            ai_summary,
+            ai_summary: None, // AI summary will be handled by detail modal
         });
     }
 
@@ -420,11 +424,17 @@ pub async fn get_prize_track_results(
     }
 
     // Compute feature-specific ranks
-    for feat_idx in 0..features.len() {
+    for (feat_idx, feat) in features.iter().enumerate() {
         let mut feature_scores: Vec<(usize, f32)> = projects
             .iter()
             .enumerate()
-            .map(|(i, _)| (i, rng.random::<f32>()))
+            .map(|(i, p)| {
+                let score = score_map
+                    .get(&(p.submission_id, feat.id))
+                    .copied()
+                    .unwrap_or(0.0);
+                (i, score)
+            })
             .collect();
 
         feature_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
