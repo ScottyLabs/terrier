@@ -19,6 +19,7 @@ use crate::{
         remove_self_checkin, self_checkin,
     },
     domain::hackathons::types::{HackathonInfo, ScheduleEvent},
+    ui::features::checkin::QRScannerModal,
     ui::features::dashboard::QRModal,
     ui::foundation::utils::generate_qr_svg,
 };
@@ -603,6 +604,9 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
     let mut participant_id_input = use_signal(|| String::new());
     let mut search_query = use_signal(|| String::new());
 
+    // QR Scanner modal state
+    let mut show_qr_scanner = use_signal(|| false);
+
     // Confirmation modal state
     let mut pending_participant: Signal<Option<ParticipantInfo>> = use_signal(|| None);
     let mut is_confirming = use_signal(|| false);
@@ -668,8 +672,10 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                     "Check-in"
                 }
 
-                // Scan QR placeholder
-                button { class: "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-stroke-neutral-1 hover:bg-background-neutral-secondary transition-colors mb-3",
+                // Scan QR button
+                button {
+                    class: "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-stroke-neutral-1 hover:bg-background-neutral-secondary transition-colors mb-3",
+                    onclick: move |_| show_qr_scanner.set(true),
                     Icon { width: 20, height: 20, icon: LdQrCode }
                     span { class: "text-foreground-neutral-primary", "Scan QR code" }
                 }
@@ -918,6 +924,20 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
                         }
                     }
                 }
+            }
+        }
+
+        // QR Scanner modal
+        if show_qr_scanner() {
+            QRScannerModal {
+                slug: slug.clone(),
+                event_id,
+                on_close: move |_| show_qr_scanner.set(false),
+                on_checkin_success: move |_| {
+                    // Refresh the attendee list after successful check-in
+                    attendees_resource.restart();
+                    on_refresh.call(());
+                },
             }
         }
 
