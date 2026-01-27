@@ -1,3 +1,42 @@
+//! # Configuration Module
+//!
+//! *Written by Claude 4.5 Opus*
+//!
+//! This module loads application configuration from environment variables.
+//!
+//! ## Design Decisions
+//!
+//! - **.env file loading**: First tries to load from `CARGO_MANIFEST_DIR/.env` (project root),
+//!   then falls back to current directory. This ensures consistent behavior in development and production.
+//!
+//! - **Fail-fast**: Most variables are required and will panic on startup if missing. This catches
+//!   configuration errors early rather than at runtime.
+//!
+//! - **Mobile constant**: `DEFAULT_HACKATHON_SLUG` is compiled in for mobile builds to hardcode the target hackathon.
+//!
+//! ## Required Environment Variables
+//!
+//! | Variable              | Description                                    |
+//! |-----------------------|------------------------------------------------|
+//! | `APP_BASE_URL`        | Public URL of the app (e.g., https://...)      |
+//! | `DATABASE_URL`        | PostgreSQL connection string                   |
+//! | `REDIS_URL`           | Redis/Valkey URL for sessions                  |
+//! | `MINIO_ENDPOINT`      | MinIO internal endpoint                        |
+//! | `MINIO_PUBLIC_ENDPOINT` | MinIO public URL for file access            |
+//! | `MINIO_ROOT_USER`     | MinIO access key                               |
+//! | `MINIO_ROOT_PASSWORD` | MinIO secret key                               |
+//! | `MINIO_BUCKET`        | S3 bucket name                                 |
+//! | `OIDC_ISSUER`         | OpenID Connect issuer URL                      |
+//! | `OIDC_CLIENT_ID`      | OIDC client ID                                 |
+//! | `OIDC_CLIENT_SECRET`  | OIDC client secret                             |
+//! | `ADMIN_EMAILS`        | Comma-separated list of global admin emails    |
+//!
+//! ## Optional Variables
+//!
+//! | Variable              | Description                                    |
+//! |-----------------------|------------------------------------------------|
+//! | `OPENROUTER_API_KEY`  | API key for AI-powered features                |
+
 #[cfg(feature = "server")]
 use std::error::Error;
 

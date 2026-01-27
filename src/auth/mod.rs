@@ -1,3 +1,30 @@
+//! # Authentication Module
+//!
+//! *Written by Claude 4.5 Opus*
+//!
+//! This module defines the client-side authentication types and role-based access control.
+//!
+//! ## Design Decisions
+//!
+//! - **Role-based access control**: Each hackathon page has a predefined list of allowed roles
+//!   (e.g., `DASHBOARD_ROLES`, `JUDGE_ROLES`). This centralizes permission logic and makes
+//!   it easy to audit which roles can access which pages.
+//!
+//! - **Role hierarchy**: Roles are intentionally NOT hierarchical. An Admin doesn't automatically
+//!   have all permissions of lower roles. Each page explicitly lists its allowed roles for clarity.
+//!
+//! - **Client/server split**: The `UserInfo` and role types are shared between client and server,
+//!   while the `hooks` submodule provides client-side React-style hooks for authentication state.
+//!
+//! ## Role Types
+//!
+//! - `Admin` - Full hackathon management access
+//! - `Organizer` - Event and schedule management
+//! - `Judge` - Project judging and scoring
+//! - `Sponsor` - Sponsor-specific views and checkin
+//! - `Participant` - Active hackathon participant
+//! - `Applicant` - User who has applied but not been accepted
+
 pub mod hooks;
 
 use serde::{Deserialize, Serialize};
