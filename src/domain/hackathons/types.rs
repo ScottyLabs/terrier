@@ -54,4 +54,6 @@ pub struct ScheduleEvent {
     pub checkin_type: String,
     /// Whether the current user has checked in (populated per-request)
     pub is_checked_in: bool,
+    /// Names of prizes that require attendance at this event
+    pub required_for_prizes: Vec<String>,
 }

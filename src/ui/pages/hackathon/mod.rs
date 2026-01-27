@@ -16,6 +16,7 @@ mod scan;
 mod schedule;
 mod settings;
 mod submission;
+mod table_checkin;
 mod team;
 
 pub use applicants::HackathonApplicants;
@@ -37,4 +38,5 @@ pub use scan::HackathonScan;
 pub use schedule::HackathonSchedule;
 pub use settings::HackathonSettings;
 pub use submission::HackathonSubmission;
+pub use table_checkin::HackathonTableCheckin;
 pub use team::HackathonTeam;

@@ -441,9 +441,12 @@ fn InProgressView(
         .unwrap_or_else(|| project.team_name.clone());
     let description = project.description.clone().unwrap_or_default();
     let location = project
-        .location
+        .table_number
         .clone()
+        .or_else(|| project.location.clone())
         .unwrap_or_else(|| "Unknown".to_string());
+
+    let mut show_json = use_signal(|| false);
 
     rsx! {
         div {
@@ -475,10 +478,25 @@ fn InProgressView(
                 }
 
                 div {
-                    h3 { class: "font-medium text-foreground-neutral-primary mb-2",
-                        "Description:"
+                    div { class: "flex justify-between items-start mb-2",
+                        h3 { class: "font-medium text-foreground-neutral-primary",
+                            "Description:"
+                        }
+                        button {
+                            class: "text-xs text-foreground-brand-primary hover:underline cursor-pointer",
+                            onclick: move |_| show_json.toggle(),
+                            if *show_json.read() { "Hide Data" } else { "Show Data" }
+                        }
                     }
-                    p { class: "text-foreground-neutral-secondary", "{description}" }
+                    p { class: "text-foreground-neutral-secondary mb-4", "{description}" }
+
+                    if *show_json.read() {
+                        div { class: "mb-4 p-4 bg-background-neutral-secondary-enabled rounded-lg overflow-x-auto",
+                            pre { class: "text-xs text-foreground-neutral-primary font-mono",
+                                "{serde_json::to_string_pretty(&project.submission_data).unwrap_or_default()}"
+                            }
+                        }
+                    }
                 }
             }
 

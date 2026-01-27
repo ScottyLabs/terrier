@@ -10,6 +10,7 @@ pub use super::judge_feature_assignment::Entity as JudgeFeatureAssignment;
 pub use super::pairwise_comparison::Entity as PairwiseComparison;
 pub use super::prize::Entity as Prize;
 pub use super::prize_feature_weight::Entity as PrizeFeatureWeight;
+pub use super::prize_required_events::Entity as PrizeRequiredEvents;
 pub use super::prize_track_entry::Entity as PrizeTrackEntry;
 pub use super::project_feature_score::Entity as ProjectFeatureScore;
 pub use super::project_visit::Entity as ProjectVisit;

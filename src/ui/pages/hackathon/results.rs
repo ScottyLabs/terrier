@@ -202,6 +202,9 @@ fn ResultsTable(
                             "Team Name"
                         }
                         th { class: "text-left py-3 px-2 text-sm font-semibold text-foreground-neutral-primary",
+                            "Table"
+                        }
+                        th { class: "text-left py-3 px-2 text-sm font-semibold text-foreground-neutral-primary",
                             "Score"
                             span { class: "ml-1 text-xs text-foreground-neutral-tertiary", "ⓘ" }
                         }
@@ -219,7 +222,7 @@ fn ResultsTable(
                     if results.projects.is_empty() {
                         tr {
                             td {
-                                colspan: "{3 + results.features.len()}",
+                                colspan: "{4 + results.features.len()}",
                                 class: "text-center py-8 text-foreground-neutral-secondary",
                                 "No submissions yet"
                             }
@@ -238,6 +241,9 @@ fn ResultsTable(
                                         }
                                         td { class: "py-3 px-2 text-sm text-foreground-neutral-primary",
                                             "{project.team_name}"
+                                        }
+                                        td { class: "py-3 px-2 text-sm text-foreground-neutral-primary font-mono",
+                                            {project.table_number.clone().unwrap_or_else(|| "-".to_string())}
                                         }
                                         td { class: "py-3 px-2 text-sm text-foreground-neutral-primary",
                                             {format!("{:.2}", project.weighted_score.unwrap_or(0.0))}

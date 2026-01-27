@@ -347,14 +347,17 @@ pub async fn get_judging_status(slug: String) -> Result<JudgingStatus, ServerFnE
     let hackathon = ctx.hackathon()?;
 
     // Count total submissions (via teams belonging to this hackathon)
-    let hackathon_team_ids: Vec<i32> = teams::Entity::find()
+    let hackathon_teams: Vec<(i32, String)> = teams::Entity::find()
         .filter(teams::Column::HackathonId.eq(hackathon.id))
         .select_only()
         .column(teams::Column::Id)
-        .into_tuple::<i32>()
+        .column(teams::Column::Name)
+        .into_tuple::<(i32, String)>()
         .all(&ctx.state.db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch teams: {}", e)))?;
+
+    let hackathon_team_ids: Vec<i32> = hackathon_teams.iter().map(|(id, _)| *id).collect();
 
     let total_submissions = if hackathon_team_ids.is_empty() {
         0u64
@@ -383,8 +386,8 @@ pub async fn get_judging_status(slug: String) -> Result<JudgingStatus, ServerFnE
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to count visits: {}", e)))?;
 
-    // Count total comparisons (via features belonging to this hackathon)
-    let hackathon_feature_ids: Vec<i32> = feature::Entity::find()
+    // Count total comparisons
+    let feature_ids: Vec<i32> = feature::Entity::find()
         .filter(feature::Column::HackathonId.eq(hackathon.id))
         .select_only()
         .column(feature::Column::Id)
@@ -393,14 +396,51 @@ pub async fn get_judging_status(slug: String) -> Result<JudgingStatus, ServerFnE
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch features: {}", e)))?;
 
-    let total_comparisons = if hackathon_feature_ids.is_empty() {
+    let total_comparisons = if feature_ids.is_empty() {
         0u64
     } else {
         pairwise_comparison::Entity::find()
-            .filter(pairwise_comparison::Column::FeatureId.is_in(hackathon_feature_ids))
+            .filter(pairwise_comparison::Column::FeatureId.is_in(feature_ids))
             .count(&ctx.state.db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to count comparisons: {}", e)))?
+    };
+
+    // Count projects with tables assigned
+    let projects_with_tables = if hackathon_team_ids.is_empty() {
+        0u64
+    } else {
+        submission::Entity::find()
+            .filter(submission::Column::TeamId.is_in(hackathon_team_ids.clone()))
+            .filter(submission::Column::TableNumber.is_not_null())
+            .count(&ctx.state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to count assigned tables: {}", e)))?
+    };
+
+    // Find names of unassigned projects
+    let unassigned_projects = if hackathon_team_ids.is_empty() {
+        Vec::new()
+    } else {
+        let unassigned_subs = submission::Entity::find()
+            .filter(submission::Column::TeamId.is_in(hackathon_team_ids))
+            .filter(submission::Column::TableNumber.is_null())
+            .all(&ctx.state.db)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to fetch unassigned: {}", e)))?;
+
+        let team_names: std::collections::HashMap<i32, String> =
+            hackathon_teams.into_iter().collect();
+
+        let mut names = Vec::new();
+        for sub in unassigned_subs {
+            let team_name = team_names
+                .get(&sub.team_id)
+                .cloned()
+                .unwrap_or_else(|| "Unknown Team".to_string());
+            names.push(team_name);
+        }
+        names
     };
 
     Ok(JudgingStatus {
@@ -410,5 +450,7 @@ pub async fn get_judging_status(slug: String) -> Result<JudgingStatus, ServerFnE
         visited_submissions: visited_submissions as i64,
         total_visits: total_visits as i64,
         total_comparisons: total_comparisons as i64,
+        projects_with_tables: projects_with_tables as i64,
+        unassigned_projects,
     })
 }

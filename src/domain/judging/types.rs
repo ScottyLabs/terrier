@@ -52,6 +52,8 @@ pub struct JudgingStatus {
     pub visited_submissions: i64,
     pub total_visits: i64,
     pub total_comparisons: i64,
+    pub projects_with_tables: i64,
+    pub unassigned_projects: Vec<String>,
 }
 
 /// Feature definition for judging
@@ -157,6 +159,7 @@ pub struct CurrentProject {
     pub team_name: String,
     pub project_name: Option<String>,
     pub location: Option<String>,
+    pub table_number: Option<String>,
     pub description: Option<String>,
     pub submission_data: serde_json::Value,
 }
@@ -226,6 +229,7 @@ pub struct ProjectResultInfo {
     pub team_name: String,
     pub weighted_score: Option<f32>,
     pub rank: i32,
+    pub table_number: Option<String>,
     pub feature_ranks: Vec<FeatureRankInfo>,
     pub description: Option<String>,
     pub repo_url: Option<String>,

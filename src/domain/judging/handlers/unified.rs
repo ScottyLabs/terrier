@@ -118,7 +118,8 @@ pub async fn get_unified_state(slug: String) -> Result<UnifiedJudgingState, Serv
                 .get("projectName")
                 .and_then(|n| n.as_str())
                 .map(|s| s.to_string()),
-            location: None,
+            location: None, // Deprecated in favor of table_number
+            table_number: sub.table_number.clone(),
             description: sub
                 .submission_data
                 .get("description")
@@ -211,9 +212,10 @@ pub async fn request_next_project(slug: String) -> Result<Option<CurrentProject>
         return Ok(None);
     }
 
-    // Get all submissions
+    // Get all submissions with a table number assigned
     let all_submissions = submission::Entity::find()
         .filter(submission::Column::TeamId.is_in(team_ids.clone()))
+        .filter(submission::Column::TableNumber.is_not_null())
         .all(&txn)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to fetch submissions: {}", e)))?;
@@ -372,6 +374,7 @@ pub async fn request_next_project(slug: String) -> Result<Option<CurrentProject>
             .and_then(|n| n.as_str())
             .map(|s| s.to_string()),
         location: None,
+        table_number: selected_sub.table_number.clone(),
         description: selected_sub
             .submission_data
             .get("description")

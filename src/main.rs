@@ -97,6 +97,11 @@ pub enum Route {
                     slug: String,
                     user_id: i32
                 },
+            #[route("/table-checkin/:table_number")]
+                HackathonTableCheckin {
+                    slug: String,
+                    table_number: String
+                },
             #[route("/profile")]
                 HackathonProfile {
                     slug: String

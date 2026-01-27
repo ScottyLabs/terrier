@@ -30,6 +30,8 @@ pub enum Relation {
     Hackathons,
     #[sea_orm(has_many = "super::prize_feature_weight::Entity")]
     PrizeFeatureWeight,
+    #[sea_orm(has_many = "super::prize_required_events::Entity")]
+    PrizeRequiredEvents,
     #[sea_orm(has_many = "super::prize_track_entry::Entity")]
     PrizeTrackEntry,
 }
@@ -46,9 +48,24 @@ impl Related<super::prize_feature_weight::Entity> for Entity {
     }
 }
 
+impl Related<super::prize_required_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PrizeRequiredEvents.def()
+    }
+}
+
 impl Related<super::prize_track_entry::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PrizeTrackEntry.def()
+    }
+}
+
+impl Related<super::events::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::prize_required_events::Relation::Events.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::prize_required_events::Relation::Prize.def().rev())
     }
 }
 

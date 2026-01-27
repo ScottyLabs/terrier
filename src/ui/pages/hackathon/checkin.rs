@@ -279,7 +279,7 @@ fn ParticipantCheckinView(
                                     }
                                 }
                                 div {
-                                    class: "bg-white rounded-xl p-4",
+                                    class: "bg-background-neutral-primary rounded-xl p-4",
                                     dangerous_inner_html: "{qr_svg}",
                                 }
                                 p { class: "text-xs text-foreground-neutral-tertiary text-center mt-2",
@@ -322,7 +322,7 @@ fn EventCard(
 
     rsx! {
         button {
-            class: "w-full rounded-2xl px-4 py-4 flex items-center gap-4 text-left shadow-sm {bg_class} hover:bg-blue-gray-200 transition-colors",
+            class: "w-full rounded-2xl px-4 py-4 flex items-center gap-4 text-left shadow-sm {bg_class} hover:bg-background-neutral-tertiary-hover transition-colors",
             onclick: move |_| on_click.call(event_for_click.clone()),
             // Icon/checkbox
             div { class: "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -837,7 +837,7 @@ fn EventDetailPanel(slug: String, event: ScheduleEvent, on_refresh: EventHandler
 
                     // Participant info card
                     div { class: "flex items-center gap-3 px-4 py-3 bg-background-neutral-primary rounded-xl mb-6",
-                        div { class: "w-10 h-10 rounded-full bg-gray-300 flex-shrink-0" }
+                        div { class: "w-10 h-10 rounded-full bg-background-neutral-tertiary flex-shrink-0" }
                         div { class: "flex-1",
                             p { class: "font-medium text-foreground-neutral-primary",
                                 "{participant.name}"
@@ -991,7 +991,7 @@ fn AttendeeRow(
     rsx! {
         div { class: "flex items-center gap-3 px-3 py-2 rounded-lg bg-background-neutral-secondary",
             // Avatar placeholder
-            div { class: "w-8 h-8 rounded-full bg-gray-300 flex-shrink-0" }
+            div { class: "w-8 h-8 rounded-full bg-background-neutral-tertiary flex-shrink-0" }
 
             // Name
             div { class: "flex-1",

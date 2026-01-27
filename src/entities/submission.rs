@@ -14,6 +14,7 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub submission_data: Json,
     pub submitted_at: DateTime,
+    pub table_number: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

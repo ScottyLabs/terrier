@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     Icon,
-    icons::ld_icons::{LdPlus, LdX},
+    icons::ld_icons::{LdPlus, LdTriangleAlert, LdX},
 };
 
 use crate::{
@@ -542,6 +542,43 @@ pub fn HackathonJudgingAdmin(slug: String) -> Element {
                                 "{s.visited_submissions}/{s.total_submissions}"
                             }
                         }
+                        div { class: "p-4 border border-stroke-neutral-1 rounded-lg",
+                            div { class: "text-sm text-foreground-neutral-secondary",
+                                "Tables Assigned"
+                            }
+                            div {
+                                class: "text-lg font-semibold",
+                                class: if s.projects_with_tables == s.total_submissions { "text-foreground-neutral-primary" } else { "text-foreground-danger-primary" },
+                                "{s.projects_with_tables}/{s.total_submissions}"
+                            }
+                        }
+                    }
+
+                    if !s.unassigned_projects.is_empty() {
+                        div { class: "mb-6 p-4 bg-background-danger-secondary rounded-lg border border-stroke-neutral-1",
+                            div { class: "flex items-center gap-2 mb-2",
+                                span { class: "text-foreground-danger-primary",
+                                    Icon {
+                                        width: 20,
+                                        height: 20,
+                                        icon: LdTriangleAlert,
+                                    }
+                                }
+                                span { class: "text-foreground-danger-primary font-bold",
+                                    "Projects missing table numbers:"
+                                }
+                                span { class: "text-xs px-2 py-0.5 bg-foreground-danger-primary text-white rounded-full",
+                                    "{s.unassigned_projects.len()}"
+                                }
+                            }
+                            div { class: "flex flex-wrap gap-2",
+                                for team in s.unassigned_projects.iter() {
+                                    span { class: "text-xs px-2 py-1 bg-background-neutral-primary border border-stroke-neutral-1 rounded text-foreground-neutral-primary",
+                                        "{team}"
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     div { class: "grid grid-cols-2 gap-4 mb-6",
@@ -664,6 +701,10 @@ pub fn HackathonJudgingAdmin(slug: String) -> Element {
                                                     class: "p-6 border rounded-lg cursor-pointer transition-colors",
                                                     class: if is_selected { "border-foreground-neutral-primary bg-background-neutral-secondary-enabled" } else { "border-stroke-neutral-1 hover:border-stroke-neutral-2" },
                                                     onclick: move |_| select_feature(feature_clone.clone()),
+
+
+
+
 
                                                     div { class: "flex items-center justify-between mb-2",
                                                         h3 { class: "font-semibold text-lg text-foreground-neutral-primary", "{feature.name}" }

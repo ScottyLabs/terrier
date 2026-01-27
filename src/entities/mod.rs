@@ -12,6 +12,7 @@ pub mod judge_feature_assignment;
 pub mod pairwise_comparison;
 pub mod prize;
 pub mod prize_feature_weight;
+pub mod prize_required_events;
 pub mod prize_track_entry;
 pub mod project_feature_score;
 pub mod project_visit;

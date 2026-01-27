@@ -396,6 +396,7 @@ pub async fn get_prize_track_results(
             team_name,
             weighted_score: Some(weighted_score),
             rank: 0,
+            table_number: sub.table_number.clone(),
             feature_ranks,
             description,
             repo_url,
