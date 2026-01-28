@@ -107,7 +107,7 @@ pub async fn update_hackathon_rankings(
         // 5. Calculate scores using Rank struct
         // Initialize means with 0.0
         let means = vec![0.0; n];
-        let mut rank_algo = Rank::new(means, ranks);
+        let mut rank_algo = Rank::new(ranks);
         rank_algo.calc_expected_means();
 
         // Note: Rank struct and calc_expected_means must be public/accessible
