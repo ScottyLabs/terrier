@@ -45,6 +45,8 @@
 //! - [`types`] - DTOs for request/response data
 
 pub mod handlers;
+#[cfg(feature = "server")]
 pub mod rank;
+#[cfg(feature = "server")]
 pub mod score;
 pub mod types;

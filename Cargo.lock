@@ -7725,6 +7725,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "statrs",
  "tokio",
  "tower",
  "tower-http",

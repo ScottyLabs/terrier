@@ -1,6 +1,7 @@
+#![cfg(feature = "server")]
+
 use ndarray::Array2;
 use scirs2_optimize::unconstrained::{Method, minimize};
-use scirs2_stats::distributions::Normal;
 use statrs::distribution::{ContinuousCDF, Normal};
 use std::error::Error;
 
