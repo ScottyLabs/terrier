@@ -111,6 +111,7 @@ pub async fn request_assignment(slug: String) -> Result<Option<JudgeAssignment>,
     };
 
     // Filter out submissions already visited by this judge or currently being visited
+    let mut lowest_visits = 1000000;
     let mut candidate = None;
     for sub in available_submissions {
         // Check if this judge has already visited this submission
@@ -137,9 +138,20 @@ pub async fn request_assignment(slug: String) -> Result<Option<JudgeAssignment>,
             continue;
         }
 
+        let count_visits = project_visit::Entity::find()
+            .filter(project_visit::Column::SubmissionId.eq(sub.id))
+            .count(&txn)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to count past visits: {}", e)))?;
+
         // This submission is available
-        candidate = Some(sub);
-        break;
+        if count_visits < lowest_visits {
+            candidate = Some(sub);
+            lowest_visits = count_visits;
+        }
+        if count_visits == 0 {
+            break;
+        }
     }
 
     let sub = match candidate {
