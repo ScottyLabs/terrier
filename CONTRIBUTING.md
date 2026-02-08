@@ -1,0 +1,57 @@
+# Contributing
+
+Thank you for your interest in contributing to Terrier!
+
+## Getting Started
+
+1. Fork the repository
+2. Clone your fork: `git clone ssh://git@codeberg.org/ScottyLabs/terrier.git`
+3. Create a branch: `git checkout -b feature/your-feature-name`
+4. Make your changes
+5. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/)
+6. Push and open a pull request
+
+## Types of Contributions
+
+### Bug Fixes & Small Features
+
+For minor changes:
+
+1. Open an issue describing the bug or feature
+2. Submit a PR referencing the issue
+
+### Major Features
+
+For significant changes that affect multiple parts of the application:
+
+1. Read the [RFC process](./rfcs/README.md)
+2. Draft an RFC document
+3. Open a PR with your RFC
+4. Participate in discussion
+5. Once accepted, implement the feature
+
+### For Maintainers
+
+When reviewing PRs:
+
+- Be wary of AI-assisted contributions and place emphasis on code quality
+- If code seems incorrect, provide constructive feedback, even if it was obviously AI-generated
+- Encourage contributors to explain their approach
+
+## Pull Request Process
+
+1. Update documentation if behavior changes
+2. Ensure CI passes (tests, lints, formatting)
+3. Request review from at least one maintainer
+4. Address feedback and iterate
+5. Once approved, a maintainer will merge
+
+## Questions?
+
+- Open an issue for bugs or feature requests
+- Join [our Discord](https://go.scottylabs.org/discord) for real-time discussion
+- Review [RFCs](./rfcs) for architectural context
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the [AGPL-3.0 License](./LICENSE).
