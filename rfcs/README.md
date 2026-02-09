@@ -92,8 +92,7 @@ This makes it easy to identify RFC branches in the repository.
 
 Examples:
 - `0001-core-architecture-tech-stack.md`
-- `0002-data-layer-architecture.md`
-- `0003-authentication-authorization.md`
+- `0002-dev-environment-ci.md`
 
 Zero-pad numbers to 4 digits for consistent sorting.
 
@@ -101,7 +100,8 @@ Zero-pad numbers to 4 digits for consistent sorting.
 
 | Number | Title | Status |
 |--------|-------|--------|
-| 0001 | [Core Architecture & Tech Stack](./0001-core-architecture-tech-stack.md) | Draft |
+| 0001 | [Core Architecture & Tech Stack](./0001-core-architecture-tech-stack.md) | Accepted |
+| 0002 | [Development Environment & CI](./0002-dev-environment-ci.md) | Accepted |
 
 *(This index will be updated as RFCs are added)*
 
