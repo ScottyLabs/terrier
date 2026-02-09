@@ -46,6 +46,37 @@ When reviewing PRs:
 4. Address feedback and iterate
 5. Once approved, a maintainer will merge
 
+## Merge Policy
+
+This project maintains a linear history without merge commits. We use the rebase and squash strategies exclusively.
+
+### Submitting Pull Requests
+
+When your PR is ready to merge, maintainers will choose between:
+
+- **Rebase and merge.** Use when your commits are clean and meaningful. Each commit will appear in the main branch history as-is.
+- **Squash and merge.** Use when commits should be condensed (e.g., multiple "WIP" or "fix typo" commits). All PR commits combine into a single commit.
+
+### Handling Merge Conflicts
+
+If your PR falls behind the main branch, never merge upstream changes into your branch. Always rebase instead:
+
+```bash
+# Fetch the latest changes
+git fetch origin main
+
+# Rebase your branch onto main
+git rebase origin/main
+
+# Resolve any conflicts, then continue
+git rebase --continue
+
+# Force-push to update your PR
+git push --force
+```
+
+Do not use `git merge` to update your branch. This ensures a clean, linear history when your PR is merged.
+
 ## Questions?
 
 - Open an issue for bugs or feature requests
