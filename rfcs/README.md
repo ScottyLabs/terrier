@@ -76,25 +76,15 @@ If this is a large change, how should it be broken down?
 
 ## Naming Convention
 
-RFCs are numbered sequentially and use kebab-case:
+RFCs are numbered sequentially (zero-padded to 4 digits for consistent sorting) and use kebab-case:
+
 ```
 ####-short-descriptive-title.md
 ```
 
-When submitting RFCs, create branches with the `rfc/` prefix:
+When submitting RFCs, create branches with the `rfc/` prefix, e.g. `rfc/0002-dev-environment-ci`. This makes it easy to identify RFC branches in the repository.
 
-```
-rfc/0002-data-layer
-rfc/0003-authentication
-```
-
-This makes it easy to identify RFC branches in the repository.
-
-Examples:
-- `0001-core-architecture-tech-stack.md`
-- `0002-dev-environment-ci.md`
-
-Zero-pad numbers to 4 digits for consistent sorting.
+The filename should match the branch name, e.g. `0002-dev-environment-ci.md`.
 
 ## Current RFCs
 
@@ -102,6 +92,7 @@ Zero-pad numbers to 4 digits for consistent sorting.
 |--------|-------|--------|
 | 0001 | [Core Architecture & Tech Stack](./0001-core-architecture-tech-stack.md) | Accepted |
 | 0002 | [Development Environment & CI](./0002-dev-environment-ci.md) | Accepted |
+| 0003 | [Build Performance & Developer Workflow](./0003-build-performance-dev-workflow.md) | Accepted |
 
 *(This index will be updated as RFCs are added)*
 
