@@ -111,5 +111,18 @@ in
     };
     rustfmt.enable = true;
     biome.enable = true;
+    cargo-nix-update = {
+      enable = true;
+      name = "cargo-nix-update";
+      entry = "${pkgs.writeShellScript "cargo-nix-update" ''
+        if git diff --cached --name-only | grep -q '^Cargo\.\(toml\|lock\)'; then
+          ${pkgs.crate2nix}/bin/crate2nix generate
+          git add Cargo.nix
+        fi
+      ''}";
+      files = "Cargo\\.(toml|lock)$";
+      language = "system";
+      pass_filenames = false;
+    };
   };
 }

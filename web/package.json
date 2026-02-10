@@ -10,7 +10,8 @@
         "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
         "generate-api": "openapi-typescript http://localhost:3000/api-docs/openapi.json -o src/lib/api/schema.d.ts",
         "lint": "biome check .",
-        "format": "biome format --write ."
+        "format": "biome format --write .",
+        "postinstall": "bun2nix"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.3.14",

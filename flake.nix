@@ -6,7 +6,6 @@
     extra-trusted-public-keys = [
       "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
     ];
-    allow-import-from-derivation = true;
   };
 
   inputs = {
@@ -20,13 +19,9 @@
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    crate2nix = {
-      url = "github:nix-community/crate2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, devenv, nix2container, bun2nix, crate2nix, ... }:
+  outputs = { self, nixpkgs, devenv, nix2container, bun2nix, ... }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -45,13 +40,16 @@
         // (nixpkgs.lib.optionalAttrs (system == "x86_64-linux") (
           let
             nix2containerPkgs = nix2container.packages.${system};
-            mkBunDerivation = bun2nix.lib.${system}.mkBunDerivation;
+            b2n = bun2nix.packages.${system}.default;
 
-            terrierWeb = mkBunDerivation {
+            terrierWeb = b2n.mkDerivation {
               pname = "terrier-web";
               version = "0.1.0";
               src = ./web;
-              bunNix = ./web/bun.nix;
+
+              bunDeps = b2n.fetchBunDeps {
+                bunNix = ./web/bun.nix;
+              };
 
               buildPhase = ''
                 bun run build
@@ -63,10 +61,7 @@
               '';
             };
 
-            cargoNix = crate2nix.tools.${system}.appliedCargoNix {
-              name = "terrier";
-              src = ./.;
-            };
+            cargoNix = pkgs.callPackage ./Cargo.nix { };
 
             terrier = cargoNix.workspaceMembers.terrier-server.build.override {
               crateOverrides = pkgs.defaultCrateOverrides // {
