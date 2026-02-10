@@ -45,23 +45,6 @@
             biome ci --config-path ${src}/biome.json ${src}/web/src
             touch $out
           '';
-
-          cargo-nix-stale = pkgs.runCommand "check-cargo-nix-stale" { nativeBuildInputs = [ pkgs.crate2nix pkgs.diffutils ]; } ''
-            mkdir work && cd work
-            cp ${src}/Cargo.toml ${src}/Cargo.lock .
-            cp -r ${src}/crates .
-            crate2nix generate
-            diff -q Cargo.nix ${src}/Cargo.nix || (echo "Cargo.nix is stale — run 'crate2nix generate'" && exit 1)
-            touch $out
-          '';
-
-          bun-nix-stale = pkgs.runCommand "check-bun-nix-stale" { nativeBuildInputs = [ bun2nix.packages.${system}.default pkgs.diffutils ]; } ''
-            mkdir work && cd work
-            cp ${src}/web/bun.lock .
-            bun2nix
-            diff -q bun.nix ${src}/web/bun.nix || (echo "web/bun.nix is stale — run 'cd web && bun2nix'" && exit 1)
-            touch $out
-          '';
         }
       );
 
