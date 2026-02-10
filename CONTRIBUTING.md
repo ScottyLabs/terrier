@@ -5,7 +5,7 @@ Thank you for your interest in contributing to Terrier!
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone ssh://git@codeberg.org/ScottyLabs/terrier.git`
+2. Clone your fork: `git clone git@github.com:ScottyLabs/terrier.git`
 3. Create a branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/)

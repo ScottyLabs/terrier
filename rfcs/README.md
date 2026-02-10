@@ -22,7 +22,7 @@ Small bug fixes, documentation improvements, and minor features don't need RFCs.
 2. **Review** - Team discusses in PR comments, author revises based on feedback
 3. **Accepted/Rejected** - RFC is either merged (accepted) or closed (rejected)
 
-Accepted RFCs live permanently in this directory as historical documentation of why decisions were made.
+Accepted RFCs live permanently in this directory as historical documentation of why decisions were made. When implementing an RFC, if there are any implementation details that need to be discussed or changed, the RFC should be updated to reflect those details.
 
 ## RFC Format
 

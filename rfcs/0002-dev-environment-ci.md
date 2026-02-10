@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1 
 - **Created:** 2026-02-09  
-- **Updated:** 2026-02-09
+- **Updated:** 2026-02-10
 
 ## Overview
 
-This RFC defines the development environment setup and CI/CD strategy for Terrier. It covers local development tooling (devenv, direnv, process-compose), required services for development, Nix installation requirements, and the CI pipeline using Garnix on our GitHub mirror with container publishing to Codeberg's registry.
+This RFC defines the development environment setup and CI/CD strategy for Terrier. It covers local development tooling (devenv, direnv, process-compose), required services for development, Nix installation requirements, and the CI pipeline using Garnix on GitHub with container publishing to GitHub Container Registry (ghcr.io).
 
 ## Motivation
 
@@ -72,19 +72,15 @@ All services run via process-compose defined in devenv.nix:
 
 1. **PostgreSQL** (primary database)
    - Initialized with development schema
-   - Accessible at localhost:5432, local connection via Unix socket
+   - Accessible via Unix socket (no TCP in development)
    - Database migrations run automatically via sea-orm in main.rs at startup
 
-2. **pgAdmin** (database GUI)
-   - Web interface for database inspection
-   - Pre-configured connection to local Postgres
+2. **Valkey** (Open-source Redis fork - sessions, cache, pub/sub)
+   - Accessible via Unix socket (no TCP in development)
 
-3. **Valkey** (Open-source Redis fork - sessions, cache, pub/sub)
-   - Accessible at localhost:6379
-
-4. **MinIO** (S3-compatible object storage)
+3. **MinIO** (S3-compatible object storage)
    - Local S3 for file uploads
-   - MinIO Console enabled for browsing buckets
+   - MinIO Console enabled for browsing buckets (port 9001)
 
 **Non-local services:**
 
@@ -126,19 +122,18 @@ We use Garnix for CI rather than GitHub Actions or Forgejo Actions. Garnix has t
 - Zero-configuration Nix caching (content-addressed, globally deduplicated)
 - No special cache setup required
 - Cache shared between all garnix users (if someone built a derivation, you get it)
-- Works with the GitHub mirror without compromising Codeberg as primary
+- Native GitHub integration (PR status checks, branch builds)
 
-We keep our existing self-hosted Forgejo runners available for Codeberg-specific workflows if needed.
+The repository is hosted on GitHub as the primary, with an automatic mirror to Codeberg. This gives us full Garnix integration including PR builds and status checks, which wouldn't be possible with a Codeberg-primary setup since Garnix only supports GitHub. The Codeberg mirror ensures the project remains accessible on a FOSS-friendly platform.
 
 **Workflow:**
 
-1. Code pushed to Codeberg (primary)
-2. Codeberg auto-mirrors to GitHub, which is a given
-3. GitHub webhook triggers Garnix
-4. Garnix builds on Garnix's servers
-5. Results cached at cache.garnix.io
-6. Status posted to GitHub
-7. Garnix pushes container images directly to Codeberg registry
+1. Code pushed to GitHub (primary)
+2. GitHub webhook triggers Garnix / Codeberg mirroring
+3. Garnix builds on Garnix's servers
+4. Results cached at cache.garnix.io
+5. Status posted to GitHub PR / commit
+6. On push to main, Garnix Action pushes container image to ghcr.io
 
 Garnix automatically evaluates the flake and builds:
 
@@ -206,39 +201,20 @@ Additional benefits of nix2container:
 - Doesn't write tarballs to /nix/store
 - Skips already-pushed layers and deduplicates them
 
-**Registry:**
-
-We publish containers to Codeberg's container registry at `codeberg.org/scottylabs/terrier`. This keeps artifacts aligned with the primary repository on Codeberg.
-
-Images are pulled in docker-compose.yml as:
+We publish containers to GitHub Container Registry at `ghcr.io/scottylabs/terrier`. Images are pulled in docker-compose.yml as:
 
 ```yaml
 services:
   terrier:
-    image: codeberg.org/scottylabs/terrier:latest
+    image: ghcr.io/scottylabs/terrier:latest
 ```
 
 **Publishing workflow:**
 
-Garnix builds container images and pushes directly to Codeberg registry. This requires configuring Garnix with:
+Garnix Actions push container images to ghcr.io after successful builds on the main branch. This requires configuring Garnix with:
 
-- Codeberg registry credentials (PAT or service account)
-- Push action configured to target `codeberg.org/scottylabs/terrier`
-
-Details of exact Garnix configuration will be determined during implementation.
-
-**Codeberg storage quotas:**
-
-Codeberg has default storage limits (750 MiB git, 1.5 GB LFS, separate container registry limits). Container images will likely exceed defaults quickly. Codeberg's philosophy: "We will grant every project the resources it needs, provided that we can afford them... there is no quota for valid use-cases."
-
-When we reach halfway to storage limits, we'll submit an exception request via https://codeberg.org/Codeberg-e.V./requests with:
-
-- Project description (AGPL-3.0 hackathon platform)
-- Use case (self-hostable product, distributing containers)
-- Estimated needs (container images with multiple release tags)
-- ScottyLabs/CMU context
-
-Terrier fits exactly the kind of FOSS project Codeberg wants to support, so approval is expected. Otherwise, we can explore alternative hosting solutions.
+- GitHub Container Registry credentials (GitHub PAT or `GITHUB_TOKEN` with `packages:write` scope)
+- A Garnix Action that runs `skopeo copy` or equivalent to push the nix2container image to ghcr.io
 
 ### Git Hooks
 
@@ -246,8 +222,8 @@ Pre-commit hooks managed via devenv's pre-commit integration. Hooks are defined 
 
 - `nixpkgs-fmt` - Nix code formatting
 - `clippy` - Rust linting
+- `rustfmt` - Rust code formatting
 - `biome` - Frontend linting and formatting (TypeScript, Svelte, JSON, etc.)
-- `cargo test` - Tests before commit
 
 **Note on frontend tooling:** We currently use Biome for frontend linting and formatting. We may switch to oxc (oxlint/oxfmt) in the future once it has better Svelte support.
 
@@ -305,47 +281,48 @@ We could run everything on our self-hosted Forgejo runners and self-hosted cache
 - Garnix cache is globally shared 
 - Faster builds than setting up our own cache
 
-**Codeberg Registry vs. ghcr.io vs. Docker Hub:**
+**ghcr.io vs. Codeberg Registry vs. Docker Hub:**
 
-We considered publishing containers to GitHub Container Registry or Docker Hub. We chose Codeberg registry because:
+We chose GitHub Container Registry (ghcr.io) because:
 
-- Keeps artifacts with primary repository
-- Philosophically consistent (don't strengthen GitHub's network effects)
-- Codeberg supports FOSS projects generously
+- Integrates naturally with our GitHub-primary setup
+- Generous storage for public packages (no exception requests needed)
+- Garnix Actions can push directly after builds
 
-ghcr.io would be simpler (no exception request needed) but compromises our principle of keeping infrastructure on Codeberg where practical.
+Codeberg registry was considered but adds complexity (cross-platform credential management) and storage quota constraints. Docker Hub has rate limits and requires a separate account.
 
 ## Open Questions
 
 1. **Valkey GUI:** Do we include Redis Commander in process-compose, or is valkey-cli sufficient for development? Trade-off is convenience vs. lighter dev environment.
 
-2. **Garnix -> Codeberg registry:** What's the exact configuration for Garnix to push directly to Codeberg registry? Need to verify Garnix supports this or if we need a Forgejo Action bridge.
+2. **Container tagging strategy:** Do we tag with git commit SHA, semantic version, both? How do we handle `latest` tag?
 
-3. **Container tagging strategy:** Do we tag with git commit SHA, semantic version, both? How do we handle `latest` tag?
+3. **GithubCodebergMirror hosting:** There exists a mirror bot that can mirror GitHub PRs, issues, etc. to Codeberg in addition to the git repository. It could run on our NixOS VMs, but it requires writing a flake.nix file to define the bot's configuration and dependencies.
 
 ## Implementation Phases
 
 ### Development Environment Setup
 
-- Create devenv.nix with all services (Postgres, pgAdmin, Valkey, MinIO)
+- Create devenv.nix with all services (Postgres, Valkey, MinIO)
 - Configure process-compose for service orchestration
 - Add .envrc for direnv integration
 - Test on macOS, Linux, WSL
 - Write setup guides for each platform
-- Configure git hooks via pre-commit (nixpkgs-fmt, clippy, biome, cargo test)
+- Configure git hooks via pre-commit (nixpkgs-fmt, clippy, rustfmt, biome)
 
 ### CI Configuration
 
-- Install Garnix GitHub App on scottylabs/terrier mirror
+- Install Garnix GitHub App on scottylabs/terrier
 - Add garnix.yaml if we need custom build configuration
 - Verify CI builds packages, checks, devShells
 - Add garnix cache to flake.nix nixConfig
 - Test cache hit rates and build times
+- Set up GithubCodebergMirror for Codeberg sync
 
 ### Container Publishing
 
 - Define container using nix2container in flake.nix
-- Configure Garnix to push to Codeberg registry
-- Test end-to-end: code push -> mirror -> garnix -> registry
-- Update docker-compose.yml to pull from Codeberg
+- Configure Garnix Action to push to ghcr.io
+- Test end-to-end: code push -> garnix -> ghcr.io
+- Update docker-compose.yml to pull from ghcr.io
 - Document container publishing workflow
