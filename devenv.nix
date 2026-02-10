@@ -1,7 +1,8 @@
 { pkgs, config, ... }:
 
 let
-  terrier = config.languages.rust.import ./. { };
+  cargoNix = pkgs.callPackage ./Cargo.nix { };
+  terrier = cargoNix.workspaceMembers.terrier-server.build;
 
   # the minio module can only use its MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
   # env vars, so ensure they match our S3_ACCESS_KEY and S3_SECRET_KEY vars

@@ -30,6 +30,41 @@
     {
       formatter = forAllSystems (system: (pkgsFor system).nixpkgs-fmt);
 
+      checks = forAllSystems (system:
+        let
+          pkgs = pkgsFor system;
+          src = ./.;
+        in
+        {
+          nixpkgs-fmt = pkgs.runCommand "check-nixpkgs-fmt" { nativeBuildInputs = [ pkgs.nixpkgs-fmt ]; } ''
+            find ${src} -name '*.nix' -not -path '*/node_modules/*' -not -name 'Cargo.nix' -not -name 'bun.nix' | xargs nixpkgs-fmt --check
+            touch $out
+          '';
+
+          biome = pkgs.runCommand "check-biome" { nativeBuildInputs = [ pkgs.biome ]; } ''
+            biome ci --config-path ${src}/biome.json ${src}/web/src
+            touch $out
+          '';
+
+          cargo-nix-stale = pkgs.runCommand "check-cargo-nix-stale" { nativeBuildInputs = [ pkgs.crate2nix pkgs.diffutils ]; } ''
+            mkdir work && cd work
+            cp ${src}/Cargo.toml ${src}/Cargo.lock .
+            cp -r ${src}/crates .
+            crate2nix generate
+            diff -q Cargo.nix ${src}/Cargo.nix || (echo "Cargo.nix is stale — run 'crate2nix generate'" && exit 1)
+            touch $out
+          '';
+
+          bun-nix-stale = pkgs.runCommand "check-bun-nix-stale" { nativeBuildInputs = [ bun2nix.packages.${system}.default pkgs.diffutils ]; } ''
+            mkdir work && cd work
+            cp ${src}/web/bun.lock .
+            bun2nix
+            diff -q bun.nix ${src}/web/bun.nix || (echo "web/bun.nix is stale — run 'cd web && bun2nix'" && exit 1)
+            touch $out
+          '';
+        }
+      );
+
       packages = forAllSystems (system:
         let
           pkgs = pkgsFor system;
