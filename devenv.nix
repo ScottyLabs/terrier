@@ -12,6 +12,8 @@ let
   };
 in
 {
+  cachix.pull = [ "scottylabs" ];
+
   packages = [
     terrier
   ] ++ (with pkgs; [
@@ -103,15 +105,31 @@ in
     period_seconds = 0.5;
   };
 
+  treefmt = {
+    enable = true;
+    config.programs = {
+      nixpkgs-fmt.enable = true;
+      rustfmt.enable = true;
+      mdformat.enable = true;
+    };
+    # TODO: treefmt-nix's built-in biome program doesn't support pointing to an
+    # existing biome.jsons. We use a custom formatter so biome.json remains the
+    # single source of truth for both treefmt and editor integration.
+    config.settings.formatter.biome = {
+      command = "${pkgs.biome}/bin/biome";
+      options = [ "check" "--write" "--no-errors-on-unmatched" "--config-path" "${config.devenv.root}/biome.json" ];
+      # TODO: biome check --write doesn't format .svelte files yet, only lints
+      includes = [ "*.js" "*.ts" "*.mjs" "*.mts" "*.cjs" "*.cts" "*.jsx" "*.tsx" "*.d.ts" "*.d.cts" "*.d.mts" "*.json" "*.jsonc" "*.css" ];
+    };
+  };
+
   git-hooks.hooks = {
-    nixpkgs-fmt.enable = true;
+    treefmt.enable = true;
     clippy = {
       enable = true;
       packageOverrides.cargo = config.languages.rust.toolchainPackage;
       packageOverrides.clippy = config.languages.rust.toolchainPackage;
     };
-    rustfmt.enable = true;
-    biome.enable = true;
     cargo-nix-update = {
       enable = true;
       name = "cargo-nix-update";

@@ -16,7 +16,7 @@ Rust compile times directly impact developer productivity. Additionally, the dev
 ## Goals
 
 - Minimize developer iteration time through hot reloading and compilation optimization
-- Optimize CI and production build times without sacrificing runtime performance  
+- Optimize CI and production build times without sacrificing runtime performance
 - Maximize cache reuse across local development, CI, and production builds
 - Maintain clear separation between development and production build configurations
 - Use a single source of truth for build settings within each environment
@@ -62,7 +62,7 @@ Hot reloading works at a different layer than compilation, so it's compatible wi
 
 #### Fast Linkers
 
-**Linux:** mold 
+**Linux:** mold
 
 ```nix
 # devenv.nix
@@ -157,7 +157,7 @@ We do not use sccache because it conflicts with incremental compilation. sccache
 
 #### CI and Production
 
-Garnix CI reads flake outputs and builds all packages:
+CI (self-hosted Forgejo runner) reads flake outputs and builds all packages:
 
 ```bash
 nix eval .#packages.x86_64-linux --apply builtins.attrNames
@@ -167,9 +167,10 @@ nix build .#terrier
 nix build .#terrierImage
 ```
 
-Results are cached to cache.garnix.io and shared across:
+Results are cached to Cachix and shared across:
+
 - All PRs and branches in the repository
-- Other repositories using Garnix
+- Other repositories using our Cachix
 - Local development machines
 
 The cache stores per-crate derivations from crate2nix, so only changed crates need to rebuild across CI runs.
@@ -226,7 +227,7 @@ Only package metadata and dependencies. Profile settings are handled via environ
 
 ### Production Builds
 
-Production builds are defined in the same `flake.nix` that provides the devenv binary and Garnix cache configuration. This keeps all Nix configuration in one place. Production packages (terrier, terrierWeb, terrierImage) are only built for `x86_64-linux`.
+Production builds are defined in the same `flake.nix` that provides the devenv binary and Cachix cache configuration. This keeps all Nix configuration in one place. Production packages (terrier, terrierWeb, terrierImage) are only built for `x86_64-linux`.
 
 The frontend is built using bun2nix (`mkBunDerivation`), which generates Nix derivations from `bun.lock` for sandboxed builds without network access. The built frontend assets are embedded into the backend binary's `assets/` directory during the Rust build.
 
@@ -281,8 +282,8 @@ packages.terrierImage = nix2container.buildImage {
 ## Implementation Phases
 
 1. Configure devenv.nix with development optimizations (mold, parallel frontend, Cranelift)
-2. Configure .cargo/config.toml for platform-specific settings
-3. Create flake.nix for production builds
-4. Set up nix2container for container images
-5. Configure Garnix CI to build and cache production outputs
-6. Document hot reloading workflow with Subsecond
+1. Configure .cargo/config.toml for platform-specific settings
+1. Create flake.nix for production builds
+1. Set up nix2container for container images
+1. Configure Forgejo CI with Cachix to build and cache production outputs
+1. Document hot reloading workflow with Subsecond

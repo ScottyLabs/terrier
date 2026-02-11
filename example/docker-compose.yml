@@ -1,6 +1,6 @@
 services:
   terrier:
-    image: ghcr.io/scottylabs/terrier:latest
+    image: codeberg.org/scottylabs/terrier:latest
     env_file: .env
     ports:
       - "3000:3000"

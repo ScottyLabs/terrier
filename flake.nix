@@ -2,9 +2,9 @@
   description = "Terrier";
 
   nixConfig = {
-    extra-substituters = [ "https://cache.garnix.io" ];
+    extra-substituters = [ "https://scottylabs.cachix.org" ];
     extra-trusted-public-keys = [
-      "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
+      "scottylabs.cachix.org-1:hajjEX5SLi/Y7yYloiXTt2IOr3towcTGRhMh1vu6Tjg="
     ];
   };
 
@@ -28,26 +28,6 @@
       pkgsFor = system: nixpkgs.legacyPackages.${system};
     in
     {
-      formatter = forAllSystems (system: (pkgsFor system).nixpkgs-fmt);
-
-      checks = forAllSystems (system:
-        let
-          pkgs = pkgsFor system;
-          src = ./.;
-        in
-        {
-          nixpkgs-fmt = pkgs.runCommand "check-nixpkgs-fmt" { nativeBuildInputs = [ pkgs.nixpkgs-fmt ]; } ''
-            find ${src} -name '*.nix' -not -path '*/node_modules/*' -not -name 'Cargo.nix' -not -name 'bun.nix' | xargs nixpkgs-fmt --check
-            touch $out
-          '';
-
-          biome = pkgs.runCommand "check-biome" { nativeBuildInputs = [ pkgs.biome ]; } ''
-            biome ci --config-path ${src}/biome.json ${src}/web/src
-            touch $out
-          '';
-        }
-      );
-
       packages = forAllSystems (system:
         let
           pkgs = pkgsFor system;
@@ -97,7 +77,7 @@
             };
 
             terrierImage = nix2containerPkgs.nix2container.buildImage {
-              name = "ghcr.io/scottylabs/terrier";
+              name = "codeberg.org/scottylabs/terrier";
               tag = "latest";
               config = {
                 entrypoint = [ "${terrier}/bin/terrier" ];

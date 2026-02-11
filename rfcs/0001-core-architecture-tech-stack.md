@@ -58,17 +58,17 @@ Trade-off: app store listing and home screen show "Terrier" branding, but inside
 We're following the [12-factor methodology](https://12factor.net/):
 
 1. Single monorepo in Git
-2. Explicit dependencies via Cargo.toml and package.json  
-3. Config in environment variables
-4. Postgres, Redis, S3 as attached resources
-5. Build/release/run separation via CI/CD
-6. Stateless processes with sessions in Redis
-7. Self-contained HTTP server
-8. Horizontal scaling via multiple instances
-9. Fast startup, graceful shutdown on SIGTERM
-10. Docker Compose mirrors production
-11. Structured logging to stdout
-12. Database migrations as separate processes
+1. Explicit dependencies via Cargo.toml and package.json
+1. Config in environment variables
+1. Postgres, Redis, S3 as attached resources
+1. Build/release/run separation via CI/CD
+1. Stateless processes with sessions in Redis
+1. Self-contained HTTP server
+1. Horizontal scaling via multiple instances
+1. Fast startup, graceful shutdown on SIGTERM
+1. Docker Compose mirrors production
+1. Structured logging to stdout
+1. Database migrations as separate processes
 
 Configuration splits between environment variables (deployment-specific: DATABASE_URL, REDIS_URL, S3_ENDPOINT, SMTP credentials, OIDC config) and database (user-facing: hackathon branding, email templates, judging rubrics, feature toggles). This keeps secrets out of the database and allows the same binary to work across dev/staging/prod.
 

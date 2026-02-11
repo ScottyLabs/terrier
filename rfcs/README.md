@@ -9,6 +9,7 @@ RFCs are design documents that propose and document significant technical decisi
 ## When to write an RFC
 
 Write an RFC when you want to propose:
+
 - Major architectural decisions
 - New features that affect multiple parts of the system
 - Breaking changes to existing APIs or data models
@@ -19,8 +20,8 @@ Small bug fixes, documentation improvements, and minor features don't need RFCs.
 ## RFC Process
 
 1. **Draft** - Author creates RFC document and opens a pull request
-2. **Review** - Team discusses in PR comments, author revises based on feedback
-3. **Accepted/Rejected** - RFC is either merged (accepted) or closed (rejected)
+1. **Review** - Team discusses in PR comments, author revises based on feedback
+1. **Accepted/Rejected** - RFC is either merged (accepted) or closed (rejected)
 
 Accepted RFCs live permanently in this directory as historical documentation of why decisions were made. When implementing an RFC, if there are any implementation details that need to be discussed or changed, the RFC should be updated to reflect those details.
 
