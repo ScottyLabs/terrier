@@ -1,0 +1,44 @@
+# RFC 0004: Documentation
+
+- **Status:** Accepted
+- **Author(s):** @kritdass
+- **Created:** 2026-02-14
+- **Updated:** 2026-02-14
+
+## Overview
+
+This RFC establishes the technologies we will use to host the documentation for Terrier: Astro Starlight with Svelte components from Terrier itself. The documentation website will be hosted at [docs.terrier.build](https://docs.terrier.build).
+
+## Motivation
+
+Terrier is a hackathon-agnostic platform that must be used by multiple organizations. As such, having clear documentation that thoroughly explains usage is critical for adoption. This will also lower friction for developers who are contributing to Terrier.
+
+## Goals
+
+- Define technologies
+- Optimize developer experience
+- Enhance integration with Terrier
+
+## Non-Goals
+
+- Defining the Terrier application itself
+
+## Detailed Design
+
+We're using Astro Starlight. It's simple with many features included out of the box, like search, Markdown/MDX support, and native Svelte integration. This allows us to import our components directly from the Terrier monorepo into documentation pages, ensuring that our previews always match the actual application state.
+
+Astro's static site generation (SSG) support guarantees a high-performance, SEO-friendly site that compiles to lightweight HTML/CSS/JS. Starlight handles many of the standard documentation website features, removing the need to reinvent the wheel.
+
+## Alternatives Considered
+
+- **Docusaurus**: The industry standard for documentation. Rejected because it is React-based, which would prevent us from directly importing our native Svelte components without maintaining a duplicate React library.
+
+- **VitePress**: A high-performance alternative powered by Vue. Rejected for similar reasons—the tight coupling with Vue introduces friction for our Svelte-centric team.
+
+- **GitBook / ReadTheDocs**: Rejected as these are primarily hosted services.
+
+- **Plain Astro**: We could build a custom docs site on core Astro, but Starlight provides the necessary sidebar, search, and i18n boilerplate for free, saving weeks of development.
+
+## Open Questions
+
+- Should the documentation be bundled inside Terrier, or should we point users to a single, centralized URL?
