@@ -14,9 +14,18 @@ services:
 server: services
     dx serve --hotpatch --package terrier-server
 
+# Generate OpenAPI specs for web and docs
+generate-api:
+    cd web && bun run generate-api
+    cd docs && bun run generate-api
+
 # Start frontend dev server
 web:
     cd web && bun dev
+
+# Start docs dev server
+docs:
+    cd docs && bun dev
 
 # Attach to process-compose interface
 attach:

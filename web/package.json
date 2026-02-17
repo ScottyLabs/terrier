@@ -1,17 +1,17 @@
 {
     "name": "web",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.1.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
         "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-        "generate-api": "openapi-typescript http://localhost:3000/api-docs/openapi.json -o src/lib/api/schema.d.ts",
+        "generate-api": "openapi-typescript http://localhost:3000/openapi.json -o src/lib/api/schema.d.ts",
         "lint": "biome check .",
         "format": "biome format --write .",
-        "postinstall": "bun2nix"
+        "postinstall": "bun2nix --output-file bun.nix"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.3.14",

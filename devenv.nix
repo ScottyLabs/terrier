@@ -1,4 +1,4 @@
-{ pkgs, config, ... }:
+{ pkgs, config, inputs, ... }:
 
 let
   cargoNix = pkgs.callPackage ./Cargo.nix { };
@@ -16,6 +16,7 @@ in
 
   packages = [
     terrier
+    inputs.bun2nix.packages.${pkgs.stdenv.system}.default
   ] ++ (with pkgs; [
     # Project tooling
     dioxus-cli
@@ -110,7 +111,10 @@ in
     config.programs = {
       nixpkgs-fmt.enable = true;
       rustfmt.enable = true;
-      mdformat.enable = true;
+      mdformat = {
+        enable = true;
+        excludes = [ "docs/src/content/**" ];
+      };
     };
     # TODO: treefmt-nix's built-in biome program doesn't support pointing to an
     # existing biome.jsons. We use a custom formatter so biome.json remains the

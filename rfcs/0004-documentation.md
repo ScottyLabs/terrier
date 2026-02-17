@@ -1,13 +1,13 @@
 # RFC 0004: Documentation
 
 - **Status:** Accepted
-- **Author(s):** @kritdass
+- **Author(s):** @kritdass, @ap-1
 - **Created:** 2026-02-14
-- **Updated:** 2026-02-14
+- **Updated:** 2026-02-17
 
 ## Overview
 
-This RFC establishes the technologies we will use to host the documentation for Terrier: Astro Starlight with Svelte components from Terrier itself. The documentation website will be hosted at [docs.terrier.build](https://docs.terrier.build).
+This RFC establishes the technologies we will use to host the documentation for Terrier: Starlight with Svelte components from Terrier's `web` directory. The documentation website will be hosted at [docs.terrier.build](https://docs.terrier.build).
 
 ## Motivation
 
@@ -22,12 +22,31 @@ Terrier is a hackathon-agnostic platform that must be used by multiple organizat
 ## Non-Goals
 
 - Defining the Terrier application itself
+- Provide documentation to end-users on how to use Terrier
 
 ## Detailed Design
 
-We're using Astro Starlight. It's simple with many features included out of the box, like search, Markdown/MDX support, and native Svelte integration. This allows us to import our components directly from the Terrier monorepo into documentation pages, ensuring that our previews always match the actual application state.
+We're using Starlight (Astro). It's simple with many features included out of the box, like search, Markdown/MDX support, and native Svelte integration. This allows us to import our components directly from the Terrier monorepo into documentation pages, ensuring that our previews always match the actual application state.
 
 Astro's static site generation (SSG) support guarantees a high-performance, SEO-friendly site that compiles to lightweight HTML/CSS/JS. Starlight handles many of the standard documentation website features, removing the need to reinvent the wheel.
+
+Furthermore, we can use the [starlight-openapi](https://github.com/HiDeoo/starlight-openapi) plugin to generate documentation from our OpenAPI specification.
+
+### Nix Build
+
+The documentation site is packaged as a Nix derivation (`terrierDocs`) in `flake.nix`, following the same `bun2nix` pattern used for `terrierWeb`. It reads its version from `docs/package.json`, fetches dependencies from `docs/bun.nix`, and produces a static site output via `bun run build`.
+
+### Topics
+
+The documentation site should broadly cover the following topics:
+
+- Installation and setup
+- Configuration options
+- API reference
+- Usage examples
+- Troubleshooting
+
+The documentation site should not cover the purpose of a hackathon's specific user guide, meaning it should not provide detailed instructions on how to use Terrier for participants/other end-users.
 
 ## Alternatives Considered
 
@@ -41,4 +60,4 @@ Astro's static site generation (SSG) support guarantees a high-performance, SEO-
 
 ## Open Questions
 
-- Should the documentation be bundled inside Terrier, or should we point users to a single, centralized URL?
+N/A

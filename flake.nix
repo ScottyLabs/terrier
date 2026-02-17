@@ -42,11 +42,30 @@
 
             terrierWeb = b2n.mkDerivation {
               pname = "terrier-web";
-              version = "0.1.0";
+              version = (builtins.fromJSON (builtins.readFile ./web/package.json)).version;
               src = ./web;
 
               bunDeps = b2n.fetchBunDeps {
                 bunNix = ./web/bun.nix;
+              };
+
+              buildPhase = ''
+                bun run build
+              '';
+
+              installPhase = ''
+                mkdir -p $out
+                cp -r dist/* $out/
+              '';
+            };
+
+            terrierDocs = b2n.mkDerivation {
+              pname = "terrier-docs";
+              version = (builtins.fromJSON (builtins.readFile ./docs/package.json)).version;
+              src = ./docs;
+
+              bunDeps = b2n.fetchBunDeps {
+                bunNix = ./docs/bun.nix;
               };
 
               buildPhase = ''
@@ -92,7 +111,7 @@
             };
           in
           {
-            inherit terrier terrierWeb terrierImage;
+            inherit terrier terrierWeb terrierDocs terrierImage;
             default = terrier;
           }
         ))

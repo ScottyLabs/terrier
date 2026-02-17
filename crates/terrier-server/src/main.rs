@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         .split_for_parts();
 
     let mut app = router
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
+        .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api))
         .layer(TraceLayer::new_for_http());
 
     if std::path::Path::new("assets").exists() {
