@@ -106,6 +106,8 @@ in
     period_seconds = 0.5;
   };
 
+  claude.code.enable = true;
+
   treefmt = {
     enable = true;
     config.programs = {

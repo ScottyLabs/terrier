@@ -5,6 +5,10 @@
 result
 result-*
 
+# AI
+.mcp.json
+.claude
+
 # direnv
 .direnv/
 
