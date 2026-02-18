@@ -11,6 +11,22 @@ Thank you for your interest in contributing to Terrier!
 1. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/)
 1. Push and open a pull request
 
+## Standards
+
+### Artificial Intelligence
+
+We acknowledge that AI can be a useful tool when used responsibly. However, to ensure code quality, we enforce:
+
+- **Strict Quality Control**: You are responsible for every line of code you submit. AI-generated code must be thoroughly reviewed, understood, and tested.
+- **Maintainability**: Any maintainability issues (e.g. bad code style, poor documentation) must be fixed immediately.
+
+### Quality Standards
+
+- **Atomic Commits**: A PR should do one thing only.
+- **Testing**: Unit and integration tests should be included with every change.
+- **Human-Centered**: Ensure changes are user-friendly. Do not expect anything from your users. Seek opinions from others, especially non-technical people.
+- **Documentation**: Use RFCs and issues as a way to keep a searchable history of decisions and bugs. For user-facing changes, update the documentation website.
+
 ## Types of Contributions
 
 ### Bug Fixes & Small Features
@@ -29,6 +45,16 @@ For significant changes that affect multiple parts of the application:
 1. Open a PR with your RFC
 1. Participate in discussion
 1. Once accepted, implement the feature
+
+### Claiming Features
+
+Before starting work on a feature/bug:
+
+1. Check existing RFCs and issues to see if the topic is already being tracked.
+1. If it does not exist, create an RFC or issue (see above).
+1. If the item is unclaimed, assign yourself or comment to indicate you are working on it, then follow the PR process.
+1. If it is already claimed, coordinate with the current assignee before starting work.
+1. If you can no longer work on a feature, please unassign yourself and comment so that others can claim it.
 
 ### For Maintainers
 
