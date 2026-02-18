@@ -95,6 +95,7 @@ The filename should match the branch name, e.g. `0002-dev-environment-ci.md`.
 | 0002 | [Development Environment & CI](./0002-dev-environment-ci.md) | Accepted |
 | 0003 | [Build Performance & Developer Workflow](./0003-build-performance-dev-workflow.md) | Accepted |
 | 0004 | [Documentation](./0004-documentation.md) | Accepted |
+| 0005 | [SAML Proxy for University Authentication](./0005-saml-proxy-university-auth.md) | Draft |
 
 *(This index will be updated as RFCs are added)*
 
