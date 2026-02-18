@@ -1,0 +1,32 @@
+[package]
+name = "saml-proxy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "saml-proxy"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+askama = "0.15.4"
+axum.workspace = true
+base64 = "0.22.1"
+chrono = { version = "0.4.43", features = ["serde"] }
+dashmap = "6.1.0"
+dotenvy.workspace = true
+flate2 = "1.1.9"
+openssl = "0.10.75"
+reqwest = "0.13.2"
+samael = { git = "https://github.com/ap-1/samael", branch = "fix/contact-person-deserialization", version = "0.0.19", features = ["xmlsec"] }
+saml-mdq = { git = "https://codeberg.org/ap-1/saml-mdq", version = "0.1.0" }
+serde.workspace = true
+terrier-common.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid = { version = "1.21.0", features = ["v4"] }

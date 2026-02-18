@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Your University</title>
+</head>
+<body>
+    <h1>Sign in with your university</h1>
+
+    <label for="search">Search for your institution:</label>
+    <input type="text" id="search" autocomplete="off" autofocus placeholder="e.g. Carnegie Mellon">
+    <ul id="results"></ul>
+
+    <form id="selection-form" method="POST" action="/discovery">
+        <input type="hidden" name="session_id" value="{{ session_id }}">
+        <input type="hidden" id="entity_id" name="entity_id" value="">
+        <button type="submit" id="submit-btn" disabled>Continue</button>
+    </form>
+
+    <script src="/static/discovery.js"></script>
+</body>
+</html>

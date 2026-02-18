@@ -51,15 +51,8 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(terrier_common::shutdown_signal())
         .await?;
 
     Ok(())
-}
-
-async fn shutdown_signal() {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to install CTRL+C signal handler");
-    tracing::info!("shutdown signal received");
 }

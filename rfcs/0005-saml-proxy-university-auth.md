@@ -1,6 +1,6 @@
 # RFC 0005: SAML Proxy for University Authentication
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Author(s):** @ap-1
 - **Created:** 2026-02-18
 - **Updated:** 2026-02-18
@@ -97,7 +97,7 @@ This list describes the authentication flow between the Service Provider, saml-p
    - Proxy uses `saml-mdq` crate to fetch university IdP metadata
    - Request: `GET https://mdq.incommon.org/entities/{sha1(entityID)}`
    - Response: SAML EntityDescriptor with SSO endpoints
-   - Metadata cached in-memory (moka LRU cache, 1 hour TTL)
+   - Metadata cached in-memory via `saml-mdq`'s built-in LRU cache (1,000 entries, 1 hour TTL)
 
 1. saml-proxy -> University IdP: Forward auth request via SAML
 
@@ -125,33 +125,6 @@ This list describes the authentication flow between the Service Provider, saml-p
 
 ### Technology Stack
 
-**Core dependencies:**
-
-```toml
-[dependencies]
-# SAML libraries
-samael = { git = "https://github.com/ap-1/samael", branch = "fix/contact-person-deserialization", features = ["xmlsec"] }
-saml-mdq = { git = "https://codeberg.org/ap-1/saml-mdq" }
-
-# Web framework
-axum = "0.7"
-tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["trace"] }
-
-# Templates
-askama = "0.12"
-askama_axum = "0.4"
-
-# State/Sessions
-dashmap = "5.5"
-uuid = { version = "1.0", features = ["v4"] }
-
-# Crypto
-openssl = "0.10"
-base64 = "0.21"
-flate2 = "1.0"
-```
-
 **Why samael fork:**
 
 The upstream samael crate has a bug deserializing `<ContactPerson>` elements from InCommon metadata. When both `contactType` and `remd:contactType` attributes are present, quick-xml strips namespace prefixes during deserialization, causing duplicate field errors.
@@ -168,34 +141,6 @@ The MDQ client is a separate crate because:
 - MDQ = fetching, samael = parsing/signing, saml-proxy = routing
 - Reusable for other projects needing InCommon/eduGAIN integration
 - Follows Rust ecosystem pattern of small, composable crates
-
-### Project Structure
-
-```
-crates/saml-proxy/
-├── Cargo.toml
-├── certs/
-│   └── idp.crt              # Proxy's SAML signing certificate
-├── src/
-│   ├── main.rs              # Server setup, routes
-│   ├── state.rs             # AppState with MDQ client
-│   ├── session.rs           # Session management
-│   ├── idp/
-│   │   ├── mod.rs           # IdP endpoints (for SPs)
-│   │   ├── metadata.rs      # Generate IdP metadata
-│   │   └── sso.rs           # SSO endpoint handler
-│   ├── sp/
-│   │   ├── mod.rs           # SP endpoints (to universities)
-│   │   ├── initiate.rs      # Build AuthnRequest
-│   │   └── acs.rs           # Assertion Consumer Service
-│   ├── discovery/
-│   │   ├── mod.rs           # Discovery handlers
-│   │   └── templates/
-│   │       └── select.html  # University picker
-│   └── attributes.rs        # Attribute mapping
-└── static/
-    └── discovery.js         # Client-side search
-```
 
 ### Configuration
 
@@ -216,9 +161,10 @@ The proxy is configured via environment variables:
 **Hardcoded:**
 
 - InCommon MDQ base URL: `https://mdq.incommon.org`
-- InCommon signing certificate: Bundled at compile time from `crates/saml-proxy/certs/incommon-mdq.pem`
+- InCommon MDQ aggregate URL: `https://mdq.incommon.org/entities` (for federation index)
+- Federation index refresh interval: 6 hours
 
-The InCommon MDQ signing certificate is public and committed to the repository. It can be obtained from [here](https://spaces.at.internet2.edu/display/MDQ/production-mdq-signing-key).
+The InCommon MDQ signing certificate is bundled at `crates/saml-proxy/certs/incommon-mdq.pem` and committed to the repository. It can be obtained from [here](https://spaces.at.internet2.edu/display/MDQ/production-mdq-signing-key).
 
 ### Session Management
 
@@ -226,15 +172,17 @@ Sessions use an in-memory DashMap (thread-safe HashMap) with the following struc
 
 ```rust
 pub struct AuthSession {
-    pub id: String,                           // UUID
     pub relay_state: Option<String>,          // From original SP
     pub original_request_id: String,          // SP's AuthnRequest ID
     pub sp_acs_url: String,                   // Where to POST response
     pub sp_entity_id: String,                 // Original SP's entity ID
     pub selected_university: Option<String>,  // User's choice
+    pub proxy_request_id: Option<String>,     // AuthnRequest ID sent to university
     pub created_at: DateTime<Utc>,            // For cleanup
 }
 ```
+
+The session ID is the DashMap key (a cryptographically random UUID), not stored in the struct itself. The `proxy_request_id` is set when the proxy sends an AuthnRequest to the university IdP and is used to validate `InResponseTo` in the university's SAML Response.
 
 Sessions expire after 15 minutes (standard SAML timeout). A background task runs every 5 minutes to clean expired sessions.
 
@@ -251,20 +199,21 @@ The discovery interface provides server-side search across all InCommon/eduGAIN 
 
 **Search endpoint:** `GET /api/entities/search?q=carnegie`
 
-- Queries InCommon's entity list API
-- Searches organization names and display names
-- Returns top 20 matches
-- Handles ~3,000 InCommon entities + eduGAIN
+- Searches organization display names (case-insensitive substring match)
+- Returns top 20 matches as JSON
+- Backed by an in-memory federation index
 
-**Implementation:**
+**Federation index:**
+
+On startup, the proxy fetches the full InCommon aggregate from `https://mdq.incommon.org/entities`, splits the XML by `<EntityDescriptor>` boundaries, filters to IdP-only entries (those containing `IDPSSODescriptor`), and extracts each entity's ID and `OrganizationDisplayName`. This builds an in-memory index of ~6,000 IdPs. A background task refreshes the index every 6 hours.
+
+**Client-side flow:**
 
 - User types in search box
-- JavaScript debounces input, sends query to backend
-- Backend queries InCommon entity list API
-- Returns filtered results to frontend
+- JavaScript debounces input (300ms), sends query to `/api/entities/search`
+- Backend filters the in-memory index
+- Returns matching results to frontend
 - User selects their university from results
-
-This avoids downloading the large aggregate metadata file or serving a large JSON payload to every user. The entity list API is lightweight and designed for this use case.
 
 ### Attribute Mapping
 
@@ -290,7 +239,7 @@ These are passed through to the Service Provider in the proxy's SAML Response. T
 
 - `GET /discovery?session={id}` - University selection form
 - `POST /discovery` - Process selection, redirect to SP initiation
-- `GET /api/entities` - JSON list of all InCommon entities
+- `GET /api/entities/search?q={query}` - Search InCommon entities by display name
 
 **SP interface (for universities):**
 
@@ -354,9 +303,10 @@ Certificates are loaded via systemd's `LoadCredential` mechanism into a temporar
 Structured JSON logs to stdout (captured by journald):
 
 ```rust
-tracing_subscriber::fmt()
-    .json()
-    .with_current_span(false)
+tracing_subscriber::registry()
+    .with(tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "info".into()))
+    .with(tracing_subscriber::fmt::layer().json())
     .init();
 ```
 
@@ -391,16 +341,16 @@ Logs include:
 
 **Session security:**
 
-- HTTPS-only (cookies with Secure flag)
+- Session IDs are cryptographically random UUIDs passed as URL query parameters
 - Short session lifetime (15 min)
-- CSRF protection via SameSite=Lax cookies
-- Session IDs are cryptographically random UUIDs
+- HTTPS-only in production (via reverse proxy)
 
 **MDQ security:**
 
-- Verify InCommon's XML signature on metadata responses
-- Pin InCommon's signing certificate (update annually)
 - Cache metadata to limit exposure to MDQ service availability
+- InCommon MDQ signing certificate bundled at `certs/incommon-mdq.pem`
+- Verify InCommon's XML signature on metadata responses
+- Pin InCommon's signing certificate
 
 **Rate limiting:**
 

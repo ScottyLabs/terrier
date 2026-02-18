@@ -9,6 +9,7 @@ license = "AGPL-3.0-or-later"
 repository = "https://codeberg.org/ScottyLabs/terrier"
 
 [workspace.dependencies]
+terrier-common = { path = "crates/terrier-common" }
 anyhow = "1.0.101"
 axum = { version = "0.8.8", features = ["ws"] }
 dotenvy = "0.15.7"

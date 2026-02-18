@@ -23,6 +23,12 @@ in
     just
     bun
 
+    # Native libraries for samael (SAML)
+    libxml2
+    xmlsec
+    libtool
+    pkg-config
+
     # Database tooling
     sea-orm-cli
     minio-client
@@ -49,6 +55,12 @@ in
     HOST = "127.0.0.1";
     PORT = "3000";
     RUST_LOG = "debug";
+
+    # saml-proxy configuration
+    BASE_URL = "http://localhost:8443";
+    ENTITY_ID = "https://saml-proxy.example.com";
+    IDP_CERT_PATH = "crates/saml-proxy/certs/idp-cert.pem";
+    IDP_KEY_PATH = "crates/saml-proxy/certs/idp-key.pem";
   };
 
   languages.rust = {
@@ -111,7 +123,10 @@ in
   treefmt = {
     enable = true;
     config.programs = {
-      nixpkgs-fmt.enable = true;
+      nixpkgs-fmt = {
+        enable = true;
+        excludes = [ "Cargo.nix" "bun.nix" ];
+      };
       rustfmt.enable = true;
       mdformat = {
         enable = true;
