@@ -6188,7 +6188,7 @@ rec {
         src = pkgs.fetchgit {
           url = "https://codeberg.org/ap-1/saml-mdq";
           rev = "fd41119d57d5252fad9b06f473f5a6d1d80b581f";
-          sha256 = "0rkgnj2h96s63nz2wsfidydndj1d1xr07ns8cfw14xf1f5hrg22c";
+          sha256 = "1whfj002qfkyji6pcqxp23dvnraqm1a3d26nqchylfi6gg6g5v17";
         };
         libName = "saml_mdq";
         authors = [

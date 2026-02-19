@@ -3,7 +3,6 @@
 let
   cargoNix = pkgs.callPackage ./Cargo.nix { };
   terrier = cargoNix.workspaceMembers.terrier-server.build;
-  samlProxy = cargoNix.workspaceMembers.saml-proxy.build;
 
   # the minio module can only use its MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
   # env vars, so ensure they match our S3_ACCESS_KEY and S3_SECRET_KEY vars
@@ -17,7 +16,6 @@ in
 
   packages = [
     terrier
-    samlProxy
     inputs.bun2nix.packages.${pkgs.stdenv.system}.default
   ] ++ (with pkgs; [
     # Project tooling
@@ -37,7 +35,7 @@ in
     postgresql_18
   ]);
 
-  outputs = { inherit terrier samlProxy; };
+  outputs = { inherit terrier; };
 
   env = {
     CARGO_PROFILE_DEV_DEBUG = "0";
