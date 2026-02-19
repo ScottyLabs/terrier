@@ -6,7 +6,7 @@ use saml_mdq::{MdqCache, MdqClient};
 use std::time::Duration;
 
 const MDQ_BASE_URL: &str = "https://mdq.incommon.org";
-const MDQ_SIGNING_CERT_PEM: &[u8] = include_bytes!("../certs/incommon-mdq.pem");
+const MDQ_SIGNING_CERT_PEM: &[u8] = include_bytes!("../certs/inc-md-cert-mdq.pem");
 
 pub struct AppState {
     pub config: Config,

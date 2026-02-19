@@ -162,10 +162,10 @@ The proxy is configured via environment variables:
 
 - InCommon MDQ base URL: `https://mdq.incommon.org`
 - InCommon MDQ aggregate URL: `https://mdq.incommon.org/entities` (for federation index)
-- InCommon MDQ signing certificate: embedded at compile time from `certs/incommon-mdq.pem`
+- InCommon MDQ signing certificate: embedded at compile time from `certs/inc-md-cert-mdq.pem`
 - Federation index refresh interval: 6 hours
 
-The InCommon MDQ signing certificate is embedded into the binary at compile time from `crates/saml-proxy/certs/incommon-mdq.pem`. It can be obtained from [here](https://spaces.at.internet2.edu/display/MDQ/production-mdq-signing-key).
+The InCommon MDQ signing certificate is embedded into the binary at compile time from `crates/saml-proxy/certs/inc-md-cert-mdq.pem`. It can be obtained from [InCommon](https://md.incommon.org/certs/inc-md-cert-mdq.pem).
 
 ### Session Management
 
