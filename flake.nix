@@ -80,7 +80,14 @@
 
             cargoNix = pkgs.callPackage ./Cargo.nix { };
 
-            samlProxy = cargoNix.workspaceMembers.saml-proxy.build;
+            samlProxy = cargoNix.workspaceMembers.saml-proxy.build.override {
+              crateOverrides = pkgs.defaultCrateOverrides // {
+                libxml = attrs: {
+                  nativeBuildInputs = [ pkgs.pkg-config ];
+                  buildInputs = [ pkgs.libxml2 ];
+                };
+              };
+            };
 
             terrier = cargoNix.workspaceMembers.terrier-server.build.override {
               crateOverrides = pkgs.defaultCrateOverrides // {
