@@ -20,11 +20,21 @@ pub struct FederationIndex {
     entries: Arc<RwLock<Vec<EntityEntry>>>,
 }
 
+impl Default for FederationIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FederationIndex {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+
+    pub fn entries(&self) -> &Arc<RwLock<Vec<EntityEntry>>> {
+        &self.entries
     }
 
     pub async fn search(&self, query: &str, limit: usize) -> Vec<EntityEntry> {
@@ -38,7 +48,7 @@ impl FederationIndex {
             .collect()
     }
 
-    async fn refresh(&self) -> anyhow::Result<()> {
+    pub async fn refresh(&self) -> anyhow::Result<()> {
         let xml = reqwest::get(AGGREGATE_URL).await?.text().await?;
         let entries = parse_idp_entries(&xml);
 

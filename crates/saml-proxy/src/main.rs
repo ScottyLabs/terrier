@@ -1,18 +1,7 @@
-mod attributes;
-mod config;
-mod discovery;
-mod error;
-mod idp;
-mod session;
-mod sp;
-mod state;
-
-use axum::Router;
-use config::Config;
-use state::AppState;
+use saml_proxy::config::Config;
+use saml_proxy::state::AppState;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -30,26 +19,16 @@ async fn main() -> anyhow::Result<()> {
     let addr = format!("{}:{}", config.host, config.port);
     let state = Arc::new(AppState::new(config)?);
 
-    tokio::spawn(session::session_cleanup_task(state.sessions.clone()));
-    tokio::spawn(discovery::federation_index::federation_index_task(
-        state.federation_index.clone(),
+    tokio::spawn(saml_proxy::session::session_cleanup_task(
+        state.sessions.clone(),
     ));
+    tokio::spawn(
+        saml_proxy::discovery::federation_index::federation_index_task(
+            state.federation_index.clone(),
+        ),
+    );
 
-    let app = Router::new()
-        .nest("/saml", idp::router())
-        .nest("/sp", sp::router())
-        .route("/discovery", axum::routing::get(discovery::discovery_page))
-        .route(
-            "/discovery",
-            axum::routing::post(discovery::discovery_submit),
-        )
-        .route(
-            "/api/entities/search",
-            axum::routing::get(discovery::search_entities),
-        )
-        .with_state(state)
-        .fallback_service(tower_http::services::ServeDir::new("static"))
-        .layer(TraceLayer::new_for_http());
+    let app = saml_proxy::app(state, "static");
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;

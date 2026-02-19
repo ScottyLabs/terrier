@@ -21,6 +21,12 @@ pub struct SessionStore {
     inner: Arc<DashMap<String, AuthSession>>,
 }
 
+impl Default for SessionStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionStore {
     pub fn new() -> Self {
         Self {

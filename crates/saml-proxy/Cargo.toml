@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "saml_proxy"
+path = "src/lib.rs"
+
 [[bin]]
 name = "saml-proxy"
 path = "src/main.rs"
@@ -30,3 +34,7 @@ tower-http.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid = { version = "1.21.0", features = ["v4"] }
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+urlencoding = "2.1.3"

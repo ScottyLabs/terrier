@@ -6187,7 +6187,7 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://codeberg.org/ap-1/saml-mdq";
-          rev = "93302695137c26d0b6ed7446e186cbfdb415ffa4";
+          rev = "fd41119d57d5252fad9b06f473f5a6d1d80b581f";
           sha256 = "0rkgnj2h96s63nz2wsfidydndj1d1xr07ns8cfw14xf1f5hrg22c";
         };
         libName = "saml_mdq";
@@ -6240,6 +6240,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/saml-proxy; };
+        libName = "saml_proxy";
         dependencies = [
           {
             name = "anyhow";
@@ -6328,6 +6329,17 @@ rec {
             name = "uuid";
             packageId = "uuid";
             features = [ "v4" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tower";
+            packageId = "tower";
+            features = [ "util" ];
+          }
+          {
+            name = "urlencoding";
+            packageId = "urlencoding";
           }
         ];
 
@@ -8417,6 +8429,17 @@ rec {
           "std" = [ "idna/std" "percent-encoding/std" "form_urlencoded/std" "serde?/std" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "urlencoding" = rec {
+        crateName = "urlencoding";
+        version = "2.1.3";
+        edition = "2021";
+        sha256 = "1nj99jp37k47n0hvaz5fvz7z6jd0sb4ppvfy3nphr1zbnyixpy6s";
+        authors = [
+          "Kornel <kornel@geekhood.net>"
+          "Bertram Truong <b@bertramtruong.com>"
+        ];
+
       };
       "utf-8" = rec {
         crateName = "utf-8";
