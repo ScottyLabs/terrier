@@ -11,6 +11,17 @@ Thank you for your interest in contributing to Terrier!
 1. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/)
 1. Push and open a pull request
 
+## Dev Shell
+
+The first time you enter the dev shell, you should confirm these prompts to ensure that you use the ScottyLabs cache:
+
+```
+do you want to allow configuration setting 'extra-substituters' to be set to 'https://scottylabs.cachix.org' (y/N)? y
+do you want to permanently mark this value as trusted (y/N)? y
+do you want to allow configuration setting 'extra-trusted-public-keys' to be set to 'scottylabs.cachix.org-1:hajjEX5SLi/Y7yYloiXTt2IOr3towcTGRhMh1vu6Tjg=' (y/N)? y
+do you want to permanently mark this value as trusted (y/N)? y
+```
+
 ## Standards
 
 ### Artificial Intelligence
