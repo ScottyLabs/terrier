@@ -227,7 +227,7 @@ Only package metadata and dependencies. Profile settings are handled via environ
 
 ### Production Builds
 
-Production builds are defined in the same `flake.nix` that provides the devenv binary and Cachix cache configuration. This keeps all Nix configuration in one place. Production packages (terrier, terrierWeb, terrierImage) are only built for `x86_64-linux`.
+Production builds are defined in the same `flake.nix` that provides the devenv binary and Cachix cache configuration. This keeps all Nix configuration in one place. Production packages (terrier, terrierApp, terrierImage) are only built for `x86_64-linux`.
 
 The frontend is built using bun2nix (`mkBunDerivation`), which generates Nix derivations from `bun.lock` for sandboxed builds without network access. The built frontend assets are embedded into the backend binary's `assets/` directory during the Rust build.
 

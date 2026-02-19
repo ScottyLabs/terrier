@@ -7,7 +7,7 @@
 
 ## Overview
 
-This RFC establishes the technologies we will use to host the documentation for Terrier: Starlight with Svelte components from Terrier's `web` directory. The documentation website will be hosted at [docs.terrier.build](https://docs.terrier.build).
+This RFC establishes the technologies we will use to host the documentation for Terrier: Starlight with Svelte components from Terrier's `app` directory. The documentation website will be hosted at [docs.terrier.build](https://docs.terrier.build).
 
 ## Motivation
 
@@ -34,7 +34,7 @@ Furthermore, we can use the [starlight-openapi](https://github.com/HiDeoo/starli
 
 ### Nix Build
 
-The documentation site is packaged as a Nix derivation (`terrierDocs`) in `flake.nix`, following the same `bun2nix` pattern used for `terrierWeb`. It reads its version from `docs/package.json`, fetches dependencies from `docs/bun.nix`, and produces a static site output via `bun run build`.
+The documentation site is packaged as a Nix derivation (`terrierDocs`) in `flake.nix`, following the same `bun2nix` pattern used for `terrierApp`. It reads its version from `sites/docs/package.json`, fetches dependencies from `sites/docs/bun.nix`, and produces a static site output via `bun run build`.
 
 ### Topics
 

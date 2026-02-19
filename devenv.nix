@@ -131,7 +131,7 @@ in
       rustfmt.enable = true;
       mdformat = {
         enable = true;
-        excludes = [ "docs/src/content/**" ];
+        excludes = [ "sites/docs/src/content/**" ];
       };
     };
     # TODO: treefmt-nix's built-in biome program doesn't support pointing to an

@@ -40,13 +40,13 @@
             nix2containerPkgs = nix2container.packages.${system};
             b2n = bun2nix.packages.${system}.default;
 
-            terrierWeb = b2n.mkDerivation {
-              pname = "terrier-web";
-              version = (builtins.fromJSON (builtins.readFile ./web/package.json)).version;
-              src = ./web;
+            terrierApp = b2n.mkDerivation {
+              pname = "terrier-app";
+              version = (builtins.fromJSON (builtins.readFile ./app/package.json)).version;
+              src = ./app;
 
               bunDeps = b2n.fetchBunDeps {
-                bunNix = ./web/bun.nix;
+                bunNix = ./app/bun.nix;
               };
 
               buildPhase = ''
@@ -61,11 +61,11 @@
 
             terrierDocs = b2n.mkDerivation {
               pname = "terrier-docs";
-              version = (builtins.fromJSON (builtins.readFile ./docs/package.json)).version;
-              src = ./docs;
+              version = (builtins.fromJSON (builtins.readFile ./sites/docs/package.json)).version;
+              src = ./sites/docs;
 
               bunDeps = b2n.fetchBunDeps {
-                bunNix = ./docs/bun.nix;
+                bunNix = ./sites/docs/bun.nix;
               };
 
               buildPhase = ''
@@ -91,7 +91,7 @@
 
                   preBuild = ''
                     mkdir -p assets
-                    cp -r ${terrierWeb}/* assets/
+                    cp -r ${terrierApp}/* assets/
                   '';
                 };
               };
@@ -113,7 +113,7 @@
             };
           in
           {
-            inherit samlProxy terrier terrierWeb terrierDocs terrierImage;
+            inherit samlProxy terrier terrierApp terrierDocs terrierImage;
             default = terrier;
           }
         ))
