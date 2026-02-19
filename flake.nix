@@ -86,6 +86,9 @@
                   nativeBuildInputs = [ pkgs.pkg-config ];
                   buildInputs = [ pkgs.libxml2 ];
                 };
+                saml-proxy = attrs: {
+                  buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool pkgs.openssl pkgs.libxslt ];
+                };
                 samael = attrs: {
                   nativeBuildInputs = [ pkgs.pkg-config ];
                   buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool ];
