@@ -26,7 +26,7 @@ async function fetchEntities(query) {
     resultsList.innerHTML = "";
     for (const entity of entities) {
         const li = document.createElement("li");
-        li.textContent = entity.name;
+        li.textContent = entity.display_name;
         li.dataset.entityId = entity.entity_id;
         li.addEventListener("click", () => selectEntity(li));
         resultsList.appendChild(li);

@@ -99,6 +99,112 @@ impl SessionStore {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_and_get() {
+        let store = SessionStore::new();
+        let id = store.create(
+            "req_123".into(),
+            "https://sp.example.com/acs".into(),
+            "https://sp.example.com".into(),
+            Some("relay".into()),
+        );
+
+        let session = store.get(&id).unwrap();
+        assert_eq!(session.original_request_id, "req_123");
+        assert_eq!(session.sp_acs_url, "https://sp.example.com/acs");
+        assert_eq!(session.sp_entity_id, "https://sp.example.com");
+        assert_eq!(session.relay_state.as_deref(), Some("relay"));
+        assert!(session.selected_university.is_none());
+        assert!(session.proxy_request_id.is_none());
+    }
+
+    #[test]
+    fn get_nonexistent_returns_none() {
+        let store = SessionStore::new();
+        assert!(store.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn update_university() {
+        let store = SessionStore::new();
+        let id = store.create("req".into(), "acs".into(), "sp".into(), None);
+
+        assert!(store.update_university(&id, "https://idp.cmu.edu".into()));
+
+        let session = store.get(&id).unwrap();
+        assert_eq!(
+            session.selected_university.as_deref(),
+            Some("https://idp.cmu.edu")
+        );
+    }
+
+    #[test]
+    fn update_proxy_request_id() {
+        let store = SessionStore::new();
+        let id = store.create("req".into(), "acs".into(), "sp".into(), None);
+
+        assert!(store.update_proxy_request_id(&id, "proxy_req_456".into()));
+
+        let session = store.get(&id).unwrap();
+        assert_eq!(session.proxy_request_id.as_deref(), Some("proxy_req_456"));
+    }
+
+    #[test]
+    fn update_nonexistent_returns_false() {
+        let store = SessionStore::new();
+        assert!(!store.update_university("missing", "val".into()));
+        assert!(!store.update_proxy_request_id("missing", "val".into()));
+    }
+
+    #[test]
+    fn remove_returns_session() {
+        let store = SessionStore::new();
+        let id = store.create("req".into(), "acs".into(), "sp".into(), None);
+
+        let session = store.remove(&id).unwrap();
+        assert_eq!(session.original_request_id, "req");
+
+        // Should be gone now
+        assert!(store.get(&id).is_none());
+        assert!(store.remove(&id).is_none());
+    }
+
+    #[test]
+    fn expired_session_returns_none_on_get() {
+        let store = SessionStore::new();
+        let id = store.create("req".into(), "acs".into(), "sp".into(), None);
+
+        // Backdate the session to make it expired
+        if let Some(mut entry) = store.inner.get_mut(&id) {
+            entry.created_at = Utc::now() - chrono::Duration::minutes(20);
+        }
+
+        assert!(store.get(&id).is_none());
+        // The expired entry should have been removed
+        assert!(store.inner.get(&id).is_none());
+    }
+
+    #[test]
+    fn cleanup_removes_expired_sessions() {
+        let store = SessionStore::new();
+        let fresh_id = store.create("fresh".into(), "acs".into(), "sp".into(), None);
+        let old_id = store.create("old".into(), "acs".into(), "sp".into(), None);
+
+        if let Some(mut entry) = store.inner.get_mut(&old_id) {
+            entry.created_at = Utc::now() - chrono::Duration::minutes(20);
+        }
+
+        store.cleanup_expired();
+
+        assert!(store.get(&fresh_id).is_some());
+        assert!(store.get(&old_id).is_none());
+    }
+}
+
 pub async fn session_cleanup_task(store: SessionStore) {
     let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
     loop {

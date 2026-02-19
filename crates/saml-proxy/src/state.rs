@@ -36,9 +36,18 @@ impl AppState {
             .private_key_to_der()
             .context("failed to encode private key as DER")?;
 
+        let mdq_signing_pem = std::fs::read(&config.mdq_signing_cert_path)
+            .context("failed to read MDQ signing certificate")?;
+        let mdq_signing_cert = openssl::x509::X509::from_pem(&mdq_signing_pem)
+            .context("failed to parse MDQ signing certificate")?;
+        let mdq_signing_cert_der = mdq_signing_cert
+            .to_der()
+            .context("failed to encode MDQ signing certificate as DER")?;
+
         let cache = MdqCache::new(1000, Duration::from_secs(3600));
         let mdq_client = MdqClient::builder(MDQ_BASE_URL)
             .cache(cache)
+            .signing_cert(mdq_signing_cert_der)
             .build()
             .map_err(|e| anyhow::anyhow!(e))?;
 

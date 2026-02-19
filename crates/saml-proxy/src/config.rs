@@ -5,6 +5,7 @@ pub struct Config {
     pub entity_id: String,
     pub idp_cert_path: String,
     pub idp_key_path: String,
+    pub mdq_signing_cert_path: String,
     pub host: String,
     pub port: u16,
 }
@@ -15,6 +16,9 @@ impl Config {
         let entity_id = std::env::var("ENTITY_ID").context("ENTITY_ID must be set")?;
         let idp_cert_path = std::env::var("IDP_CERT_PATH").context("IDP_CERT_PATH must be set")?;
         let idp_key_path = std::env::var("IDP_KEY_PATH").context("IDP_KEY_PATH must be set")?;
+
+        let mdq_signing_cert_path = std::env::var("MDQ_SIGNING_CERT_PATH")
+            .unwrap_or_else(|_| "certs/incommon-mdq.pem".into());
 
         let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".into());
         let port = std::env::var("PORT")
@@ -27,6 +31,7 @@ impl Config {
             entity_id,
             idp_cert_path,
             idp_key_path,
+            mdq_signing_cert_path,
             host,
             port,
         })

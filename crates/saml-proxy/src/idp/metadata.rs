@@ -72,7 +72,11 @@ fn build_metadata(state: &AppState) -> anyhow::Result<String> {
         organization: None,
         contact_people: vec![],
         artifact_resolution_service: vec![],
-        single_logout_services: vec![],
+        single_logout_services: vec![Endpoint {
+            binding: HTTP_POST_BINDING.to_string(),
+            location: format!("{}/saml/slo", state.config.base_url),
+            response_location: None,
+        }],
         manage_name_id_services: vec![],
         name_id_mapping_services: vec![],
         assertion_id_request_services: vec![],

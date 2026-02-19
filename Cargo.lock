@@ -1866,7 +1866,7 @@ dependencies = [
 [[package]]
 name = "saml-mdq"
 version = "0.1.0"
-source = "git+https://codeberg.org/ap-1/saml-mdq#2fa5f4422076de2a653189bd46c817897dfac5fc"
+source = "git+https://codeberg.org/ap-1/saml-mdq#93302695137c26d0b6ed7446e186cbfdb415ffa4"
 dependencies = [
  "hex",
  "moka",

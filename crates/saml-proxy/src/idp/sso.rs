@@ -51,7 +51,7 @@ pub async fn sso_post(
 }
 
 /// Decodes HTTP-Redirect binding: base64 -> DEFLATE decompress -> XML string.
-fn decode_redirect_binding(encoded: &str) -> Result<String, Error> {
+pub(crate) fn decode_redirect_binding(encoded: &str) -> Result<String, Error> {
     let compressed = STANDARD
         .decode(encoded)
         .map_err(|e| Error::InvalidSamlRequest(format!("base64 decode failed: {e}")))?;
@@ -66,12 +66,67 @@ fn decode_redirect_binding(encoded: &str) -> Result<String, Error> {
 }
 
 /// Decodes HTTP-POST binding: base64 -> XML string (no compression).
-fn decode_post_binding(encoded: &str) -> Result<String, Error> {
+pub(crate) fn decode_post_binding(encoded: &str) -> Result<String, Error> {
     let bytes = STANDARD
         .decode(encoded)
         .map_err(|e| Error::InvalidSamlRequest(format!("base64 decode failed: {e}")))?;
 
     String::from_utf8(bytes).map_err(|e| Error::InvalidSamlRequest(format!("invalid UTF-8: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::engine::general_purpose::STANDARD;
+    use flate2::Compression;
+    use flate2::write::DeflateEncoder;
+    use std::io::Write;
+
+    const SAMPLE_XML: &str = r#"<samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_test123" Version="2.0" />"#;
+
+    #[test]
+    fn redirect_binding_roundtrip() {
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(SAMPLE_XML.as_bytes()).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let encoded = STANDARD.encode(&compressed);
+
+        let decoded = decode_redirect_binding(&encoded).unwrap();
+        assert_eq!(decoded, SAMPLE_XML);
+    }
+
+    #[test]
+    fn redirect_binding_invalid_base64() {
+        let result = decode_redirect_binding("not-valid-base64!!!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn redirect_binding_invalid_deflate() {
+        let encoded = STANDARD.encode(b"not compressed data");
+        let result = decode_redirect_binding(&encoded);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn post_binding_roundtrip() {
+        let encoded = STANDARD.encode(SAMPLE_XML.as_bytes());
+        let decoded = decode_post_binding(&encoded).unwrap();
+        assert_eq!(decoded, SAMPLE_XML);
+    }
+
+    #[test]
+    fn post_binding_invalid_base64() {
+        let result = decode_post_binding("not-valid-base64!!!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn post_binding_invalid_utf8() {
+        let encoded = STANDARD.encode(&[0xff, 0xfe, 0xfd]);
+        let result = decode_post_binding(&encoded);
+        assert!(result.is_err());
+    }
 }
 
 /// Parses the AuthnRequest XML, extracts the SP's ACS URL and entity ID,
