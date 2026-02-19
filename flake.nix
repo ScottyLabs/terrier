@@ -90,6 +90,7 @@
                   nativeBuildInputs = [ pkgs.pkg-config ];
                   buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool ];
                   LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+                  BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.stdenv.cc.cc}/include -isystem ${pkgs.glibc.dev}/include";
                 };
               };
             };
