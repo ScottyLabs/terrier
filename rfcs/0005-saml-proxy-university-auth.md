@@ -95,7 +95,7 @@ This list describes the authentication flow between the Service Provider, saml-p
 1. saml-proxy -> InCommon MDQ: Fetch selected university metadata
 
    - Proxy uses `saml-mdq` crate to fetch university IdP metadata
-   - Request: `GET https://mdq.incommon.org/entities/{sha1(entityID)}`
+   - Request: `GET https://mdq.incommon.org/entities/{percent-encoded entityID}`
    - Response: SAML EntityDescriptor with SSO endpoints
    - Metadata cached in-memory via `saml-mdq`'s built-in LRU cache (1,000 entries, 1 hour TTL)
 
@@ -148,15 +148,16 @@ The proxy is configured via environment variables:
 
 **Required:**
 
-- `BASE_URL` - Public URL of the proxy (e.g., `https://auth.terrier.build`)
-- `ENTITY_ID` - SAML entity ID (e.g., `https://auth.terrier.build/saml/idp`)
-- `IDP_CERT_PATH` - Path to proxy's signing certificate
-- `IDP_KEY_PATH` - Path to proxy's private key
+- `SAML_PROXY_BASE_URL` - Public URL of the proxy (e.g., `https://auth.terrier.build`)
+- `SAML_PROXY_ENTITY_ID` - SAML entity ID (e.g., `https://auth.terrier.build/saml/idp`)
+- `SAML_PROXY_IDP_CERT_PATH` - Path to proxy's signing certificate
+- `SAML_PROXY_IDP_KEY_PATH` - Path to proxy's private key
 
 **Optional:**
 
-- `PORT` - Listen port (default: `8443`)
-- `HOST` - Listen address (default: `0.0.0.0`)
+- `SAML_PROXY_MDQ_SIGNING_CERT_PATH` - Path to InCommon MDQ signing certificate (default: `certs/incommon-mdq.pem`)
+- `SAML_PROXY_PORT` - Listen port (default: `8443`)
+- `SAML_PROXY_HOST` - Listen address (default: `0.0.0.0`)
 
 **Hardcoded:**
 
@@ -289,11 +290,11 @@ systemd.services.saml-proxy = {
 **Environment file** (`/run/agenix/saml-proxy-env`):
 
 ```bash
-BASE_URL=https://auth.terrier.build
-ENTITY_ID=https://auth.terrier.build/saml/idp
-IDP_CERT_PATH=$CREDENTIALS_DIRECTORY/idp.crt
-IDP_KEY_PATH=$CREDENTIALS_DIRECTORY/idp.key
-PORT=8443
+SAML_PROXY_BASE_URL=https://auth.terrier.build
+SAML_PROXY_ENTITY_ID=https://auth.terrier.build/saml/idp
+SAML_PROXY_IDP_CERT_PATH=$CREDENTIALS_DIRECTORY/idp.crt
+SAML_PROXY_IDP_KEY_PATH=$CREDENTIALS_DIRECTORY/idp.key
+SAML_PROXY_PORT=8443
 ```
 
 Certificates are loaded via systemd's `LoadCredential` mechanism into a temporary directory that only the service can access. The `$CREDENTIALS_DIRECTORY` environment variable points to this directory.
