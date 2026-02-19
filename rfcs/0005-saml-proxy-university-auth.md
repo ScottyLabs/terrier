@@ -155,7 +155,6 @@ The proxy is configured via environment variables:
 
 **Optional:**
 
-- `SAML_PROXY_MDQ_SIGNING_CERT_PATH` - Path to InCommon MDQ signing certificate (default: `certs/incommon-mdq.pem`)
 - `SAML_PROXY_PORT` - Listen port (default: `8443`)
 - `SAML_PROXY_HOST` - Listen address (default: `0.0.0.0`)
 
@@ -163,9 +162,10 @@ The proxy is configured via environment variables:
 
 - InCommon MDQ base URL: `https://mdq.incommon.org`
 - InCommon MDQ aggregate URL: `https://mdq.incommon.org/entities` (for federation index)
+- InCommon MDQ signing certificate: embedded at compile time from `certs/incommon-mdq.pem`
 - Federation index refresh interval: 6 hours
 
-The InCommon MDQ signing certificate is bundled at `crates/saml-proxy/certs/incommon-mdq.pem` and committed to the repository. It can be obtained from [here](https://spaces.at.internet2.edu/display/MDQ/production-mdq-signing-key).
+The InCommon MDQ signing certificate is embedded into the binary at compile time from `crates/saml-proxy/certs/incommon-mdq.pem`. It can be obtained from [here](https://spaces.at.internet2.edu/display/MDQ/production-mdq-signing-key).
 
 ### Session Management
 
@@ -349,7 +349,7 @@ Logs include:
 **MDQ security:**
 
 - Cache metadata to limit exposure to MDQ service availability
-- InCommon MDQ signing certificate bundled at `certs/incommon-mdq.pem`
+- InCommon MDQ signing certificate embedded at compile time
 - Verify InCommon's XML signature on metadata responses
 - Pin InCommon's signing certificate
 

@@ -5,7 +5,6 @@ pub struct Config {
     pub entity_id: String,
     pub idp_cert_path: String,
     pub idp_key_path: String,
-    pub mdq_signing_cert_path: String,
     pub host: String,
     pub port: u16,
 }
@@ -21,9 +20,6 @@ impl Config {
         let idp_key_path = std::env::var("SAML_PROXY_IDP_KEY_PATH")
             .context("SAML_PROXY_IDP_KEY_PATH must be set")?;
 
-        let mdq_signing_cert_path = std::env::var("SAML_PROXY_MDQ_SIGNING_CERT_PATH")
-            .unwrap_or_else(|_| "certs/incommon-mdq.pem".into());
-
         let host = std::env::var("SAML_PROXY_HOST").unwrap_or_else(|_| "0.0.0.0".into());
         let port = std::env::var("SAML_PROXY_PORT")
             .unwrap_or_else(|_| "8443".into())
@@ -35,7 +31,6 @@ impl Config {
             entity_id,
             idp_cert_path,
             idp_key_path,
-            mdq_signing_cert_path,
             host,
             port,
         })

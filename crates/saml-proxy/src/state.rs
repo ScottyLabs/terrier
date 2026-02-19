@@ -6,6 +6,7 @@ use saml_mdq::{MdqCache, MdqClient};
 use std::time::Duration;
 
 const MDQ_BASE_URL: &str = "https://mdq.incommon.org";
+const MDQ_SIGNING_CERT_PEM: &[u8] = include_bytes!("../certs/incommon-mdq.pem");
 
 pub struct AppState {
     pub config: Config,
@@ -36,9 +37,7 @@ impl AppState {
             .private_key_to_der()
             .context("failed to encode private key as DER")?;
 
-        let mdq_signing_pem = std::fs::read(&config.mdq_signing_cert_path)
-            .context("failed to read MDQ signing certificate")?;
-        let mdq_signing_cert = openssl::x509::X509::from_pem(&mdq_signing_pem)
+        let mdq_signing_cert = openssl::x509::X509::from_pem(MDQ_SIGNING_CERT_PEM)
             .context("failed to parse MDQ signing certificate")?;
         let mdq_signing_cert_der = mdq_signing_cert
             .to_der()

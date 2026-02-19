@@ -61,7 +61,6 @@ in
     SAML_PROXY_ENTITY_ID = "https://saml-proxy.example.com";
     SAML_PROXY_IDP_CERT_PATH = "crates/saml-proxy/certs/idp-cert.pem";
     SAML_PROXY_IDP_KEY_PATH = "crates/saml-proxy/certs/idp-key.pem";
-    SAML_PROXY_MDQ_SIGNING_CERT_PATH = "crates/saml-proxy/certs/incommon-mdq.pem";
   };
 
   languages.rust = {

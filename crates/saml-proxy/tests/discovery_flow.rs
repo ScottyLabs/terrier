@@ -26,7 +26,6 @@ fn test_config() -> Config {
         entity_id: "http://localhost:8443/saml/idp".into(),
         idp_cert_path: "certs/idp-cert.pem".into(),
         idp_key_path: "certs/idp-key.pem".into(),
-        mdq_signing_cert_path: "certs/incommon-mdq.pem".into(),
         host: "127.0.0.1".into(),
         port: 8443,
     }
@@ -294,7 +293,6 @@ async fn manual_discovery_ui() {
         entity_id: format!("{base_url}/saml/idp"),
         idp_cert_path: "certs/idp-cert.pem".into(),
         idp_key_path: "certs/idp-key.pem".into(),
-        mdq_signing_cert_path: "certs/incommon-mdq.pem".into(),
         host: "127.0.0.1".into(),
         port,
     };
