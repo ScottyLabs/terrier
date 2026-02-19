@@ -80,6 +80,8 @@
 
             cargoNix = pkgs.callPackage ./Cargo.nix { };
 
+            samlProxy = cargoNix.workspaceMembers.saml-proxy.build;
+
             terrier = cargoNix.workspaceMembers.terrier-server.build.override {
               crateOverrides = pkgs.defaultCrateOverrides // {
                 terrier-server = attrs: {
@@ -111,7 +113,7 @@
             };
           in
           {
-            inherit terrier terrierWeb terrierDocs terrierImage;
+            inherit samlProxy terrier terrierWeb terrierDocs terrierImage;
             default = terrier;
           }
         ))
