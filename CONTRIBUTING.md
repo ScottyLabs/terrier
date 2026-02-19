@@ -19,6 +19,7 @@ We acknowledge that AI can be a useful tool when used responsibly. However, to e
 
 - **Strict Quality Control**: You are responsible for every line of code you submit. AI-generated code must be thoroughly reviewed, understood, and tested.
 - **Maintainability**: Any maintainability issues (e.g. bad code style, poor documentation) must be fixed immediately.
+- **Improving AI Guidelines**: When AI makes a recurring mistake, add a rule to [`CLAUDE.md`](./CLAUDE.md) to prevent it in the future. This file is a living document that should grow as you learn what AI gets wrong.
 
 ### Quality Standards
 

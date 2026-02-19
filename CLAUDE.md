@@ -22,3 +22,7 @@ devenv shell -- cargo build
 - Always use `cargo add` to add Rust dependencies to ensure you're getting the latest version.
 - Do not manually edit `Cargo.toml` dependency sections or add inline comments to dependencies.
 - The same applies to `bun.lock` and web dependencies.
+
+## Markdown Style
+
+- URLs must always be written as proper markdown links with descriptive text: `[description](url)`. Never use bare URLs or URLs in backticks as a substitute for links.
