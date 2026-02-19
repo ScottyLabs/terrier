@@ -89,6 +89,7 @@
                 samael = attrs: {
                   nativeBuildInputs = [ pkgs.pkg-config ];
                   buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool ];
+                  LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
                 };
               };
             };
