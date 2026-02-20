@@ -277,6 +277,44 @@ async fn metadata_endpoint_returns_xml() {
     assert!(body.contains("http://localhost:8443/saml/idp"));
 }
 
+#[tokio::test]
+async fn sp_metadata_endpoint_returns_xml() {
+    let app = test_app().await;
+
+    let response = app
+        .oneshot(
+            http::Request::builder()
+                .uri("/sp/metadata")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let content_type = response
+        .headers()
+        .get(http::header::CONTENT_TYPE)
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(content_type.contains("samlmetadata+xml"));
+
+    let body = String::from_utf8(
+        axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains("EntityDescriptor"));
+    assert!(body.contains("SPSSODescriptor"));
+    assert!(body.contains("AssertionConsumerService"));
+    assert!(body.contains("http://localhost:8443/sp/acs"));
+    assert!(body.contains("SingleLogoutService"));
+    assert!(body.contains("http://localhost:8443/sp/slo"));
+}
+
 /// Starts a real HTTP server backed by the InCommon federation index and prints
 /// a discovery URL you can open in a browser. Run with:
 ///

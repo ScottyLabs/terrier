@@ -244,6 +244,7 @@ These are passed through to the Service Provider in the proxy's SAML Response. T
 
 **SP interface (for universities):**
 
+- `GET /sp/metadata` - SP metadata XML (for InCommon registration)
 - `GET /sp/initiate?session={id}` - Fetch metadata via MDQ, redirect to university
 - `POST /sp/acs` - Assertion Consumer Service, receive university response
 
@@ -326,7 +327,7 @@ Logs include:
 
 **Metadata submission:**
 
-1. Generate SP metadata XML via `/saml/metadata` endpoint
+1. Generate SP metadata XML via `/sp/metadata` endpoint
 1. Submit to Computing Services for them to submit via InCommon Federation Manager
 1. Potentially request Research & Scholarship (R&S) category (for more attributes) and eduGAIN (for international universities)
 
