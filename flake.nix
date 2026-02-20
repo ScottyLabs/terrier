@@ -68,6 +68,8 @@
                 bunNix = ./sites/docs/bun.nix;
               };
 
+              bunInstallFlags = [ "--linker=hoisted" ];
+
               buildPhase = ''
                 bun run build
               '';
