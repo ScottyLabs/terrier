@@ -1,23 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Select Your University</title>
-</head>
-<body>
-    <h1>Sign in with your university</h1>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Select Your University</title>
+        <style>
+            #results {
+                list-style: none;
+                padding: 0;
+            }
+            #results li {
+                color: #0066cc;
+                text-decoration: underline;
+                cursor: pointer;
+                padding: 4px 0;
+            }
+            #results li:hover {
+                color: #004499;
+            }
+            #results li.selected {
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Sign in with your university</h1>
 
-    <label for="search">Search for your institution:</label>
-    <input type="text" id="search" autocomplete="off" autofocus placeholder="e.g. Carnegie Mellon">
-    <ul id="results"></ul>
+        <label for="search">Search for your institution:</label>
+        <input
+            type="text"
+            id="search"
+            autocomplete="off"
+            placeholder="e.g. Carnegie Mellon"
+        />
+        <ul id="results"></ul>
 
-    <form id="selection-form" method="POST" action="/discovery">
-        <input type="hidden" name="session_id" value="{{ session_id }}">
-        <input type="hidden" id="entity_id" name="entity_id" value="">
-        <button type="submit" id="submit-btn" disabled>Continue</button>
-    </form>
+        <form id="selection-form" method="POST" action="/discovery">
+            <input type="hidden" name="session_id" value="{{ session_id }}" />
+            <input type="hidden" id="entity_id" name="entity_id" value="" />
+            <button type="submit" id="submit-btn" disabled>Continue</button>
+        </form>
 
-    <script src="/static/discovery.js"></script>
-</body>
+        <script src="/static/discovery.js"></script>
+    </body>
 </html>
