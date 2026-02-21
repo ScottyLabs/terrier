@@ -1,10 +1,9 @@
-# RFC: Observability Stack
+# RFC 0006: Observability
 
-**Status:** Draft
-**Author:** @ap-1, @kritdass, @sreeram
-**Date:** 2026-02-21
-
-______________________________________________________________________
+- **Status:** Draft
+- **Author(s):** @ap-1, @kritdass, @sreeram
+- **Created:** 2026-02-21
+- **Updated:** 2026-02-21
 
 ## Overview
 
@@ -19,8 +18,6 @@ Our stack consists of:
 - **Object Storage:** MinIO
 - **Auth:** `axum-oidc` with `tower-sessions` backed by Valkey
 
-______________________________________________________________________
-
 ## Goals
 
 - Capture errors and performance data in **Sentry** for engineering visibility
@@ -29,15 +26,11 @@ ______________________________________________________________________
 - Correlate logs with errors and traces inside Sentry
 - Avoid vendor lock-in at the instrumentation layer — use OpenTelemetry as the spine
 
-______________________________________________________________________
-
 ## Non-Goals
 
 - Setting up Prometheus, Grafana, or Tempo infrastructure (out of scope for this RFC — addressed separately)
 - Product analytics / user behavior tracking (PostHog — a separate decision not yet made)
 - Defining alerting rules or SLOs
-
-______________________________________________________________________
 
 ## Decisions
 
@@ -81,8 +74,6 @@ HTTP-level metrics (request count, latency histograms, status code breakdown) ar
 ### 5. Valkey client: `fred`
 
 `axum-oidc` uses `tower-sessions` for session storage, and `tower-sessions-redis-store` (which backs Valkey storage) uses `fred` as its Redis client. We use `fred` directly for any additional Valkey usage (e.g. pub/sub) to share the same client and connection pool rather than introducing a second Redis client crate.
-
-______________________________________________________________________
 
 ## Per-Service Instrumentation
 
@@ -176,8 +167,6 @@ This gives cache operation latency and hit/miss visibility as child spans in tra
 
 Note: if at some point we want frontend traces flowing into Tempo as well, the OTel JS browser SDK can be added to emit `traceparent` headers instead, but this is not required now.
 
-______________________________________________________________________
-
 ## What Is Not Yet Wired Up
 
 These are instrumented (or ready to be) but require infrastructure to be set up before data flows anywhere:
@@ -191,8 +180,6 @@ These are instrumented (or ready to be) but require infrastructure to be set up 
 | Traces | OTLP exporter → Collector → Tempo | OTel Collector + Tempo deployment |
 
 Sentry (errors, logs, and its own performance tracing) is the only destination that is fully operational without additional infrastructure.
-
-______________________________________________________________________
 
 ## Open Questions
 
