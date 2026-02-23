@@ -8,13 +8,23 @@ pub mod sp;
 pub mod state;
 
 use axum::Router;
+use axum::http::{StatusCode, header};
+use axum::response::IntoResponse;
 use state::AppState;
-use std::path::Path;
 use std::sync::Arc;
-use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
-pub fn app(state: Arc<AppState>, static_dir: impl AsRef<Path>) -> Router {
+static DISCOVERY_JS: &str = include_str!("../static/discovery.js");
+
+async fn discovery_js() -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/javascript")],
+        DISCOVERY_JS,
+    )
+}
+
+pub fn app(state: Arc<AppState>) -> Router {
     Router::new()
         .nest("/saml", idp::router())
         .nest("/sp", sp::router())
@@ -27,7 +37,7 @@ pub fn app(state: Arc<AppState>, static_dir: impl AsRef<Path>) -> Router {
             "/api/entities/search",
             axum::routing::get(discovery::search_entities),
         )
+        .route("/static/discovery.js", axum::routing::get(discovery_js))
         .with_state(state)
-        .nest_service("/static", ServeDir::new(static_dir))
         .layer(TraceLayer::new_for_http())
 }

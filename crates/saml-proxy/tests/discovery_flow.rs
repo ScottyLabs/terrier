@@ -31,10 +31,6 @@ fn test_config() -> Config {
     }
 }
 
-fn static_dir() -> String {
-    format!("{}/static", env!("CARGO_MANIFEST_DIR"))
-}
-
 async fn test_app() -> axum::Router {
     let config = test_config();
     let state = Arc::new(AppState::new(config).expect("failed to create AppState"));
@@ -55,7 +51,7 @@ async fn test_app() -> axum::Router {
         ];
     }
 
-    saml_proxy::app(state, static_dir())
+    saml_proxy::app(state)
 }
 
 fn extract_location(response: &http::Response<axum::body::Body>) -> &str {
@@ -357,7 +353,7 @@ async fn manual_discovery_ui() {
         urlencoding::encode(&encoded)
     );
 
-    let app = saml_proxy::app(state, static_dir());
+    let app = saml_proxy::app(state);
 
     let response = app
         .clone()

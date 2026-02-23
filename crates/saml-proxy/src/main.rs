@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
         ),
     );
 
-    let app = saml_proxy::app(state, "static");
+    let app = saml_proxy::app(state);
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
