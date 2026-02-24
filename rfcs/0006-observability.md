@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1, @kritdass, @sreeram
 - **Created:** 2026-02-21
-- **Updated:** 2026-02-21
+- **Updated:** 2026-02-24
 
 ## Overview
 
@@ -24,12 +24,12 @@ Our stack consists of:
 - Ship distributed traces to **Grafana Tempo** for deep infrastructure-level trace querying
 - Expose metrics for eventual scraping by **Prometheus** (infrastructure is not yet set up, but instrumentation should be ready)
 - Correlate logs with errors and traces inside Sentry
-- Avoid vendor lock-in at the instrumentation layer — use OpenTelemetry as the spine
+- Avoid vendor lock-in at the instrumentation layer -- use OpenTelemetry as the spine
 
 ## Non-Goals
 
-- Setting up Prometheus, Grafana, or Tempo infrastructure (out of scope for this RFC — addressed separately)
-- Product analytics / user behavior tracking (PostHog — a separate decision not yet made)
+- Setting up Prometheus, Grafana, or Tempo infrastructure
+- Product analytics / user behavior tracking with PostHog
 - Defining alerting rules or SLOs
 
 ## Decisions
@@ -61,7 +61,7 @@ Sentry is our primary engineering-facing observability tool. It captures:
 
 Sentry receives trace data via the OTel integration (`SentrySpanProcessor`), not via its own `sentry-tracing` span management. This avoids conflicts between the two systems.
 
-The `sentry-tracing` subscriber layer is still used, but **only for log forwarding** — its default `event_filter` (when the `logs` feature is enabled) correctly handles this without touching span lifecycle.
+The `sentry-tracing` subscriber layer is still used, but **only for log forwarding** -- its default `event_filter` (when the `logs` feature is enabled) correctly handles this without touching span lifecycle.
 
 ### 3. `tracing` is the instrumentation API
 
@@ -137,9 +137,9 @@ receivers:
       insecure: false
 ```
 
-Postgres does not natively emit OTLP. There is no agent to run alongside it for traces — trace context lives in the application layer.
+Postgres does not natively emit OTLP. There is no agent to run alongside it for traces -- trace context lives in the application layer.
 
-**Traces:** SeaORM queries are instrumented at the application level. Query calls are wrapped in `tracing` spans so they appear as child spans nested under the HTTP request span in Tempo and Sentry. SeaORM sits on top of SQLx; there is no automatic instrumentation crate — this is done manually using `tracing::info_span!` or `#[instrument]` on repository/service functions.
+**Traces:** SeaORM queries are instrumented at the application level. Query calls are wrapped in `tracing` spans so they appear as child spans nested under the HTTP request span in Tempo and Sentry. SeaORM sits on top of SQLx; there is no automatic instrumentation crate -- this is done manually using `tracing::info_span!` or `#[instrument]` on repository/service functions.
 
 ### Valkey
 
@@ -157,7 +157,7 @@ This gives cache operation latency and hit/miss visibility as child spans in tra
 
 **Metrics:** MinIO exposes a native Prometheus endpoint at `/minio/metrics/v3`. No sidecar required. Configure an auth token and point Prometheus at it.
 
-**Traces:** MinIO's OTLP trace support is limited to their enterprise AIStor product and is designed for support/diagnostics purposes rather than general observability. For open-source MinIO, S3 client calls are instrumented at the application layer — wrap `aws-sdk-s3` or `minio` SDK calls in `tracing` spans the same way as database queries.
+**Traces:** MinIO's OTLP trace support is limited to their enterprise AIStor product and is designed for support/diagnostics purposes rather than general observability. For open-source MinIO, S3 client calls are instrumented at the application layer -- wrap `aws-sdk-s3` or `minio` SDK calls in `tracing` spans the same way as database queries.
 
 ### Svelte Frontend
 
