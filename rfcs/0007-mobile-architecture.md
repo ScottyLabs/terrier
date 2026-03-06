@@ -32,6 +32,11 @@ Terrier Mobile will exist as a component within the monorepo, sharing the same s
 
 Tauri has the advantages of providing security, resource efficiency, and flexible architecture. Moreover, the following Tauri plugins allow support for essential native features: [`barcode-scanner`](https://tauri.app/plugin/barcode-scanner/), [`deep-link`](https://tauri.app/plugin/deep-linking/), [`notification`](https://tauri.app/plugin/notification/), and [`geolocation`](https://tauri.app/plugin/geolocation/).
 
+### App Distribution and Updates
+
+- **Single Official App**: Instead of individual apps per event, there will be one official Terrier app. Users will connect to their specific hackathon's instance by entering an instance URL. The App will then fetch the relevant branding and maintain its connection to that instance.
+- **Updating Mechanism**: Updates to the core application and Tauri wrapper will be distributed via standard platform channels (Apple App Store and Google Play Store). However, because the app dynamically connects to the web layer of the instance URL, updates to the web UI and business logic will be seamlessly applied as soon as the server instance updates, bypassing standard app store review cycles.
+
 ### Nix Build
 
 Like `terrierDocs` and `terrierApp`, we use the same `bun2nix` to package the Terrier mobile app as a Nix derivation.
@@ -45,4 +50,4 @@ Like `terrierDocs` and `terrierApp`, we use the same `bun2nix` to package the Te
 
 ## Open Questions
 
-- Should we provide a generic Terrier app or should individual hackathons use our platform to create and distribute their own apps for each hackathon?
+N/A
