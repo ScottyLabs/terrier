@@ -4,9 +4,8 @@ use axum::extract::State;
 use axum::response::{Html, IntoResponse, Response};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use samael::crypto::CertificateDer;
-use samael::idp::IdentityProvider;
-use samael::idp::response_builder::ResponseAttribute;
+use samael::crypto::{CertificateDer, Crypto, CryptoProvider};
+use samael::idp::response_builder::{ResponseAttribute, build_response_template};
 use samael::idp::sp_extractor::RequiredAttribute;
 use samael::service_provider::ServiceProvider;
 use samael::traits::ToXml;
@@ -100,25 +99,33 @@ pub async fn assertion_consumer_service(
         })
         .collect();
 
-    let idp = IdentityProvider::from_rsa_private_key_der(&state.idp_key_der)
-        .map_err(|e| Error::Internal(anyhow::anyhow!("{e}")))?;
-
     let cert_der = CertificateDer::from(state.idp_cert_der.clone());
 
-    let response = idp
-        .sign_authn_response(
-            &cert_der,
-            name_id,
-            &session.sp_entity_id,
-            &session.sp_acs_url,
-            &state.config.entity_id,
-            &session.original_request_id,
-            &response_attrs,
-        )
+    // Sign the Assertion rather than the outer Response.
+    let mut unsigned = build_response_template(
+        &cert_der,
+        name_id,
+        &session.sp_entity_id,
+        &state.config.entity_id,
+        &session.sp_acs_url,
+        &session.original_request_id,
+        &response_attrs,
+    );
+
+    if let (Some(mut sig), Some(assertion)) =
+        (unsigned.signature.take(), unsigned.assertion.as_mut())
+    {
+        if let Some(reference) = sig.signed_info.reference.first_mut() {
+            reference.uri = Some(format!("#{}", assertion.id));
+        }
+        assertion.signature = Some(sig);
+    }
+
+    let unsigned_xml = unsigned
+        .to_string()
         .map_err(|e| Error::Internal(anyhow::anyhow!("{e}")))?;
 
-    let response_xml = response
-        .to_string()
+    let response_xml = Crypto::sign_xml(&unsigned_xml, &state.idp_key_der)
         .map_err(|e| Error::Internal(anyhow::anyhow!("{e}")))?;
 
     let b64 = STANDARD.encode(response_xml.as_bytes());
