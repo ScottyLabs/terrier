@@ -58,9 +58,17 @@ pub async fn assertion_consumer_service(
         .as_deref()
         .ok_or_else(|| Error::InvalidSamlResponse("no proxy request ID in session".into()))?;
 
+    // Private key for decrypting encrypted assertions.
+    let sp_rsa = openssl::rsa::Rsa::private_key_from_der(&state.idp_key_der)
+        .map_err(|e| Error::Internal(anyhow::anyhow!("failed to parse SP private key: {e}")))?;
+    let sp_key = openssl::pkey::PKey::from_rsa(sp_rsa)
+        .map_err(|e| Error::Internal(anyhow::anyhow!("failed to wrap SP private key: {e}")))?;
+
     let sp = ServiceProvider {
         entity_id: Some(state.config.entity_id.clone()),
         acs_url: Some(format!("{}/sp/acs", state.config.base_url)),
+        key: Some(sp_key),
+        certificate: Some(CertificateDer::from(state.idp_cert_der.clone())),
         idp_metadata,
         allow_idp_initiated: false,
         max_issue_delay: chrono::Duration::minutes(5),
