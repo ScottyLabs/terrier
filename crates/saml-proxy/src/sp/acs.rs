@@ -8,6 +8,7 @@ use samael::crypto::{CertificateDer, Crypto, CryptoProvider};
 use samael::idp::response_builder::{ResponseAttribute, build_response_template};
 use samael::idp::sp_extractor::RequiredAttribute;
 use samael::service_provider::ServiceProvider;
+use samael::signature::DigestAlgorithm;
 use samael::traits::ToXml;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -117,6 +118,7 @@ pub async fn assertion_consumer_service(
     {
         if let Some(reference) = sig.signed_info.reference.first_mut() {
             reference.uri = Some(format!("#{}", assertion.id));
+            reference.digest_method.algorithm = DigestAlgorithm::Sha256;
         }
         assertion.signature = Some(sig);
     }
