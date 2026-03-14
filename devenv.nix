@@ -28,6 +28,7 @@ in
     xmlsec
     libtool
     pkg-config
+    openssl
 
     # Database tooling
     sea-orm-cli
@@ -61,6 +62,8 @@ in
     SAML_PROXY_ENTITY_ID = "https://saml-proxy.example.com";
     SAML_PROXY_IDP_CERT_PATH = "crates/saml-proxy/certs/idp-cert.pem";
     SAML_PROXY_IDP_KEY_PATH = "crates/saml-proxy/certs/idp-key.pem";
+
+    LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   };
 
   languages.rust = {
