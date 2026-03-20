@@ -25,7 +25,7 @@ flate2 = "1.1.9"
 openssl = "0.10.75"
 reqwest = "0.13.2"
 samael = { git = "https://github.com/ap-1/samael", branch = "fix/contact-person-deserialization", version = "0.0.19", features = ["xmlsec"] }
-saml-mdq = { git = "https://codeberg.org/ap-1/saml-mdq", version = "0.1.0" }
+saml-mdq = { git = "https://codeberg.org/anish/saml-mdq", version = "0.1.0" }
 serde.workspace = true
 terrier-common.workspace = true
 thiserror.workspace = true

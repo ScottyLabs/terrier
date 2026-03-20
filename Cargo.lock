@@ -1831,7 +1831,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "samael"
 version = "0.0.19"
-source = "git+https://github.com/ap-1/samael?branch=fix%2Fcontact-person-deserialization#953e5aa45428d2099c37d1f8b26137773f13e8d2"
+source = "git+https://github.com/ap-1/samael?branch=fix%2Fcontact-person-deserialization#5d3995cdef0beea70b36326ad0c6e2972adc9795"
 dependencies = [
  "base64",
  "bindgen",
@@ -1866,7 +1866,7 @@ dependencies = [
 [[package]]
 name = "saml-mdq"
 version = "0.1.0"
-source = "git+https://codeberg.org/ap-1/saml-mdq#fd41119d57d5252fad9b06f473f5a6d1d80b581f"
+source = "git+https://codeberg.org/anish/saml-mdq#c32972f38d6e1169de3e391da55fd3d06759d660"
 dependencies = [
  "hex",
  "moka",

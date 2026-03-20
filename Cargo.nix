@@ -6059,8 +6059,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/ap-1/samael";
-          rev = "953e5aa45428d2099c37d1f8b26137773f13e8d2";
-          sha256 = "1plrbajnxbh6dnmf40bdgs84lp774id9jwxi6nwibp43yxdv09kl";
+          rev = "5d3995cdef0beea70b36326ad0c6e2972adc9795";
+          sha256 = "08fvqgqc7wa520ddw3hpvkpcndrwrh1m797baa9fhqv2vii9l80i";
         };
         build = "bindings.rs";type = [ "staticlib" "rlib" ];
         authors = [
@@ -6186,9 +6186,9 @@ rec {
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
-          url = "https://codeberg.org/ap-1/saml-mdq";
-          rev = "fd41119d57d5252fad9b06f473f5a6d1d80b581f";
-          sha256 = "1whfj002qfkyji6pcqxp23dvnraqm1a3d26nqchylfi6gg6g5v17";
+          url = "https://codeberg.org/anish/saml-mdq";
+          rev = "c32972f38d6e1169de3e391da55fd3d06759d660";
+          sha256 = "1vnxfvb5d8dwqp62hah3j3brp5561vcgny703m3qnm8s908bg0qk";
         };
         libName = "saml_mdq";
         authors = [
