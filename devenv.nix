@@ -28,7 +28,6 @@ in
     xmlsec
     libtool
     pkg-config
-    openssl
 
     # Database tooling
     sea-orm-cli
