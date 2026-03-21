@@ -28,6 +28,7 @@ in
     xmlsec
     libtool
     pkg-config
+    openssl
 
     # Database tooling
     sea-orm-cli
@@ -39,12 +40,6 @@ in
 
   env = {
     CARGO_PROFILE_DEV_DEBUG = "0";
-    CARGO_PROFILE_DEV_CODEGEN_BACKEND = "cranelift";
-
-    # TODO: build scripts use LLVM since cranelift lacks aarch64 CRC32 intrinsics
-    # https://github.com/rust-lang/rustc_codegen_cranelift/issues/171
-    # https://github.com/srijs/rust-crc32fast/pull/52
-    CARGO_PROFILE_DEV_BUILD_OVERRIDE_CODEGEN_BACKEND = "llvm";
 
     DATABASE_URL = "postgres:///terrier?host=$PGHOST";
     REDIS_URL = "redis+unix://$REDIS_UNIX_SOCKET";
@@ -76,7 +71,6 @@ in
       "rust-analyzer"
       "rust-src"
       "llvm-tools-preview"
-      "rustc-codegen-cranelift-preview"
     ];
     mold.enable = pkgs.stdenv.isLinux;
     rustflags = "-Zthreads=8";

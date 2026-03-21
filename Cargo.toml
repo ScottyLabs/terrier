@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "crates/terrier-server/migration"]
 resolver = "2"
 
 [workspace.package]
@@ -24,4 +24,3 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 utoipa = { version = "5.4.0", features = ["axum_extras"] }
 utoipa-axum = "0.2.0"
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum", "vendored"] }
-
