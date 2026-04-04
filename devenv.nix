@@ -41,7 +41,7 @@ in
   env = {
     CARGO_PROFILE_DEV_DEBUG = "0";
 
-    DATABASE_URL = "postgres:///terrier?host=$PGHOST";
+    DATABASE_URL = "postgres://terrier:terrier@127.0.0.1:5432/terrier";
     REDIS_URL = "redis+unix://$REDIS_UNIX_SOCKET";
     S3_ENDPOINT = "http://localhost:9000";
     S3_ACCESS_KEY = s3.accessKey;
