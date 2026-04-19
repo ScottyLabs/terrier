@@ -63,18 +63,12 @@ impl Policy<AppState> for IsAdmin {
     type Output = AdminProof;
     type Error = StatusCode;
 
-    fn check(
-        _parts: &mut Parts,
-        state: &AppState,
-    ) -> impl std::future::Future<Output = Result<Self::Output, Self::Error>> + Send {
-        let inner = state.inner.clone();
-        async move {
-            inner.admin_calls.fetch_add(1, Ordering::SeqCst);
-            if inner.is_admin {
-                Ok(AdminProof { label: "admin" })
-            } else {
-                Err(StatusCode::FORBIDDEN)
-            }
+    async fn check(_parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        state.inner.admin_calls.fetch_add(1, Ordering::Relaxed);
+        if state.inner.is_admin {
+            Ok(AdminProof { label: "admin" })
+        } else {
+            Err(StatusCode::FORBIDDEN)
         }
     }
 }
@@ -84,24 +78,26 @@ impl Policy<AppState> for IsMember {
     type Output = MemberProof;
     type Error = StatusCode;
 
-    fn check(
-        _parts: &mut Parts,
-        state: &AppState,
-    ) -> impl std::future::Future<Output = Result<Self::Output, Self::Error>> + Send {
-        let inner = state.inner.clone();
-        async move {
-            inner.member_calls.fetch_add(1, Ordering::SeqCst);
-            if inner.is_member {
-                Ok(MemberProof { label: "member" })
-            } else {
-                Err(StatusCode::FORBIDDEN)
-            }
+    async fn check(_parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        state.inner.member_calls.fetch_add(1, Ordering::Relaxed);
+        if state.inner.is_member {
+            Ok(MemberProof { label: "member" })
+        } else {
+            Err(StatusCode::FORBIDDEN)
         }
     }
 }
 
 policy! {
     pub enum DashboardAccess for AppState {
+        Admin  = IsAdmin,
+        Member = IsMember,
+    }
+}
+
+policy! {
+    #[derive(Debug)]
+    pub enum DebuggableAccess for AppState {
         Admin  = IsAdmin,
         Member = IsMember,
     }
@@ -165,8 +161,8 @@ async fn policy_macro_takes_first_match() {
     let (status, body) = send(route(state.clone(), handler)).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, "admin:admin");
-    assert_eq!(state.inner.admin_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(state.inner.member_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(state.inner.member_calls.load(Ordering::Relaxed), 0);
 }
 
 #[tokio::test]
@@ -184,8 +180,8 @@ async fn policy_macro_falls_through() {
     let (status, body) = send(route(state.clone(), handler)).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, "member:member");
-    assert_eq!(state.inner.admin_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(state.inner.member_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(state.inner.member_calls.load(Ordering::Relaxed), 1);
 }
 
 #[tokio::test]
@@ -196,6 +192,22 @@ async fn policy_macro_all_reject() {
 
     let (status, _) = send(route(AppState::anon(), handler)).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn policy_macro_passes_through_attributes() {
+    async fn handler(
+        Authorized { data, .. }: Authorized<DebuggableAccess, AppState>,
+    ) -> impl IntoResponse {
+        format!("{data:?}")
+    }
+
+    let (status, body) = send(route(AppState::admin(), handler)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.contains("Admin"),
+        "expected Debug-derived output, got {body}"
+    );
 }
 
 #[tokio::test]
@@ -231,6 +243,19 @@ async fn any_right() {
 }
 
 #[tokio::test]
+async fn any_propagates_right_error_when_both_fail() {
+    async fn handler(_: Authorized<Any<IsAdmin, IsMember>, AppState>) -> &'static str {
+        "ok"
+    }
+
+    let state = AppState::anon();
+    let (status, _) = send(route(state.clone(), handler)).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(state.inner.member_calls.load(Ordering::Relaxed), 1);
+}
+
+#[tokio::test]
 async fn all_pass() {
     async fn handler(
         Authorized { data, .. }: Authorized<All<IsAdmin, IsMember>, AppState>,
@@ -253,6 +278,6 @@ async fn all_short_circuits_on_first_failure() {
     let state = AppState::member();
     let (status, _) = send(route(state.clone(), handler)).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-    assert_eq!(state.inner.admin_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(state.inner.member_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(state.inner.member_calls.load(Ordering::Relaxed), 0);
 }

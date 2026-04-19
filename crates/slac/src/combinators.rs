@@ -1,4 +1,3 @@
-use core::future::Future;
 use core::marker::PhantomData;
 
 use axum::http::request::Parts;
@@ -21,43 +20,33 @@ pub enum Either<L, R> {
 
 impl<S, A, B> Policy<S> for Any<A, B>
 where
-    S: Send + Sync + 'static,
+    S: Send + Sync,
     A: Policy<S>,
     B: Policy<S, Error = A::Error>,
 {
     type Output = Either<A::Output, B::Output>;
     type Error = A::Error;
 
-    fn check(
-        parts: &mut Parts,
-        state: &S,
-    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
-        async move {
-            match A::check(parts, state).await {
-                Ok(o) => Ok(Either::Left(o)),
-                Err(_) => B::check(parts, state).await.map(Either::Right),
-            }
+    async fn check(parts: &mut Parts, state: &S) -> Result<Self::Output, Self::Error> {
+        match A::check(parts, state).await {
+            Ok(o) => Ok(Either::Left(o)),
+            Err(_) => B::check(parts, state).await.map(Either::Right),
         }
     }
 }
 
 impl<S, A, B> Policy<S> for All<A, B>
 where
-    S: Send + Sync + 'static,
+    S: Send + Sync,
     A: Policy<S>,
     B: Policy<S, Error = A::Error>,
 {
     type Output = (A::Output, B::Output);
     type Error = A::Error;
 
-    fn check(
-        parts: &mut Parts,
-        state: &S,
-    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
-        async move {
-            let a = A::check(parts, state).await?;
-            let b = B::check(parts, state).await?;
-            Ok((a, b))
-        }
+    async fn check(parts: &mut Parts, state: &S) -> Result<Self::Output, Self::Error> {
+        let a = A::check(parts, state).await?;
+        let b = B::check(parts, state).await?;
+        Ok((a, b))
     }
 }

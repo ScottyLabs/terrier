@@ -16,12 +16,8 @@ impl Policy<AppState> for IsHackathonAdmin {
     type Output = (User, Hackathon);
     type Error = ApiError;
 
-    fn check(parts: &mut Parts, state: &AppState)
-        -> impl std::future::Future<Output = Result<(User, Hackathon), ApiError>> + Send
-    {
-        async move {
-            // pull the slug, look up the user_hackathon_role, decide
-        }
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<(User, Hackathon), ApiError> {
+        todo!("pull the slug, look up the user_hackathon_role, decide")
     }
 }
 
@@ -39,6 +35,7 @@ pub async fn delete_team(
         SettingsAccess::GlobalAdmin(h) => h,
         SettingsAccess::HackathonAdmin((_user, h)) => h,
     };
+    todo!("delete the team within {hackathon:?}")
 }
 ```
 

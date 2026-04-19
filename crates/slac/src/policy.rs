@@ -1,4 +1,3 @@
-use core::future::Future;
 use core::marker::PhantomData;
 
 use axum::extract::FromRequestParts;
@@ -13,7 +12,7 @@ use axum::response::IntoResponse;
 /// purely by its type. This is what gives the type parameter on `Authorized<P>`
 /// its meaning.
 pub trait Policy<S>: Sized + Send + Sync + 'static {
-    type Output: Send + Sync + 'static;
+    type Output: Send + 'static;
     type Error: IntoResponse + Send + 'static;
 
     fn check(
@@ -44,16 +43,11 @@ where
 {
     type Rejection = P::Error;
 
-    fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
-        async move {
-            let data = P::check(parts, state).await?;
-            Ok(Self {
-                data,
-                _proof: PhantomData,
-            })
-        }
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let data = P::check(parts, state).await?;
+        Ok(Self {
+            data,
+            _proof: PhantomData,
+        })
     }
 }

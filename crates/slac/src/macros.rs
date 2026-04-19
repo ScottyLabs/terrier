@@ -43,38 +43,34 @@ macro_rules! policy {
             type Output = Self;
             type Error = <$first_policy as $crate::Policy<$state>>::Error;
 
-            fn check(
+            async fn check(
                 parts: &mut $crate::__private::Parts,
                 state: &$state,
-            ) -> impl ::core::future::Future<
-                Output = ::core::result::Result<Self::Output, Self::Error>,
-            > + ::core::marker::Send {
-                async move {
-                    let mut last_err: ::core::option::Option<Self::Error> =
-                        ::core::option::Option::None;
+            ) -> ::core::result::Result<Self::Output, Self::Error> {
+                let mut last_err: ::core::option::Option<Self::Error> =
+                    ::core::option::Option::None;
 
-                    match <$first_policy as $crate::Policy<$state>>::check(parts, state).await {
+                match <$first_policy as $crate::Policy<$state>>::check(parts, state).await {
+                    ::core::result::Result::Ok(o) => {
+                        return ::core::result::Result::Ok(Self::$first_variant(o));
+                    }
+                    ::core::result::Result::Err(e) => {
+                        last_err = ::core::option::Option::Some(e);
+                    }
+                }
+
+                $(
+                    match <$policy as $crate::Policy<$state>>::check(parts, state).await {
                         ::core::result::Result::Ok(o) => {
-                            return ::core::result::Result::Ok(Self::$first_variant(o));
+                            return ::core::result::Result::Ok(Self::$variant(o));
                         }
                         ::core::result::Result::Err(e) => {
                             last_err = ::core::option::Option::Some(e);
                         }
                     }
+                )*
 
-                    $(
-                        match <$policy as $crate::Policy<$state>>::check(parts, state).await {
-                            ::core::result::Result::Ok(o) => {
-                                return ::core::result::Result::Ok(Self::$variant(o));
-                            }
-                            ::core::result::Result::Err(e) => {
-                                last_err = ::core::option::Option::Some(e);
-                            }
-                        }
-                    )*
-
-                    ::core::result::Result::Err(last_err.unwrap())
-                }
+                ::core::result::Result::Err(last_err.unwrap())
             }
         }
     };
