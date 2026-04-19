@@ -2,8 +2,6 @@
 
 A small, domain-free Rust crate that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
 
-This is the implementation of [RFC 0009](../../rfcs/0009-slac.md). Read it for the design rationale; this README is the hands-on summary.
-
 ## At a glance
 
 ```rust
@@ -39,7 +37,7 @@ pub async fn delete_team(
 }
 ```
 
-The handler signature is the entire authorization spec. Removing the extractor either breaks the body (no `data` to destructure) or reduces the function to something a reviewer would immediately reject.
+The handler signature is the entire authorization spec.
 
 ## Contents
 
