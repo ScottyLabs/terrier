@@ -63,6 +63,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "slac" = rec {
+      packageId = "slac";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "slac";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "terrier-common" = rec {
       packageId = "terrier-common";
       build = internal.buildRustCrateWithFeatures {
@@ -9765,6 +9775,32 @@ rec {
           "serde" = [ "dep:serde" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "slac" = rec {
+        crateName = "slac";
+        version = "0.1.0";
+        edition = "2024";
+        src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/slac; };
+        dependencies = [
+          {
+            name = "axum";
+            packageId = "axum";
+            features = [ "ws" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "full" "macros" "rt" ];
+          }
+          {
+            name = "tower";
+            packageId = "tower";
+            features = [ "util" ];
+          }
+        ];
+
       };
       "smallvec" = rec {
         crateName = "smallvec";
