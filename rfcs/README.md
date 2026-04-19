@@ -100,6 +100,7 @@ The filename should match the branch name, e.g. `0002-dev-environment-ci.md`.
 | 0007 | [Mobile Architecture](./0007-mobile-architecture.md) | Accepted |
 | 0008 | [Database Model](./0008-database-model.md) | Accepted |
 | 0009 | [SLAC](./0009-slac.md) | Accepted |
+| 0010 | [User Flow](./0010-user-flow.md) | Draft |
 
 *(This index will be updated as RFCs are added)*
 
