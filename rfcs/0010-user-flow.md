@@ -180,6 +180,24 @@ The dashboard should make it very clear that "We're sorry to hear you couldn't m
 
 ---
 
+#### `application-manager`
+
+This role will have access to the full list of applications, with the ability to accept or reject those applications.
+
+**Features:**
+- View the full list of applications, with search and filtering
+    - Can view draft applications, but should be a distinct place from actual applications,
+      to enable troubleshooting with participants who may not have submitted yet
+- View individual application details
+- Accept or reject applications
+- Edit application details on behalf of applicants (for changes to non-editable fields)
+- View a section highlighting recently updated applications (preferably with diffs)
+- View all travel reimbursement requests
+- Approve or deny travel reimbursement requests, specifying an approved amount
+- Transition applicants between `tr-applied` and `tr-accepted`
+
+---
+
 #### `participant`
 
 A user who has checked in to the event. They now have access to project submission for their team.
@@ -189,7 +207,8 @@ This simplifies the complexity of having to deal with people who arrived late an
 since they're now able to attend talks and be logged correctly.
 
 **Features:**
-- All team operations from `attendee-confirmed` (create, join, search, invite, leave, etc.)[^2]
+- All team operations from `attendee-confirmed` (create, join, search, invite, leave, etc.)[^2].
+  Probably simplest to just receive these transitively, since a `participant` should always also be an `attendee-confirmed`.
 - Create a project submission for their team, including:
     - Project name
     - Project description
@@ -208,24 +227,6 @@ These backups are likely already part of standard infrastructure.
 
 ---
 
-#### `application-manager`
-
-This role will have access to the full list of applications, with the ability to accept or reject those applications.
-
-**Features:**
-- View the full list of applications, with search and filtering
-- View individual application details
-- Accept or reject applications
-- Edit application details on behalf of applicants (for changes to non-editable fields)
-- View a section highlighting recently updated applications (preferably with diffs)
-- View all travel reimbursement requests
-- Approve or deny travel reimbursement requests, specifying an approved amount
-- Transition applicants between `tr-applied` and `tr-accepted`
-- View the schedule of events
-- Role-specific resource links
-
----
-
 #### `organizer`
 
 An organizer involved in the event but without full administrative access.
@@ -241,28 +242,6 @@ An organizer involved in the event but without full administrative access.
 - View track winner info before it is marked as "published"
 - Check people into events by scanning their QR code or by manually searching the person (any `attendee-confirmed`, regardless of current `participant` status)
 - View the schedule of events (clicking on a schedule event provides access to the check-in interface for that event)
-- Role-specific resource links
-
----
-
-#### `admin`
-
-This role should have access to every piece of data, with the ability to edit it.
-Anything they can view, they should be able to edit (besides, perhaps, judging data).
-And anything that is shown to anyone, they should be able to see.
-They should also have any of the special permissions given to `*-organizer`s.
-
-**Features:**
-- All permissions from `organizer`, `judge-organizer`, and `sponsor-organizer`
-- View and edit all data across the system (participants, teams, projects, prize tracks, applications, etc.)
-- Configure event parameters:
-    - Maximum number of teams per table
-    - Number of people per team (see Open Questions)
-    - Other event configuration as needed
-- Create custom invitation links for any role
-- Send messages to participants (individual, team-specific, or broadcast; details in a future messaging RFC)
-- Manage the schedule (create, edit, remove events)
-- View the schedule of events
 - Role-specific resource links
 
 ---
@@ -342,12 +321,37 @@ These are people from the organizing team in charge of working with sponsors.
 
 ---
 
+#### `admin`
+
+This role should have access to every piece of data, with the ability to edit it.
+Anything they can view, they should be able to edit (besides, perhaps, judging data).
+And anything that is shown to anyone, they should be able to see.
+They should also have any of the special permissions given to `*-organizer`s.
+
+**Features:**
+- All permissions from `organizer`, `judge-organizer`, and `sponsor-organizer`
+- View and edit all data across the system (participants, teams, projects, prize tracks, applications, etc.)
+- Configure event parameters:
+    - Maximum number of teams per table
+    - Number of people per team (see Open Questions)
+    - Other event configuration as needed
+- Create custom invitation links for any role
+- Send messages to participants (individual, team-specific, or broadcast; details in a future messaging RFC)
+- Manage the schedule (create, edit, remove events)
+- View the schedule of events
+- Role-specific resource links
+
+---
+
 ### All-role features
 
 The following features are available to every authenticated user, regardless of role:
-- View their own profile (name, school, major, graduation year, status)
-- Edit editable profile fields (display name, dietary restrictions, shirt size, and other fields flagged as post-submission editable)
+- View their own profile[^3] (name, school, major, graduation year, status)
+- Edit editable (or all if did not apply) profile fields[^3] (display name, dietary restrictions, shirt size, and other fields flagged as post-submission editable)
 - View the schedule of events
+
+[^3]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile.
+      People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
 
 ## Alternatives Considered
 
