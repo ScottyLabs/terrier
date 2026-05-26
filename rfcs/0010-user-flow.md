@@ -119,7 +119,7 @@ It is removed if the applicant later deselects the travel reimbursement option i
 **Features:**
 - View travel reimbursement request status (applied, accepted, denied)
 
-> **Note:** Travel reimbursement decisions can be fluid — as accepted attendees decline or remove their TR requests,
+> **Note:** Travel reimbursement decisions can be fluid, because as accepted attendees decline or remove their TR requests,
 > `application-manager`s may accept additional requests.
 > Removing the TR request from the application should automatically remove any `tr-*` roles.
 
@@ -256,7 +256,7 @@ A judge will be assigned prize tracks as part of the custom link they authentica
 
 **Features:**
 - View assigned prize tracks
-- Select which of their assigned tracks to actively judge (UI should default to all selected, with a clear indication when not all are selected — e.g. a "Judge Selected" vs "Judge All" toggle)
+- Select which of their assigned tracks to actively judge (UI should default to all selected, with a clear indication when not all are selected, such as a "Judge Selected" vs "Judge All" toggle)
 - Judge assigned projects and submit evaluations (judging mechanics defined in RFC NNNN)
 - Take notes on projects during judging
 - "Take a break": triggers a prompt warning that their current team assignment may change, then removes them from the active judging rotation temporarily
@@ -382,7 +382,7 @@ This has been deferred to a future RFC to keep this document focused on clear mu
 - **`applicant-rejected` role:** Is a distinct `applicant-rejected` role worth including?
   Are there meaningful differences in what should be accessible (e.g., should they no longer be able to edit their application)?
   Or is a status indicator within `applicant-submitted` sufficient?
-  A similar question applies to `tr-applied` vs. a hypothetical `tr-denied` — currently there is no feature distinction.
+  A similar question applies to `tr-applied` vs. a hypothetical `tr-denied`, where there is currently no feature distinction.
 
 - **Sponsor visibility of team member info:** Should sponsors be able to see team member details (currently scoped as name and email) for projects applying to their prize tracks?
   How much detail is appropriate? This needs further discussion with the sponsorship team.
@@ -398,19 +398,19 @@ This has been deferred to a future RFC to keep this document focused on clear mu
 
 Implementation of different roles should be phased by timeline importance.
 
-**Phase 1 — Applications:**
+**1. Applications:**
 The `applicant-draft` and `applicant-submitted` roles' functionality should be an initial target,
 as well as the `application-manager` role, to allow for the rollout of applications potentially before the rest of the system is fully ready.
 The `tr-applied` and `tr-accepted` roles should be implemented alongside this phase.
 
-**Phase 2 — Attendance confirmation:**
+**2. Attendance confirmation:**
 The rest of the attendance flow (`attendee-potential`, `attendee-confirmed`, `attendee-declined`) should be the next milestone,
 allowing for acceptance and confirmation of attendance, including team formation features.
 
-**Phase 3 — Event and participation:**
+**3. Event and participation:**
 The `participant` role (check-in, project submission, table selection), `organizer` and `admin` event management,
 and the full check-in system.
 
-**Phase 4 — Judging and sponsors:**
+**4. Judging and sponsors:**
 The `judge`, `judge-organizer`, `sponsor`, and `sponsor-organizer` roles,
 dependent on the judging system RFC (RFC NNNN) being finalized.
