@@ -51,6 +51,9 @@ Whatever the medium, these should be able to be created by:
 Any role below without an explicit explanation of how it is obtained should be assumed to be added through this method,
 or some equivalent method by which organizers manually distribute proper permissions.
 
+As an implementation note, users may not exist in the database upon clicking a link,
+so their creation will need to be handled by the system in the process.
+
 ### "Roles"
 
 The following are the various roles, a non-exclusive set of things which define what a user can do or see at a given point in time.
@@ -374,6 +377,7 @@ This has been deferred to a future RFC to keep this document focused on clear mu
 ## Open Questions
 
 - **Database representation of roles:** How will these roles be represented in the database? RBAC? Or specific models for each type of role?
+  - How will custom links be handled, given users may not already exist in the database upon clicking a link?
 
 - **`applicant-rejected` role:** Is a distinct `applicant-rejected` role worth including?
   Are there meaningful differences in what should be accessible (e.g., should they no longer be able to edit their application)?
