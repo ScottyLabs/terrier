@@ -7,6 +7,7 @@
 ## Overview
 
 This proposal lays out the full path through the app taken by all users, and what should be accessible to them at a given stage.
+These roles will be enforced in the system by SLAC, as described in [RFC 0009](./0009-slac.md).
 
 ## Motivation
 
