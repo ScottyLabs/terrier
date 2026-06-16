@@ -2,20 +2,22 @@
 
 pub mod prelude;
 
-pub mod applicant;
-pub mod checkins;
+pub mod application;
 pub mod evaluation;
-pub mod events;
-pub mod expo_evaluation;
+pub mod event;
+pub mod event_check_in;
 pub mod hackathon;
-pub mod hacker;
-pub mod judge;
-pub mod judge_assignment;
-pub mod prize;
+pub mod invitation;
+pub mod judge_track_assign;
+pub mod organizer;
+pub mod prize_track;
 pub mod project;
+pub mod project_track_sub;
+pub mod reimbursement_application;
+pub mod sea_orm_active_enums;
 pub mod sponsor;
 pub mod sponsor_org;
-pub mod submission;
 pub mod team;
-pub mod track;
+pub mod team_member;
 pub mod user;
+pub mod user_hackathon_role;

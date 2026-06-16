@@ -4,24 +4,34 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "sponsor")]
+#[sea_orm(table_name = "event_check_in")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
+    pub id: Uuid,
+    pub event_id: Uuid,
     pub user_id: Uuid,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub sponsor_org_id: Uuid,
+    pub check_in_time: DateTime,
+    pub checked_in_by: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::sponsor_org::Entity",
-        from = "Column::SponsorOrgId",
-        to = "super::sponsor_org::Column::Id",
+        belongs_to = "super::event::Entity",
+        from = "Column::EventId",
+        to = "super::event::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
-    SponsorOrg,
+    Event,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::CheckedInBy",
+        to = "super::user::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    User2,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -29,18 +39,12 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
-    User,
+    User1,
 }
 
-impl Related<super::sponsor_org::Entity> for Entity {
+impl Related<super::event::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::SponsorOrg.def()
-    }
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::User.def()
+        Relation::Event.def()
     }
 }
 
