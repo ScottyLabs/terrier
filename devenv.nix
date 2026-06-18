@@ -3,15 +3,20 @@
 let
   cargoNix = pkgs.callPackage ./Cargo.nix { };
   terrier = cargoNix.workspaceMembers.terrier-server.build;
-
-  # the minio module can only use its MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
-  # env vars, so ensure they match our S3_ACCESS_KEY and S3_SECRET_KEY vars
-  s3 = {
-    accessKey = "terrier";
-    secretKey = "terrieradmin";
-  };
 in
 {
+  imports = [
+    inputs.scottylabs.devenvModules.default
+  ];
+
+  scottylabs = {
+    enable = true;
+    project.name = "terrier";
+    garage.enable = true;
+    postgres.enable = true;
+    valkey.enable = true;
+  };
+
   cachix.pull = [ "scottylabs" ];
 
   packages = [
@@ -32,8 +37,6 @@ in
 
     # Database tooling
     sea-orm-cli
-    minio-client
-    postgresql_18
   ]);
 
   outputs = { inherit terrier; };
@@ -41,12 +44,7 @@ in
   env = {
     CARGO_PROFILE_DEV_DEBUG = "0";
 
-    DATABASE_URL = "postgres:///terrier?host=$PGHOST";
     REDIS_URL = "redis+unix://$REDIS_UNIX_SOCKET";
-    S3_ENDPOINT = "http://localhost:9000";
-    S3_ACCESS_KEY = s3.accessKey;
-    S3_SECRET_KEY = s3.secretKey;
-    S3_BUCKET = "terrier";
     HOST = "127.0.0.1";
     PORT = "3000";
     RUST_LOG = "debug";
@@ -76,45 +74,11 @@ in
     rustflags = "-Zthreads=8";
   };
 
-  services.postgres = {
-    enable = true;
-    package = pkgs.postgresql_18;
-    listen_addresses = "127.0.0.1";
-    port = 5432;
-    initialDatabases = [
-      { name = "terrier"; }
-    ];
-    initialScript = ''
-      CREATE USER terrier WITH PASSWORD 'terrier';
-      GRANT ALL PRIVILEGES ON DATABASE terrier TO terrier;
-      ALTER DATABASE terrier OWNER TO terrier;
-    '';
-  };
-
-  services.redis = {
-    enable = true;
-    package = pkgs.valkey;
-    port = 0; # unix socket mode
-  };
-
-  services.minio = {
-    enable = true;
-    accessKey = s3.accessKey;
-    secretKey = s3.secretKey;
-    buckets = [ "terrier" ];
-  };
-
-  processes.minio.process-compose.readiness_probe = {
-    http_get = {
-      host = "localhost";
-      port = 9000;
-      path = "/minio/health/live";
-    };
-    initial_delay_seconds = 0.5;
-    period_seconds = 0.5;
-  };
-
-  claude.code.enable = true;
+  services.postgres.initialScript = ''
+    CREATE USER terrier WITH PASSWORD 'terrier';
+    GRANT ALL PRIVILEGES ON DATABASE terrier TO terrier;
+    ALTER DATABASE terrier OWNER TO terrier;
+  '';
 
   treefmt = {
     enable = true;
