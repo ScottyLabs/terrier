@@ -15,7 +15,25 @@ in
     garage.enable = true;
     postgres.enable = true;
     valkey.enable = true;
+    kennel.services.terrier = {
+      customDomain = "api.terrier.scottylabs.org";
+    };
   };
+
+  processes.terrier = {
+    exec = "${terrier}/bin/terrier-server";
+    process-compose.readiness_probe = {
+      http_get = {
+        host = "localhost";
+        port = 3000;
+        path = "/health";
+      };
+      initial_delay_seconds = 1;
+      period_seconds = 1;
+    };
+  };
+
+  services.redis.port = 0;
 
   cachix.pull = [ "scottylabs" ];
 

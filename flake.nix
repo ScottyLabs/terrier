@@ -19,6 +19,10 @@
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    scottylabs = {
+      url = "git+https://codeberg.org/ScottyLabs/devenv";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, devenv, nix2container, bun2nix, ... }:
