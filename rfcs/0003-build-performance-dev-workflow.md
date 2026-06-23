@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1
 - **Created:** 2026-02-09
-- **Updated:** 2026-02-10
+- **Updated:** 2026-06-23
 
 ## Overview
 
@@ -229,7 +229,7 @@ Only package metadata and dependencies. Profile settings are handled via environ
 
 Production builds are defined in the same `flake.nix` that provides the devenv binary and Cachix cache configuration. This keeps all Nix configuration in one place. Production packages (terrier, terrierApp, terrierImage) are only built for `x86_64-linux`.
 
-The frontend is built using bun2nix (`mkBunDerivation`), which generates Nix derivations from `bun.lock` for sandboxed builds without network access. The built frontend assets are embedded into the backend binary's `assets/` directory during the Rust build.
+The frontend is built using Kennel build helpers (`buildDenoTask`), which package the Deno task build output from the frontend project. The built frontend assets are embedded into the backend binary's `assets/` directory during the Rust build.
 
 ### Container Images: nix2container
 

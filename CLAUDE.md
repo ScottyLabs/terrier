@@ -21,7 +21,7 @@ devenv shell -- cargo build
 - When creating new crates, use `cargo init`. Check the patterns used in the other `Cargo.toml` in this workspace to figure out what changes should be made afterward.
 - Always use `cargo add` to add Rust dependencies to ensure you're getting the latest version.
 - Do not manually edit `Cargo.toml` dependency sections or add inline comments to dependencies.
-- The same applies to `bun.lock` and web dependencies.
+- The same applies to `deno.lock` and web dependencies.
 
 ## Markdown Style
 

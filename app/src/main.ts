@@ -1,8 +1,11 @@
-import { mount } from "svelte";
 import App from "./App.svelte";
+import { mount } from "svelte";
 
-const app = mount(App, {
-    target: document.getElementById("app")!,
-});
+const target = document.querySelector("#app");
+if (!target) {
+  throw new Error("missing #app mount target");
+}
+
+const app = mount(App, { target });
 
 export default app;

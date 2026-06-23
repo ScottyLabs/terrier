@@ -1,43 +1,72 @@
-const searchInput = document.getElementById("search");
-const resultsList = document.getElementById("results");
-const entityIdInput = document.getElementById("entity_id");
-const submitBtn = document.getElementById("submit-btn");
+const MIN_QUERY_LENGTH = 2;
+const DEBOUNCE_MS = 300;
 
-let debounceTimer = null;
+const searchInput = document.querySelector("#search");
+const resultsList = document.querySelector("#results");
+const entityIdInput = document.querySelector("#entity_id");
+const submitButton = document.querySelector("#submit-btn");
 
-searchInput.addEventListener("input", () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-        const query = searchInput.value.trim();
-        if (query.length < 2) {
-            resultsList.innerHTML = "";
-            return;
-        }
-        fetchEntities(query);
-    }, 300);
-});
-
-async function fetchEntities(query) {
-    const response = await fetch(
-        `/api/entities/search?q=${encodeURIComponent(query)}`,
-    );
-    const entities = await response.json();
-
-    resultsList.innerHTML = "";
-    for (const entity of entities) {
-        const li = document.createElement("li");
-        li.textContent = entity.display_name;
-        li.dataset.entityId = entity.entity_id;
-        li.addEventListener("click", () => selectEntity(li));
-        resultsList.appendChild(li);
-    }
+if (!(searchInput instanceof HTMLInputElement)) {
+  throw new TypeError("#search must be an input element");
 }
 
-function selectEntity(li) {
-    document.querySelectorAll("#results li").forEach((el) => {
-        el.classList.remove("selected");
+if (!(resultsList instanceof HTMLElement)) {
+  throw new TypeError("#results must be a DOM element");
+}
+
+if (!(entityIdInput instanceof HTMLInputElement)) {
+  throw new TypeError("#entity_id must be an input element");
+}
+
+if (!(submitButton instanceof HTMLButtonElement)) {
+  throw new TypeError("#submit-btn must be a button element");
+}
+
+let debounceTimer = 0;
+
+const selectEntity = (listItem) => {
+  const resultItems = document.querySelectorAll("#results li");
+  for (const resultItem of resultItems) {
+    resultItem.classList.remove("selected");
+  }
+
+  listItem.classList.add("selected");
+  entityIdInput.value = listItem.dataset.entityId ?? "";
+  submitButton.disabled = false;
+};
+
+const renderEntities = (entities) => {
+  resultsList.textContent = "";
+
+  for (const entity of entities) {
+    const listItem = document.createElement("li");
+    listItem.textContent = entity.display_name;
+    listItem.dataset.entityId = entity.entity_id;
+    listItem.addEventListener("click", () => {
+      selectEntity(listItem);
     });
-    li.classList.add("selected");
-    entityIdInput.value = li.dataset.entityId;
-    submitBtn.disabled = false;
-}
+    resultsList.append(listItem);
+  }
+};
+
+const fetchEntities = (query) =>
+  fetch(`/api/entities/search?q=${encodeURIComponent(query)}`)
+    .then((response) => response.json())
+    .then((entities) => {
+      renderEntities(entities);
+    });
+
+const onSearchInput = () => {
+  globalThis.clearTimeout(debounceTimer);
+  debounceTimer = globalThis.setTimeout(() => {
+    const query = searchInput.value.trim();
+    if (query.length < MIN_QUERY_LENGTH) {
+      resultsList.textContent = "";
+      return;
+    }
+
+    fetchEntities(query);
+  }, DEBOUNCE_MS);
+};
+
+searchInput.addEventListener("input", onSearchInput);
