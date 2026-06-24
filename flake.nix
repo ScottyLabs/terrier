@@ -65,16 +65,10 @@
               };
             };
 
-            saml-proxy = lib.buildRustService {
-              src = ./.;
-              pname = "saml-proxy";
-              nativeBuildInputs = [ pkgs.pkg-config ];
-              buildInputs = with pkgs; [ xmlsec libxml2 libtool openssl libxslt ];
-              buildArgs.cargoExtraArgs = "-p saml-proxy";
-            };
+
           in
           {
-            inherit terrier saml-proxy app docs;
+            inherit terrier app docs;
             default = terrier;
             devenv = devenv.packages.${system}.devenv;
           }

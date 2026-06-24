@@ -8,8 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "biome check .",
-    "format": "biome format --write .",
+    "lint": "oxlint --deny all --deny nursery .",
+    "format": "treefmt",
     "generate-api": "curl -o openapi.json http://localhost:3000/openapi.json"
   },
   "dependencies": {

@@ -21,9 +21,7 @@
     kennel.services.terrier = {
       customDomain = "api.terrier.scottylabs.org";
     };
-    kennel.services.saml-proxy = {
-      customDomain = "auth.terrier.build";
-    };
+
     kennel.sites.docs = {
       spa = false;
       customDomain = "docs.terrier.build";
@@ -49,7 +47,6 @@
   ]);
 
   env = {
-    REDIS_URL = "redis+unix://$REDIS_UNIX_SOCKET";
     HOST = "127.0.0.1";
     PORT = "3000";
 
@@ -62,11 +59,7 @@
     LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   };
 
-  services.postgres.initialScript = ''
-    CREATE USER terrier WITH PASSWORD 'terrier';
-    GRANT ALL PRIVILEGES ON DATABASE terrier TO terrier;
-    ALTER DATABASE terrier OWNER TO terrier;
-  '';
+
 
   treefmt = {
     enable = true;
@@ -82,7 +75,7 @@
     };
   };
 
-  git-hooks.hooks.treefmt.enable = true;
+
 
   scripts = {
     migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/migration'';

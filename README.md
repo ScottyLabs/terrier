@@ -19,11 +19,11 @@ Terrier uses the following production custom domains:
 
 | Component | Kennel key | Domain |
 | --- | --- | --- |
+| Frontend site | N/A | `terrier.scottylabs.org` |
 | API service | `scottylabs.kennel.services.terrier` | `api.terrier.scottylabs.org` |
-| SAML proxy service | `scottylabs.kennel.services.saml-proxy` | `auth.terrier.build` |
 | Documentation site | `scottylabs.kennel.sites.docs` | `docs.terrier.build` |
 
-These values are declared in `devenv.nix` and should be treated as the source of truth for deployment routing.
+The API and documentation values are declared in `devenv.nix` and should be treated as the source of truth for deployment routing.
 
 ## Maintainers
 
