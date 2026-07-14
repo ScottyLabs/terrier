@@ -1,21 +1,26 @@
 [workspace]
-members = ["crates/*", "crates/terrier-server/migration"]
 resolver = "2"
+members = [
+  "crates/slac/",
+  "crates/terrier-common/",
+  "crates/terrier-server/",
+  "crates/terrier-server/migration"
+]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "AGPL-3.0-or-later"
 repository = "https://codeberg.org/ScottyLabs/terrier"
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
-slac = { path = "crates/slac" }
-terrier-common = { path = "crates/terrier-common" }
 anyhow = "1.0.101"
 axum = { version = "0.8.8", features = ["ws"] }
 dotenvy = "0.15.7"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+slac = { path = "crates/slac" }
+terrier-common = { path = "crates/terrier-common" }
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
 tower = "0.5.3"

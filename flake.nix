@@ -48,7 +48,7 @@
 
             docs = lib.buildMdbook {
               src = ./sites/docs;
-              pname = "terrier-docs";
+              name = "terrier-docs";
             };
 
             terrier = lib.buildRustService {
