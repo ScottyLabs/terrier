@@ -15,13 +15,13 @@
       url = "github:nlewo/nix2container";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    bun2nix = {
-      url = "github:nix-community/bun2nix";
+    scottylabs = {
+      url = "git+https://codeberg.org/ScottyLabs/devenv";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, devenv, nix2container, bun2nix, ... }:
+  outputs = { self, nixpkgs, devenv, scottylabs, ... }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -37,102 +37,40 @@
         }
         // (nixpkgs.lib.optionalAttrs (system == "x86_64-linux") (
           let
-            nix2containerPkgs = nix2container.packages.${system};
-            b2n = bun2nix.packages.${system}.default;
+            pkgs = nixpkgs.legacyPackages.${system};
+            lib = scottylabs.mkLib pkgs;
 
-            terrierApp = b2n.mkDerivation {
+            app = lib.buildDenoTask {
+              src = ./app;
               pname = "terrier-app";
               version = (builtins.fromJSON (builtins.readFile ./app/package.json)).version;
-              src = ./app;
-
-              bunDeps = b2n.fetchBunDeps {
-                bunNix = ./app/bun.nix;
-              };
-
-              buildPhase = ''
-                bun run build
-              '';
-
-              installPhase = ''
-                mkdir -p $out
-                cp -r dist/* $out/
-              '';
             };
 
-            terrierDocs = b2n.mkDerivation {
-              pname = "terrier-docs";
-              version = (builtins.fromJSON (builtins.readFile ./sites/docs/package.json)).version;
+            docs = lib.buildMdbook {
               src = ./sites/docs;
-
-              bunDeps = b2n.fetchBunDeps {
-                bunNix = ./sites/docs/bun.nix;
-              };
-
-              bunInstallFlags = [ "--linker=hoisted" ];
-
-              buildPhase = ''
-                bun run build
-              '';
-
-              installPhase = ''
-                mkdir -p $out
-                cp -r dist/* $out/
-              '';
+              pname = "terrier-docs";
             };
 
-            cargoNix = pkgs.callPackage ./Cargo.nix { };
-
-            samlProxy = cargoNix.workspaceMembers.saml-proxy.build.override {
-              crateOverrides = pkgs.defaultCrateOverrides // {
-                libxml = attrs: {
-                  nativeBuildInputs = [ pkgs.pkg-config ];
-                  buildInputs = [ pkgs.libxml2 ];
-                };
-                saml-proxy = attrs: {
-                  buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool pkgs.openssl pkgs.libxslt ];
-                };
-                samael = attrs: {
-                  nativeBuildInputs = [ pkgs.pkg-config ];
-                  buildInputs = [ pkgs.xmlsec pkgs.libxml2 pkgs.libtool ];
-                  LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
-                  BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.stdenv.cc.cc}/include -isystem ${pkgs.glibc.dev}/include";
-                };
+            terrier = lib.buildRustService {
+              src = ./.;
+              pname = "terrier-server";
+              nativeBuildInputs = [ pkgs.pkg-config ];
+              buildInputs = with pkgs; [ xmlsec libxml2 libtool openssl libxslt ];
+              buildArgs = {
+                cargoExtraArgs = "-p terrier-server";
+                preBuild = ''
+                  mkdir -p assets
+                  cp -r ${app}/* assets/
+                '';
               };
             };
 
-            terrier = cargoNix.workspaceMembers.terrier-server.build.override {
-              crateOverrides = pkgs.defaultCrateOverrides // {
-                terrier-server = attrs: {
-                  CARGO_PROFILE_RELEASE_DEBUG = "1";
-                  CARGO_PROFILE_RELEASE_OPT_LEVEL = "3";
-                  RUSTFLAGS = "-Zthreads=8";
 
-                  preBuild = ''
-                    mkdir -p assets
-                    cp -r ${terrierApp}/* assets/
-                  '';
-                };
-              };
-            };
-
-            terrierImage = nix2containerPkgs.nix2container.buildImage {
-              name = "codeberg.org/scottylabs/terrier";
-              tag = "latest";
-              config = {
-                entrypoint = [ "${terrier}/bin/terrier" ];
-                env = [
-                  "HOST=0.0.0.0"
-                  "PORT=3000"
-                ];
-                exposedPorts = {
-                  "3000/tcp" = { };
-                };
-              };
-            };
           in
           {
-            inherit samlProxy terrier terrierApp terrierDocs terrierImage;
+            inherit terrier app docs;
             default = terrier;
+            devenv = devenv.packages.${system}.devenv;
           }
         ))
       );

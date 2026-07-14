@@ -1,43 +1,43 @@
 // @ts-check
 
-import starlight from "@astrojs/starlight";
+import * as starlightOpenAPI from "starlight-openapi";
 import { defineConfig } from "astro/config";
-import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
+import starlight from "@astrojs/starlight";
 
 // https://astro.build/config
 export default defineConfig({
-    integrations: [
-        starlight({
-            plugins: [
-                starlightOpenAPI([
-                    {
-                        base: "api",
-                        schema: "./openapi.json",
-                    },
-                ]),
-            ],
-            title: "Terrier Docs",
-            social: [
-                {
-                    icon: "codeberg",
-                    label: "Codeberg",
-                    href: "https://codeberg.org/ScottyLabs/terrier",
-                },
-            ],
-            sidebar: [
-                {
-                    label: "Guides",
-                    items: [
-                        // Each item here is one entry in the navigation menu.
-                        { label: "Example Guide", slug: "guides/example" },
-                    ],
-                },
-                {
-                    label: "Reference",
-                    autogenerate: { directory: "reference" },
-                },
-                ...openAPISidebarGroups,
-            ],
-        }),
-    ],
+  integrations: [
+    starlight({
+      plugins: [
+        starlightOpenAPI.default([
+          {
+            base: "api",
+            schema: "./openapi.json",
+          },
+        ]),
+      ],
+      sidebar: [
+        {
+          items: [
+            // Each item here is one entry in the navigation menu.
+            { label: "Example Guide", slug: "guides/example" },
+          ],
+          label: "Guides",
+        },
+        {
+          autogenerate: { directory: "reference" },
+          label: "Reference",
+        },
+        ...starlightOpenAPI.openAPISidebarGroups,
+      ],
+      social: [
+        {
+          href: "https://codeberg.org/ScottyLabs/terrier",
+          icon: "codeberg",
+          label: "Codeberg",
+        },
+      ],
+      title: "Terrier Docs",
+    }),
+  ],
 });

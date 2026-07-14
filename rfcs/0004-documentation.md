@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @kritdass, @ap-1
 - **Created:** 2026-02-14
-- **Updated:** 2026-02-17
+- **Updated:** 2026-06-23
 
 ## Overview
 
@@ -34,7 +34,7 @@ Furthermore, we can use the [starlight-openapi](https://github.com/HiDeoo/starli
 
 ### Nix Build
 
-The documentation site is packaged as a Nix derivation (`terrierDocs`) in `flake.nix`, following the same `bun2nix` pattern used for `terrierApp`. It reads its version from `sites/docs/package.json`, fetches dependencies from `sites/docs/bun.nix`, and produces a static site output via `bun run build`.
+The documentation site is packaged as a Nix derivation in `flake.nix` using Kennel build helpers. The build flow is managed through the project's Deno-based web tooling.
 
 ### Topics
 

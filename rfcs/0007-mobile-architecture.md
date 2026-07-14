@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @kritdass
 - **Created:** 2026-03-05
-- **Updated:** 2026-03-14
+- **Updated:** 2026-06-23
 
 ## Overview
 
@@ -39,7 +39,7 @@ Tauri has the advantages of providing security, resource efficiency, and flexibl
 
 ### Nix Build
 
-Like `terrierDocs` and `terrierApp`, we use the same `bun2nix` to package the Terrier mobile app as a Nix derivation.
+Like other Terrier frontend deliverables, the mobile app packaging follows the Kennel Deno and Nix helper workflow for deployment artifacts.
 
 ## Alternatives Considered
 
