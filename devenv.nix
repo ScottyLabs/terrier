@@ -9,30 +9,30 @@
     enable = true;
     project.name = "terrier";
 
-    rust.enable = true;
     secrets.enable = true;
+
+    rust.enable = true;
     deno = {
       enable = true;
       svelte.enable = true;
     };
+
     garage.enable = true;
     postgres.enable = true;
     valkey.enable = true;
-    kennel.services.terrier = {
-      customDomain = "api.terrier.scottylabs.org";
-    };
 
-    kennel.sites.docs = {
-      spa = false;
-      customDomain = "docs.terrier.build";
+    kennel = {
+      services.terrier.customDomain = "api.terrier.scottylabs.org";
+      sites.docs = {
+        spa = false;
+        customDomain = "docs.terrier.build";
+      };
     };
     ricochet = {
       enable = true;
       appUrl = "http://localhost:5173";
     };
   };
-
-  cachix.pull = [ "scottylabs" ];
 
   packages = (with pkgs; [
     # Native libraries for samael (SAML)
@@ -59,23 +59,7 @@
     LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   };
 
-
-
-  treefmt = {
-    enable = true;
-    config.programs = {
-      nixpkgs-fmt = {
-        enable = true;
-      };
-      rustfmt.enable = true;
-      mdformat = {
-        enable = true;
-        excludes = [ "sites/docs/src/content/**" ];
-      };
-    };
-  };
-
-
+  treefmt.config.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
 
   scripts = {
     migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/migration'';
