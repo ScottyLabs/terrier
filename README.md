@@ -1,4 +1,8 @@
-# Terrier
+<div align="center">
+  <h1>
+    <pre>terrier</pre>
+  </h1>
+</div>
 
 Open-source hackathon management platform for universities and organizations.
 

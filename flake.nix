@@ -16,21 +16,19 @@
     };
   };
 
-  outputs = { nixpkgs, scottylabs, ... }:
+  outputs =
+    { nixpkgs, scottylabs, ... }:
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgsFor = system: nixpkgs.legacyPackages.${system};
     in
     {
-      packages = forAllSystems (system:
-        let
-          pkgs = pkgsFor system;
-        in
-        {
-          devenv = devenv.packages.${system}.devenv;
-        }
-        // (nixpkgs.lib.optionalAttrs (system == "x86_64-linux") (
+      packages = forAllSystems (
+        system:
+        (nixpkgs.lib.optionalAttrs (system == "x86_64-linux") (
           let
             pkgs = nixpkgs.legacyPackages.${system};
             lib = scottylabs.mkLib pkgs;
@@ -50,7 +48,13 @@
               src = ./.;
               pname = "terrier-server";
               nativeBuildInputs = [ pkgs.pkg-config ];
-              buildInputs = with pkgs; [ xmlsec libxml2 libtool openssl libxslt ];
+              buildInputs = with pkgs; [
+                xmlsec
+                libxml2
+                libtool
+                openssl
+                libxslt
+              ];
               buildArgs = {
                 cargoExtraArgs = "-p terrier-server";
                 preBuild = ''
