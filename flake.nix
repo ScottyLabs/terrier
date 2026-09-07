@@ -11,7 +11,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     scottylabs = {
-      url = "git+https://codeberg.org/ScottyLabs/devenv";
+      url = "git+https://git.cmu.dev/ScottyLabs/kennel";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -36,7 +36,7 @@
             app = lib.buildDenoTask {
               src = ./app;
               pname = "terrier-app";
-              version = (builtins.fromJSON (builtins.readFile ./app/package.json)).version;
+              inherit ((builtins.fromJSON (builtins.readFile ./app/package.json))) version;
             };
 
             docs = lib.buildMdbook {

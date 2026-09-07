@@ -4,7 +4,7 @@ members = [
   "crates/slac/",
   "crates/terrier-common/",
   "crates/terrier-server/",
-  "crates/terrier-server/migration"
+  "crates/terrier-server/migration",
 ]
 
 [workspace.package]

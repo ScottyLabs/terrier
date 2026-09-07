@@ -34,7 +34,7 @@
     };
   };
 
-  packages = (with pkgs; [
+  packages = with pkgs; [
     # Native libraries for samael (SAML)
     libxml2
     xmlsec
@@ -44,7 +44,7 @@
 
     # Database tooling
     sea-orm-cli
-  ]);
+  ];
 
   env = {
     HOST = "127.0.0.1";
