@@ -13,7 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
 ))]
 struct ApiDoc;
 
-#[utoipa::path(get, path = "/health", responses((status = OK, body = str)))]
+#[utoipa::path(get, path = "/api/health", responses((status = OK, body = str)))]
 async fn health() -> &'static str {
     "ok"
 }
