@@ -15,6 +15,7 @@
     deno = {
       enable = true;
       svelte.enable = true;
+      svelte.dir = "app";
     };
 
     garage.enable = true;
@@ -60,6 +61,14 @@
   };
 
   treefmt.config.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
+
+  tasks."app:install" = {
+    exec = "cd app && deno install --frozen";
+    before = [
+      "devenv:enterShell"
+      "devenv:git-hooks:run"
+    ];
+  };
 
   scripts = {
     migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/migration'';

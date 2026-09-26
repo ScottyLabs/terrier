@@ -24,6 +24,7 @@ if (!(submitButton instanceof HTMLButtonElement)) {
 
 let debounceTimer = 0;
 
+/** @param {HTMLLIElement} listItem */
 const selectEntity = (listItem) => {
   const resultItems = document.querySelectorAll("#results li");
   for (const resultItem of resultItems) {
@@ -35,6 +36,7 @@ const selectEntity = (listItem) => {
   submitButton.disabled = false;
 };
 
+/** @param {{ display_name: string, entity_id: string }[]} entities */
 const renderEntities = (entities) => {
   resultsList.textContent = "";
 
@@ -49,12 +51,11 @@ const renderEntities = (entities) => {
   }
 };
 
+/** @param {string} query */
 const fetchEntities = (query) =>
   fetch(`/api/entities/search?q=${encodeURIComponent(query)}`)
     .then((response) => response.json())
-    .then((entities) => {
-      renderEntities(entities);
-    });
+    .then(renderEntities);
 
 const onSearchInput = () => {
   globalThis.clearTimeout(debounceTimer);
@@ -65,7 +66,9 @@ const onSearchInput = () => {
       return;
     }
 
-    fetchEntities(query);
+    fetchEntities(query).catch(() => {
+      resultsList.textContent = "Unable to load identity providers. Please try again.";
+    });
   }, DEBOUNCE_MS);
 };
 
