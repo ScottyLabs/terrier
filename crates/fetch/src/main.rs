@@ -1,18 +1,29 @@
 use clap::Parser as ClapParser;
 use console::{style, truncate_str};
 use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
-use std::{collections::HashSet, env, error::Error, fs, path::Path, process::ExitCode};
+use std::{
+    collections::HashSet,
+    env,
+    error::Error,
+    fs,
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 
 #[derive(ClapParser)]
 #[command(
     about = "Search RFC titles and sections",
     after_help = "All query words must match within a section or its RFC title.
-With no query, list RFCs. Search ignores case."
+With no query, list RFCs. Search ignores case.
+Matches are ranked by relevance (title hits, then most matching sections) before falling back to filename order."
 )]
 struct Args {
     /// Status to include, or 'all' for every status
     #[arg(long, default_value = "accepted")]
     status: String,
+    /// Create a new Draft RFC with this title instead of searching, and print its path
+    #[arg(long, value_name = "TITLE")]
+    new: Option<String>,
     /// Words to search for
     query: Vec<String>,
 }
@@ -27,6 +38,8 @@ struct Section {
 struct Rfc {
     title: String,
     status: String,
+    updated: Option<String>,
+    relations: Vec<(String, String)>,
     sections: Vec<Section>,
 }
 
@@ -34,6 +47,8 @@ fn parse(source: &str, filename: &str) -> Rfc {
     let mut rfc = Rfc {
         title: filename.into(),
         status: "Unknown".into(),
+        updated: None,
+        relations: Vec::new(),
         sections: Vec::new(),
     };
     let mut headings = Vec::new();
@@ -92,14 +107,166 @@ fn parse(source: &str, filename: &str) -> Rfc {
     {
         rfc.status = status.trim().into();
     }
+    if let Some(updated) = source
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("- **Updated:**"))
+    {
+        rfc.updated = Some(updated.trim().into());
+    }
+    // Any other header bullet naming a relationship to another RFC (e.g.
+    // "- **Supersedes:** 0003" or "- **Superseded by:** 0011") is surfaced
+    // alongside search results. This is additive: RFCs that don't declare
+    // one behave exactly as before.
+    for line in source.lines() {
+        let trimmed = line.trim();
+        let Some(rest) = trimmed.strip_prefix("- **") else {
+            continue;
+        };
+        let Some((key, value)) = rest.split_once(":**") else {
+            continue;
+        };
+        let normalized = key.to_lowercase();
+        if normalized.contains("supersede") || normalized.contains("related") {
+            rfc.relations
+                .push((key.to_string(), value.trim().to_string()));
+        }
+    }
     rfc
+}
+
+/// Slugify a title into the kebab-case form the naming convention expects.
+fn slugify(title: &str) -> String {
+    let mut slug = String::new();
+    let mut last_was_dash = true; // suppress a leading dash
+    for c in title.chars() {
+        if c.is_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+            last_was_dash = false;
+        } else if !last_was_dash {
+            slug.push('-');
+            last_was_dash = true;
+        }
+    }
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+    slug
+}
+
+/// Find the next sequential, zero-padded RFC number for `directory`.
+fn next_number(directory: &Path) -> Result<u32, Box<dyn Error>> {
+    let mut max = 0u32;
+    for entry in fs::read_dir(directory)? {
+        let filename = entry?.file_name().to_string_lossy().into_owned();
+        if let Some((number, _)) = filename.split_once('-') {
+            if number.len() == 4 && number.bytes().all(|c| c.is_ascii_digit()) {
+                if let Ok(value) = number.parse::<u32>() {
+                    max = max.max(value);
+                }
+            }
+        }
+    }
+    Ok(max + 1)
+}
+
+/// Today's date as `YYYY-MM-DD`, computed from the system clock without
+/// pulling in a date/timezone crate (and therefore without the C-toolchain
+/// build script that comes with one). Uses Howard Hinnant's civil-from-days
+/// algorithm: https://howardhinnant.github.io/date_algorithms.html
+/// This is UTC, not the local timezone -- fine for a document date field.
+fn today() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let z = (secs / 86_400) as i64 + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+/// Scaffold a new Draft RFC using the exact template documented in
+/// rfcs/README.md, and return the path it was written to. The RFC format
+/// itself is unchanged; this only automates picking the number, the slug,
+/// and today's date.
+fn create_new_rfc(directory: &Path, title: &str) -> Result<PathBuf, Box<dyn Error>> {
+    let number = next_number(directory)?;
+    let slug = slugify(title);
+    if slug.is_empty() {
+        return Err("title must contain at least one alphanumeric character".into());
+    }
+    let filename = format!("{number:04}-{slug}.md");
+    let path = directory.join(&filename);
+    if path.exists() {
+        return Err(format!("{filename} already exists").into());
+    }
+    let today = today();
+    let template = format!(
+        "# RFC {number:04}: {title}\n\
+         \n\
+         - **Status:** Draft\n\
+         - **Author(s):** @username\n\
+         - **Created:** {today}\n\
+         - **Updated:** {today}\n\
+         \n\
+         ## Overview\n\
+         \n\
+         Brief 2-3 sentence summary of the proposal.\n\
+         \n\
+         ## Motivation\n\
+         \n\
+         Why are we doing this? What problem does it solve?\n\
+         \n\
+         ## Goals\n\
+         \n\
+         What are we trying to achieve?\n\
+         \n\
+         ## Non-Goals\n\
+         \n\
+         What is explicitly out of scope?\n\
+         \n\
+         ## Detailed Design\n\
+         \n\
+         The meat of the RFC. Explain the design in enough detail that:\n\
+         - Its interaction with other features is clear\n\
+         - It's reasonably clear how to implement\n\
+         - Corner cases are discussed\n\
+         \n\
+         Include code examples, diagrams, or data models where helpful.\n\
+         \n\
+         ## Alternatives Considered\n\
+         \n\
+         What other approaches were considered and why weren't they chosen?\n\
+         \n\
+         ## Open Questions\n\
+         \n\
+         What parts of the design still need to be figured out?\n\
+         \n\
+         ## Implementation Phases\n\
+         \n\
+         If this is a large change, how should it be broken down?\n"
+    );
+    fs::write(&path, template)?;
+    Ok(path)
+}
+
+struct Hit {
+    score: usize,
+    rendered: String,
 }
 
 fn search(directory: &Path, status: &str, terms: &[String]) -> Result<String, Box<dyn Error>> {
     let mut files = fs::read_dir(directory)?.collect::<Result<Vec<_>, _>>()?;
     files.sort_by_key(|entry| entry.file_name());
-    let mut output = String::new();
     let width = usize::from(console::Term::stdout().size().1.saturating_sub(4).max(20));
+    let mut hits: Vec<Hit> = Vec::new();
     for entry in files {
         let filename = entry.file_name().to_string_lossy().into_owned();
         let Some((number, name)) = filename.split_once('-') else {
@@ -113,9 +280,19 @@ fn search(directory: &Path, status: &str, terms: &[String]) -> Result<String, Bo
             continue;
         }
         let rfc = parse(&fs::read_to_string(entry.path())?, &filename);
+        if rfc.status == "Unknown" {
+            // Previously this silently fell out of every status-filtered
+            // search. Warn on stderr so a malformed or missing Status
+            // line doesn't make an RFC invisible without explanation.
+            eprintln!("warning: {filename} has no parseable \"- **Status:**\" line");
+        }
         if !status.eq_ignore_ascii_case("all") && !rfc.status.eq_ignore_ascii_case(status) {
             continue;
         }
+        let title_matches_all = !terms.is_empty()
+            && terms
+                .iter()
+                .all(|term| rfc.title.to_lowercase().contains(term));
         let matches: Vec<_> = rfc
             .sections
             .iter()
@@ -127,17 +304,35 @@ fn search(directory: &Path, status: &str, terms: &[String]) -> Result<String, Bo
         if matches.is_empty() {
             continue;
         }
-        output.push_str(&format!(
-            "{}  {}\n",
+        // Rank title hits and RFCs with more matching sections above the
+        // rest, instead of relying purely on filename order.
+        let score = matches.len() + if title_matches_all { 5 } else { 0 };
+
+        let mut rendered = String::new();
+        let updated_suffix = rfc
+            .updated
+            .as_ref()
+            .map(|updated| format!("  {}", style(format!("(updated {updated})")).dim()))
+            .unwrap_or_default();
+        rendered.push_str(&format!(
+            "{}  {}{}\n",
             style(&rfc.title).cyan().bold(),
-            style(&rfc.status).dim()
+            style(&rfc.status).dim(),
+            updated_suffix
         ));
+        for (label, value) in &rfc.relations {
+            rendered.push_str(&format!(
+                "  {} {}\n",
+                style(format!("{label}:")).dim(),
+                value
+            ));
+        }
         for section in matches
             .into_iter()
             .take(if terms.is_empty() { 1 } else { usize::MAX })
         {
             if !terms.is_empty() {
-                output.push_str(&format!("  {}\n", style(&section.heading).bold()));
+                rendered.push_str(&format!("  {}\n", style(&section.heading).bold()));
             }
             if !terms.is_empty() {
                 let excerpt = section
@@ -153,10 +348,10 @@ fn search(directory: &Path, status: &str, terms: &[String]) -> Result<String, Bo
                     .collect::<Vec<_>>()
                     .join(" ");
                 if !excerpt.is_empty() {
-                    output.push_str(&format!("  {}\n", truncate_str(&excerpt, width, "...")));
+                    rendered.push_str(&format!("  {}\n", truncate_str(&excerpt, width, "...")));
                 }
             }
-            output.push_str(&format!(
+            rendered.push_str(&format!(
                 "  {}\n",
                 style(format!(
                     "[rfcs/{filename}:{}](rfcs/{filename}#{})",
@@ -165,7 +360,16 @@ fn search(directory: &Path, status: &str, terms: &[String]) -> Result<String, Bo
                 .dim()
             ));
         }
-        output.push('\n');
+        rendered.push('\n');
+        hits.push(Hit { score, rendered });
+    }
+    // Stable sort: ties (including the "no query" listing, where every
+    // score is equal) keep the original filename order.
+    hits.sort_by(|a, b| b.score.cmp(&a.score));
+
+    let mut output = String::new();
+    for hit in hits {
+        output.push_str(&hit.rendered);
     }
     if output.is_empty() {
         output.push_str("No matching RFCs.\n");
@@ -178,12 +382,20 @@ fn run() -> Result<(), Box<dyn Error>> {
     let root = env::var_os("DEVENV_ROOT")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
+    let rfcs_dir = root.join("rfcs");
+
+    if let Some(title) = args.new {
+        let path = create_new_rfc(&rfcs_dir, &title)?;
+        println!("{}", path.display());
+        return Ok(());
+    }
+
     let terms = args
         .query
         .iter()
         .flat_map(|s| s.split_whitespace().map(str::to_lowercase))
         .collect::<Vec<_>>();
-    print!("{}", search(&root.join("rfcs"), &args.status, &terms)?);
+    print!("{}", search(&rfcs_dir, &args.status, &terms)?);
     Ok(())
 }
 
@@ -222,5 +434,37 @@ mod tests {
         assert_eq!(rfc.title, "0002-storage.md");
         assert_eq!(rfc.status, "Unknown");
         assert_eq!(rfc.sections[0].text, "Use Redis for sessions.");
+    }
+
+    #[test]
+    fn parses_updated_and_relations() {
+        let rfc = parse(
+            "# RFC 0011: Sessions v2\n- **Status:** Accepted\n- **Updated:** 2026-01-02\n- **Supersedes:** 0003\n## Design\nRedis",
+            "0011-sessions-v2.md",
+        );
+        assert_eq!(rfc.updated.as_deref(), Some("2026-01-02"));
+        assert_eq!(
+            rfc.relations,
+            vec![("Supersedes".to_string(), "0003".to_string())]
+        );
+    }
+
+    #[test]
+    fn today_produces_a_plausible_iso_date() {
+        let date = today();
+        let parts: Vec<&str> = date.split('-').collect();
+        assert_eq!(parts.len(), 3);
+        assert_eq!((parts[0].len(), parts[1].len(), parts[2].len()), (4, 2, 2));
+        assert!(parts.iter().all(|p| p.chars().all(|c| c.is_ascii_digit())));
+        assert!(parts[0].parse::<u32>().unwrap() >= 2024);
+    }
+
+    #[test]
+    fn slugify_handles_punctuation_and_case() {
+        assert_eq!(
+            slugify("SAML Proxy: University Auth!"),
+            "saml-proxy-university-auth"
+        );
+        assert_eq!(slugify("  leading and trailing  "), "leading-and-trailing");
     }
 }
