@@ -69,7 +69,7 @@ saml-proxy (auth.terrier.build)
   - Session store
   - MDQ client
 
-↕ SAML                  ↓ Fetch metadata
+↕ SAML                  v Fetch metadata
 
 University IdPs         InCommon MDQ
 (CMU, Pitt, etc.)       (mdq.incommon.org)
@@ -89,7 +89,7 @@ This list describes the authentication flow between the Service Provider, saml-p
 
    - Proxy redirects user to `https://auth.terrier.build/discovery?session={id}`
    - User sees HTML form with search box
-   - User types "carnegie" → JavaScript filters/searches entities
+   - User types "carnegie" -> JavaScript filters/searches entities
    - User selects their university and submits
 
 1. saml-proxy -> InCommon MDQ: Fetch selected university metadata
@@ -220,11 +220,11 @@ On startup, the proxy fetches the full InCommon aggregate from `https://mdq.inco
 
 The proxy extracts standard eduPerson attributes from university assertions:
 
-- `eduPersonPrincipalName` → unique persistent ID
-- `eduPersonScopedAffiliation` → student/faculty/staff
-- `mail` → email address
-- `displayName` → full name
-- `eduPersonAffiliation` → unscoped affiliation
+- `eduPersonPrincipalName` -> unique persistent ID
+- `eduPersonScopedAffiliation` -> student/faculty/staff
+- `mail` -> email address
+- `displayName` -> full name
+- `eduPersonAffiliation` -> unscoped affiliation
 
 These are passed through to the Service Provider in the proxy's SAML Response. The SP (e.g., Keycloak) maps them to user attributes according to its own configuration.
 

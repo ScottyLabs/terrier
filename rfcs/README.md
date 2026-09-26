@@ -2,6 +2,25 @@
 
 This directory contains Request for Comments (RFC) documents that guide the technical design and architecture of Terrier.
 
+## Search
+
+In the development shell, search RFCs from any directory:
+
+```bash
+fetch session redis
+fetch --status draft saml
+fetch --status all
+fetch
+```
+
+Search defaults to accepted RFCs and ignores case. Use `--status draft` to select another status or `--status all` to include every status. All query words must appear in a section or its RFC title. Results include the matching section's Markdown link (relative to the repository root) and source line. Code blocks are searchable too. With no query, the command lists RFCs matching the status filter.
+
+Results include short excerpts and use color in supported terminals. Piped output is plain text. The development shell builds the Rust utility on first use.
+
+Outside the development shell, use `devenv shell -- fetch session redis` from the repository root.
+
+The utility reads the Markdown files directly, so there is no index to rebuild. Run its tests from the repository root with `cargo test -p fetch`.
+
 ## What are RFCs?
 
 RFCs are design documents that propose and document significant technical decisions. They provide a consistent and controlled path for new features and architectural changes to enter the project.

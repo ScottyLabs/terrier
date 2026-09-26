@@ -70,7 +70,16 @@
     ];
   };
 
+  tasks."docs:install" = {
+    exec = "cd sites/docs && deno install --frozen && deno task astro sync";
+    before = [
+      "devenv:enterShell"
+      "devenv:git-hooks:run"
+    ];
+  };
+
   scripts = {
+    fetch.exec = ''exec cargo run --quiet --manifest-path "$DEVENV_ROOT/Cargo.toml" -p fetch -- "$@"'';
     migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/migration'';
     migrate.exec = "sea-orm-cli migrate up -d crates/migration";
     generate-entities.exec = "sea-orm-cli generate entity -o crates/entity/src --with-serde both --lib --model-extra-derives 'utoipa::ToSchema' --enum-extra-derives 'utoipa::ToSchema'";

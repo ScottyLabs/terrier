@@ -52,7 +52,7 @@ The documentation site should not cover the purpose of a hackathon's specific us
 
 - **Docusaurus**: The industry standard for documentation. Rejected because it is React-based, which would prevent us from directly importing our native Svelte components without maintaining a duplicate React library.
 
-- **VitePress**: A high-performance alternative powered by Vue. Rejected for similar reasons—the tight coupling with Vue introduces friction for our Svelte-centric team.
+- **VitePress**: A high-performance alternative powered by Vue. Rejected for similar reasons: the tight coupling with Vue introduces friction for our Svelte-centric team.
 
 - **GitBook / ReadTheDocs**: Rejected as these are primarily hosted services.
 

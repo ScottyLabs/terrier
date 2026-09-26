@@ -4,6 +4,8 @@
 
 This project uses [devenv](https://devenv.sh/) for development environments. If you need to install new dependencies, tools, or modify the environment, you can do so within the [`devenv.nix`](./devenv.nix) file.
 
+Run `devenv allow` once to enable automatic activation when entering the repository.
+
 To run commands within the development environment, use the `devenv shell` command followed by the desired command. For example:
 
 ```bash
@@ -14,7 +16,7 @@ devenv shell -- cargo build
 
 1. *No meta-commentary.* Prohibit all references to the chat, user requests, or AI actions (e.g., "Fixed X," "As requested," or "Increased/changed X").
 1. *State-only.* Describe the current intent, logic, inputs, and outputs of the code. Assume the reader has zero context of previous versions or this conversation. If a comment describes a bug that has been fixed, or describes changes instead of function at all, delete it.
-1. *Human-style.* Avoid special characters, like '→' (prefer '->') and '—' / '–' (prefer '---' / '--'). Especially avoid emojis and symbol characters like '✓' and '✗'.
+1. *Human-style.* Use ASCII alternatives for arrows and dashes, such as '->', '---', and '--'. Avoid emojis, check marks, and cross marks.
 
 ## Dependencies
 
