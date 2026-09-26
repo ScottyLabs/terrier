@@ -13,6 +13,8 @@ Thank you for your interest in contributing to Terrier!
 
 ## Dev Shell
 
+Run `devenv shell` from the repository root to enter the development environment. To activate it automatically when entering the directory, run `devenv allow` once.
+
 The first time you enter the dev shell, you should confirm these prompts to ensure that you use the ScottyLabs cache:
 
 ```
