@@ -42,11 +42,11 @@ The data flow is:
 
 ```
 tracing macros in application code
-        ↓
+        v
 tracing-opentelemetry (bridges tracing spans into OTel SDK)
-        ↓
+        v
 OTel SDK (span context, propagation)
-        ↓  (fan out via processors)
+        v  (fan out via processors)
         ├── SentrySpanProcessor -> Sentry (errors + performance)
         └── OTLP Exporter -> OTel Collector -> Grafana Tempo
 ```

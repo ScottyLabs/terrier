@@ -31,6 +31,6 @@ All commands are run from this directory:
 
 ## Further Instructions
 
-- [Starlight’s docs](https://starlight.astro.build/)
+- [Starlight's docs](https://starlight.astro.build/)
 - [Astro's docs](https://docs.astro.build)
 - [Astro's Discord server](https://astro.build/chat).
