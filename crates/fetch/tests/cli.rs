@@ -1,5 +1,12 @@
 use std::{fs, path::PathBuf, process::Command};
 
+fn temp_rfcs_dir(label: &str) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("terrier-fetch-{label}-{}", std::process::id()));
+    let directory = root.join("rfcs");
+    fs::create_dir_all(&directory).unwrap();
+    directory
+}
+
 #[test]
 fn searches_sections_with_status_defaults_and_plain_piped_output() {
     let root = std::env::temp_dir().join(format!("terrier-fetch-{}", std::process::id()));
@@ -58,11 +65,9 @@ fn provides_help_and_rejects_invalid_options() {
         .output()
         .unwrap();
     assert!(output.status.success());
-    assert!(
-        String::from_utf8(output.stdout)
-            .unwrap()
-            .contains("accepted")
-    );
+    let help = String::from_utf8(output.stdout).unwrap();
+    assert!(help.contains("accepted"));
+    assert!(help.contains("--new"));
 }
 
 #[test]
@@ -81,4 +86,111 @@ fn searches_repository_code_blocks_in_their_markdown_section() {
             .unwrap()
             .contains("#deployment")
     );
+}
+
+#[test]
+fn new_picks_the_next_number_and_slugifies_the_title() {
+    let root = std::env::temp_dir().join(format!("terrier-fetch-new-{}", std::process::id()));
+    let directory = root.join("rfcs");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(directory.join("0001-storage.md"), "# RFC 0001: Storage\n").unwrap();
+    fs::write(
+        directory.join("0007-mobile-architecture.md"),
+        "# RFC 0007: Mobile\n",
+    )
+    .unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_fetch"))
+        .args(["--new", "Rate Limiting!"])
+        .env("DEVENV_ROOT", &root)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let printed_path = String::from_utf8(output.stdout).unwrap().trim().to_string();
+    assert!(printed_path.ends_with("0008-rate-limiting.md"));
+
+    let contents = fs::read_to_string(&printed_path).unwrap();
+    assert!(contents.starts_with("# RFC 0008: Rate Limiting!"));
+    assert!(contents.contains("- **Status:** Draft"));
+    assert!(contents.contains("## Overview"));
+    assert!(contents.contains("## Implementation Phases"));
+
+    // Running it again picks the next number rather than clobbering 0008.
+    let second = Command::new(env!("CARGO_BIN_EXE_fetch"))
+        .args(["--new", "Rate Limiting!"])
+        .env("DEVENV_ROOT", &root)
+        .output()
+        .unwrap();
+    assert!(second.status.success());
+    let second_path = String::from_utf8(second.stdout).unwrap().trim().to_string();
+    assert!(second_path.ends_with("0009-rate-limiting.md"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn surfaces_relations_and_warns_on_missing_status() {
+    let directory = temp_rfcs_dir("relations");
+    fs::write(
+        directory.join("0001-sessions.md"),
+        "# RFC 0001: Sessions\n- **Status:** Accepted\n## Design\nUse Redis.\n",
+    )
+    .unwrap();
+    fs::write(
+        directory.join("0002-sessions-v2.md"),
+        "# RFC 0002: Sessions v2\n- **Status:** Accepted\n- **Supersedes:** 0001\n## Design\nUse Redis with clustering.\n",
+    )
+    .unwrap();
+    fs::write(
+        directory.join("0003-no-status.md"),
+        "# RFC 0003: Undecided\n## Design\nTBD.\n",
+    )
+    .unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_fetch"))
+        .args(["--status", "all", "redis"])
+        .env("DEVENV_ROOT", directory.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Supersedes: 0001"));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("0003-no-status.md"));
+    fs::remove_dir_all(directory.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn ranks_title_matches_above_body_only_matches() {
+    let directory = temp_rfcs_dir("ranking");
+    // Filename sorts this one first, but the query only hits its body.
+    fs::write(
+        directory.join("0001-storage.md"),
+        "# RFC 0001: Storage\n- **Status:** Accepted\n## Design\nUses caching internally.\n",
+    )
+    .unwrap();
+    // Filename sorts this one second, but the query matches its title.
+    fs::write(
+        directory.join("0002-caching.md"),
+        "# RFC 0002: Caching\n- **Status:** Accepted\n## Design\nSomething else entirely.\n",
+    )
+    .unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_fetch"))
+        .args(["caching"])
+        .env("DEVENV_ROOT", directory.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let storage_pos = stdout.find("RFC 0001: Storage").unwrap();
+    let caching_pos = stdout.find("RFC 0002: Caching").unwrap();
+    assert!(
+        caching_pos < storage_pos,
+        "title match should rank above body-only match:\n{stdout}"
+    );
+    fs::remove_dir_all(directory.parent().unwrap()).unwrap();
 }

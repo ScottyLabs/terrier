@@ -58,6 +58,8 @@
     SAML_PROXY_IDP_KEY_PATH = "crates/saml-proxy/certs/idp-key.pem";
 
     LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
+    NIX_ENFORCE_PURITY = "0";
   };
 
   treefmt.config.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
