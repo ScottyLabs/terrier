@@ -32,7 +32,7 @@ We acknowledge that AI can be a useful tool when used responsibly. However, to e
 
 - **Strict Quality Control**: You are responsible for every line of code you submit. AI-generated code must be thoroughly reviewed, understood, and tested.
 - **Maintainability**: Any maintainability issues (e.g. bad code style, poor documentation) must be fixed immediately.
-- **Improving AI Guidelines**: When AI makes a recurring mistake, add a rule to [`CLAUDE.md`](./CLAUDE.md) to prevent it in the future. This file is a living document that should grow as you learn what AI gets wrong.
+- **Improving AI Guidelines**: Keep [`AGENTS.md`](./AGENTS.md) as the single agent guide. When AI makes a recurring mistake, add a concise, actionable rule and remove outdated guidance. Link to detailed documentation instead of duplicating it; keep commands and repository context current.
 
 ### Quality Standards
 

@@ -36,6 +36,11 @@
   };
 
   packages = with pkgs; [
+    # Focused source search and structured output
+    ripgrep
+    fd
+    jq
+
     # Native libraries for samael (SAML)
     libxml2
     xmlsec
