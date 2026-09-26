@@ -45,6 +45,9 @@
 
     # Database tooling
     sea-orm-cli
+
+    # General tooling
+    git
   ];
 
   env = {
