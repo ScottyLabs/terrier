@@ -13,7 +13,7 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | SSO | [SAML proxy](crates/saml-proxy/README.md); currently absent from root workspace members, so workspace checks do not cover it. |
 | Frontend | [app](app/package.json): Svelte 5, TypeScript, Vite, Deno; API client and generated types in `app/src/lib/api/`. |
 | Documentation | [sites/docs](sites/docs/package.json): Astro/Starlight content in `sites/docs/src/content/docs/`. Legacy mdBook files and the flake's `buildMdbook` configuration also remain; check the relevant build path. |
-| Development/deployment | [devenv.nix](devenv.nix), [devenv.yaml](devenv.yaml), [flake.nix](flake.nix), and [examples](example). The ScottyLabs module supplies shared tooling and services. Deployment routing is declared in `devenv.nix`. |
+| Development/deployment | [devenv.nix](devenv.nix), [devenv.yaml](devenv.yaml), and [flake.nix](flake.nix). The ScottyLabs module supplies shared tooling and services. Deployment routing is declared in `devenv.nix`. |
 | RFC search | [fetch](crates/fetch/src/main.rs); usage and RFC creation in the [RFC guide](rfcs/README.md). |
 
 ## Environment and commands

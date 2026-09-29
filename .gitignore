@@ -1,9 +1,6 @@
 # Nix / devenv
 .devenv/
-.devenv.flake.nix
 .pre-commit-config.yaml
-result
-result-*
 
 # AI
 .mcp.json
@@ -11,6 +8,8 @@ result-*
 
 # Rust
 target/
+.cargo/
+rustc-ice-*.txt
 
 # JavaScript dependencies and build output
 node_modules/
@@ -19,7 +18,6 @@ dist/
 
 # Environment
 .env
-!example/.env
 
 # OS
 .DS_Store
