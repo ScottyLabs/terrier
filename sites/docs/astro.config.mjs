@@ -22,6 +22,7 @@ export default defineConfig({
             // Each item here is one entry in the navigation menu.
             { label: "Example Guide", slug: "guides/example" },
             { label: "Search RFCs", slug: "guides/rfc-search" },
+            { label: "Frontend development", slug: "guides/frontend" },
           ],
           label: "Guides",
         },

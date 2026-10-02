@@ -11,14 +11,14 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | Shared Rust | [terrier-common](crates/terrier-common/src/lib.rs): shared runtime helpers. |
 | Authorization | [SLAC](crates/slac/README.md): typed policy extractors; keep this crate independent of Terrier domain types. |
 | SSO | [SAML proxy](crates/saml-proxy/README.md); currently absent from root workspace members, so workspace checks do not cover it. |
-| Frontend | [app](app/package.json): Svelte 5, TypeScript, Vite, Deno; API client and generated types in `app/src/lib/api/`. |
+| Frontend | [app](app/package.json): SvelteKit, Svelte 5, TypeScript, Vite, Deno; routes in `app/src/routes/`, static output in `app/dist/`, API client and generated types in `app/src/lib/api/`. |
 | Documentation | [sites/docs](sites/docs/package.json): Astro/Starlight content in `sites/docs/src/content/docs/`. Legacy mdBook files and the flake's `buildMdbook` configuration also remain; check the relevant build path. |
 | Development/deployment | [devenv.nix](devenv.nix), [devenv.yaml](devenv.yaml), and [flake.nix](flake.nix). The ScottyLabs module supplies shared tooling and services. Deployment routing is declared in `devenv.nix`. |
 | RFC search | [fetch](crates/fetch/src/main.rs); usage and RFC creation in the [RFC guide](rfcs/README.md). |
 
 ## Environment and commands
 
-Use `devenv shell` from the root, or `devenv shell -- <command>`. See [dev shell setup](CONTRIBUTING.md#dev-shell) for activation and cache trust. Declare tools in `devenv.nix`. Shell entry installs frozen Deno dependencies and syncs Astro. Use `devenv up` when configured services (PostgreSQL, Valkey, Garage) are needed.
+Use `devenv shell` from the root, or `devenv shell -- <command>`. See [dev shell setup](CONTRIBUTING.md#dev-shell) for activation and cache trust. Declare tools in `devenv.nix`. Shell entry installs Deno dependencies and syncs SvelteKit and Astro. Use `devenv up` when configured services (PostgreSQL, Valkey, Garage) are needed.
 
 Run these inside the development shell, from the indicated directory:
 

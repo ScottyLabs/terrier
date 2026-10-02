@@ -1,8 +1,10 @@
+import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
-/** @type {import("@sveltejs/vite-plugin-svelte").SvelteConfig} */
+/** @type {import("@sveltejs/kit").Config} */
 export default {
-  // Consult https://svelte.dev/docs#compile-time-svelte-preprocess
-  // For more information about preprocessors
+  kit: {
+    adapter: adapter({ assets: "dist", pages: "dist" }),
+  },
   preprocess: vitePreprocess(),
 };
