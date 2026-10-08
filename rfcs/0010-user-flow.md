@@ -1,13 +1,14 @@
 # RFC 0010: User Flow
 
 - **Status:** Draft
-- **Author(s):** @brucemcrooster
+- **Author(s):** @brucemcrooster, @kritdass
 - **Created:** 2026-04-19
+- **Updated:** 2026-10-08
 
 ## Overview
 
 This proposal lays out the full path through the app taken by all users, and what should be accessible to them at a given stage.
-These roles will be enforced in the system by SLAC, as described in [RFC 0009](./0009-slac.md).
+The approved access requirements will be enforced through SLAC, as described in [RFC 0009](./0009-slac.md). Lifecycle labels describe user states and capabilities; they do not prescribe database roles.
 
 ## Motivation
 
@@ -44,6 +45,7 @@ These could be emailed directly (which allows some email verification, if we thi
 or generated via links.
 
 Whatever the medium, these should be able to be created by:
+
 - `admin`s
 - `judge-organizer`s
 - `sponsor-organizer`s
@@ -56,7 +58,7 @@ so their creation will need to be handled by the system in the process.
 
 ### "Roles"
 
-The following are the various roles, a non-exclusive set of things which define what a user can do or see at a given point in time.
+The following labels describe a non-exclusive set of lifecycle states and capabilities that define what a user can do or see at a given point in time. An implementation may use the four main roles (`hacker`, `organizer`, `judge`, and `sponsor`) together with application, attendance, and travel reimbursement statuses and scoped permissions. Specialized organizer labels describe responsibilities whose permissions must be preserved in that mapping. A user may have overlapping responsibilities; no single primary role should discard the access required for another responsibility.
 
 In general, roles with different prefixes should be thought of as additive permissions,
 so an `applicant-submitted` who becomes a `participant` should continue to have the `applicant-submitted`-related permissions,
@@ -65,7 +67,7 @@ Roles with the same prefix should be considered mutually-exclusive.
 This is done partially for not having to re-list every permission,
 but would also be useful (if these roles become a concept in the final system) for statistics on participation counts.
 
----
+______________________________________________________________________
 
 #### `applicant-draft`
 
@@ -74,12 +76,13 @@ Once submitted, they should lose the `applicant-draft` role and move to `applica
 (their only option is to edit).
 
 **Features:**
+
 - View and edit all application form fields
 - Save application drafts (partial completion persisted across sessions)
 - Submit the completed application
 - Optionally request travel reimbursement as part of the application (which grants `tr-applied` upon submission; see below)
 
----
+______________________________________________________________________
 
 #### `applicant-submitted`
 
@@ -88,6 +91,7 @@ This role is given once an `applicant-draft` submits their application.
 If their application is accepted, they will get the additional role `attendee-potential`.
 
 **Features:**
+
 - View submitted application
 - Edit application fields that are flagged as editable post-submission (e.g., display name, dietary restrictions, shirt size)[^1]
 - View application status (submitted, accepted, rejected)
@@ -98,9 +102,9 @@ If their application is accepted, they will get the additional role `attendee-po
 > and an `application-manager` can make the edit on their behalf.
 
 [^1]: When an application is updated, it should be made clear to `application-manager`s,
-perhaps through a separate section of the dashboard, and preferably with a diff if possible.
+    perhaps through a separate section of the dashboard, and preferably with a diff if possible.
 
----
+______________________________________________________________________
 
 #### `applicant-rejected`
 
@@ -108,7 +112,7 @@ perhaps through a separate section of the dashboard, and preferably with a diff 
 > In the current design, there is no meaningful difference in accessible features between `applicant-submitted` and `applicant-rejected`.
 > The distinction may be useful for statistics and for preventing further edits to the application, if desired.
 
----
+______________________________________________________________________
 
 #### `tr-applied`
 
@@ -117,23 +121,25 @@ It is removed if the applicant later deselects the travel reimbursement option i
 (since this is an editable field).
 
 **Features:**
+
 - View travel reimbursement request status (applied, accepted, denied)
 
 > **Note:** Travel reimbursement decisions can be fluid, because as accepted attendees decline or remove their TR requests,
 > `application-manager`s may accept additional requests.
 > Removing the TR request from the application should automatically remove any `tr-*` roles.
 
----
+______________________________________________________________________
 
 #### `tr-accepted`
 
 This role is granted by an `application-manager` (or `admin`) when a travel reimbursement request is approved.
 
 **Features:**
+
 - Everything from `tr-applied`
 - Fill out the reimbursement details form: upload receipts and enter expense amounts
 
----
+______________________________________________________________________
 
 #### `attendee-potential`
 
@@ -142,10 +148,11 @@ They should be able to confirm their attendance, in which case they switch (read
 or decline their attendance, in which case they switch to `attendee-declined`.
 
 **Features:**
+
 - Confirm attendance (transitions to `attendee-confirmed`)
 - Decline attendance (transitions to `attendee-declined`)
 
----
+______________________________________________________________________
 
 #### `attendee-confirmed`
 
@@ -157,21 +164,23 @@ This should, of course, be worded in a way such that it's also applicable before
 since almost all will reach this stage before the beginning of the event.
 
 **Features:**
+
 - View event check-in QR code
 - View the schedule of events
 - View hacking time countdown
 - View resources (Discord server link, Hacker Guide)
-- Create a new team (automatically added as a member)
+- Create a new team (automatically added as a member and designated leader)
 - Browse and search open teams (by team name or member names)
 - View team details (description, members list)
-- Send a request to join a team (if team is not full)
-- Accept or reject join requests from others (if on a team)
-- Invite members to their team
-- Edit their team's name and description
+- Send one request to join a team (if eligible, without a current team or another pending request, and if the team is not full)
+- Withdraw a pending join request
+- Accept or reject join requests from others (if the team leader)
+- Share a team link or QR code that opens the request-to-join page
+- Edit their team's name and description (which members may edit remains an open question)
 - Leave their team
 - Change attendance status to `attendee-declined`
 
----
+______________________________________________________________________
 
 #### `attendee-declined`
 
@@ -179,19 +188,21 @@ A user who has been accepted but declined to come.
 The dashboard should make it very clear that "We're sorry to hear you couldn't make it" and not show additional options beyond updating their status.
 
 **Features:**
+
 - View declined status message
 - Change attendance status to `attendee-confirmed`
 
----
+______________________________________________________________________
 
 #### `application-manager`
 
 This role will have access to the full list of applications, with the ability to accept or reject those applications.
 
 **Features:**
+
 - View the full list of applications, with search and filtering
-    - Can view draft applications, but should be a distinct place from actual applications,
-      to enable troubleshooting with participants who may not have submitted yet
+  - Can view draft applications, but should be a distinct place from actual applications,
+    to enable troubleshooting with participants who may not have submitted yet
 - View individual application details
 - Accept or reject applications
 - Edit application details on behalf of applicants (for changes to non-editable fields)
@@ -200,7 +211,7 @@ This role will have access to the full list of applications, with the ability to
 - Approve or deny travel reimbursement requests, specifying an approved amount
 - Transition applicants between `tr-applied` and `tr-accepted`
 
----
+______________________________________________________________________
 
 #### `participant`
 
@@ -211,50 +222,52 @@ This simplifies the complexity of having to deal with people who arrived late an
 since they're now able to attend talks and be logged correctly.
 
 **Features:**
-- All team operations from `attendee-confirmed` (create, join, search, invite, leave, etc.)[^2].
+
+- All team operations from `attendee-confirmed` (create, request to join, search, share links, leave, etc.)[^2].
   Probably simplest to just receive these transitively, since a `participant` should always also be an `attendee-confirmed`.
 - Create a project submission for their team, including:
-    - Project name
-    - Project description
-    - Repository URL
-    - Zipped file upload (optional)
-    - Presentation slides URL
-    - Video URL (optional)
-    - Prize track selection
+  - Project name
+  - Project description
+  - Repository URL
+  - Zipped file upload (optional)
+  - Presentation slides URL
+  - Video URL (optional)
+  - Prize track selection
 - Edit project submission details and prize track selections (until frozen by a `judge-organizer`)
 - Select a table number after submitting a project (manual entry or QR code scan; one team per table)
 - Edit table number selection (until frozen by a `judge-organizer`)
 
 [^2]: Team operations remain accessible after check-in.
-Periodic backups of team membership data are recommended for the unlikely event of a member maliciously removing teammates.
-These backups are likely already part of standard infrastructure.
+    Member removal permissions and organizer recovery controls must be resolved before implementation.
 
----
+______________________________________________________________________
 
 #### `organizer`
 
 An organizer involved in the event but without full administrative access.
 
 **Features:**
+
 - View participant details, including:
-    - Any details included in their application
-    - Their current team, with a link to view that team's details
+  - Any details included in their application
+  - Their current team, with a link to view that team's details
 - View team details, including:
-    - Members, with links to view individual details
-    - Project submission (both status and information)
-    - Table number
+  - Members, with links to view individual details
+  - Project submission (both status and information)
+  - Table number
 - View track winner info before it is marked as "published"
 - Check people into events by scanning their QR code or by manually searching the person (any `attendee-confirmed`, regardless of current `participant` status)
 - View the schedule of events (clicking on a schedule event provides access to the check-in interface for that event)
 - Role-specific resource links
 
----
+______________________________________________________________________
 
 #### `judge`
 
 A judge will be assigned prize tracks as part of the custom link they authenticate by.
 
 **Features:**
+
 - View assigned prize tracks
 - Select which of their assigned tracks to actively judge (UI should default to all selected, with a clear indication when not all are selected, such as a "Judge Selected" vs "Judge All" toggle)
 - Judge assigned projects and submit evaluations (judging mechanics defined in RFC NNNN)
@@ -265,7 +278,7 @@ A judge will be assigned prize tracks as part of the custom link they authentica
 - View the schedule of events
 - Role-specific resource links
 
----
+______________________________________________________________________
 
 #### `judge-organizer`
 
@@ -273,6 +286,7 @@ This is an organizer in charge of managing judges.
 They should be able to judge (if they want to) with all the functionality that judges have (like "taking breaks").
 
 **Features:**
+
 - All `judge` functionality (judging, breaks, notes, deliberation, track selection)
 - Edit judge track assignments
 - Edit prize track details (descriptions, judging criteria, event-attendance restrictions for eligibility)
@@ -288,29 +302,31 @@ They should be able to judge (if they want to) with all the functionality that j
 - View the schedule of events
 - Role-specific resource links
 
----
+______________________________________________________________________
 
 #### `sponsor`
 
 A sponsor associated with a company and its prize tracks.
 
 **Features:**
+
 - View a list of projects (with details) that have applied to the company's prize track(s), including:
-    - Project submission details (name, description, repo, slides, video)
-    - Team member info (see Open Questions)
+  - Project submission details (name, description, repo, slides, video)
+  - Team member info (see Open Questions)
 - View judging results and winners for the company's prize tracks (per-track summaries, easy access to slides/video/repo, clear metric descriptions)
 - Self-select as a `judge` for any of the company's prize tracks (via scanning the main prize track QR code, with the option to judge only some of the prizes)
 - Select the winner of their company's prize tracks
 - View the schedule of events
 - Role-specific resource links
 
----
+______________________________________________________________________
 
 #### `sponsor-organizer`
 
 These are people from the organizing team in charge of working with sponsors.
 
 **Features:**
+
 - View a list of sponsors and their roles
 - Manage sponsor roles
 - Generate invitation links for specific companies, pre-configured with the company assignment so new sponsors are automatically associated on signup
@@ -323,7 +339,7 @@ These are people from the organizing team in charge of working with sponsors.
 > (descriptions, rubrics, event-attendance restrictions) currently falls to `judge-organizer`s and `admin`s.
 > This responsibility may shift when `sponsor-manager` is introduced.
 
----
+______________________________________________________________________
 
 #### `admin`
 
@@ -333,29 +349,43 @@ And anything that is shown to anyone, they should be able to see.
 They should also have any of the special permissions given to `*-organizer`s.
 
 **Features:**
+
 - All permissions from `organizer`, `judge-organizer`, and `sponsor-organizer`
 - View and edit all data across the system (participants, teams, projects, prize tracks, applications, etc.)
 - Configure event parameters:
-    - Maximum number of teams per table
-    - Number of people per team (see Open Questions)
-    - Other event configuration as needed
+  - Maximum number of teams per table
+  - Number of people per team (see Open Questions)
+  - Other event configuration as needed
 - Create custom invitation links for any role
 - Send messages to participants (individual, team-specific, or broadcast; details in a future messaging RFC)
 - Manage the schedule (create, edit, remove events)
 - View the schedule of events
 - Role-specific resource links
 
----
+______________________________________________________________________
+
+### Team membership
+
+Terrier records teams and membership as the source of truth. Automated matching and suggested teammates are deferred; Discord channels and the team-finding mixer support finding teammates initially. Browsing and searching teams remain part of the flow above.
+
+- The team creator becomes the leader and can approve or reject join requests.
+- A user can belong to at most one team per hackathon and have at most one pending join request in that hackathon.
+- To switch teams, a user must withdraw their pending request or leave their current team before requesting another team or creating one.
+- Team links and QR codes open the request-to-join page. Joining requires a request and leader approval, including when someone shares a link as an invitation.
+- Pending applicants are distinct from members. Approval must respect eligibility, team capacity, and the one-team constraint even when requests are handled concurrently.
+
+Leadership transfer, leader departure, editing, member removal, and organizer recovery permissions remain open questions below.
 
 ### All-role features
 
 The following features are available to every authenticated user, regardless of role:
+
 - View their own profile[^3] (name, school, major, graduation year, status)
 - Edit editable (or all if did not apply) profile fields[^3] (display name, dietary restrictions, shirt size, and other fields flagged as post-submission editable)
 - View the schedule of events
 
 [^3]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile.
-      People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
+    People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
 
 ## Alternatives Considered
 
@@ -376,8 +406,21 @@ This has been deferred to a future RFC to keep this document focused on clear mu
 
 ## Open Questions
 
-- **Database representation of roles:** How will these roles be represented in the database? RBAC? Or specific models for each type of role?
-  - How will custom links be handled, given users may not already exist in the database upon clicking a link?
+- **Overlapping responsibilities and organizer permissions:** Which actions require application management, judging management, sponsorship management, or full administration? Can each responsibility be granted separately, and what should a user with several responsibilities see? RFC 0011 will define the database representation and SLAC mapping after these requirements are agreed.
+
+  - Who may issue custom links, what access do they grant, and how should expiry, revocation, reuse, and company or track scope behave? RFC 0011 will define redemption for users who do not yet have an account.
+
+- **Application lifecycle and edits:** Draft saving and per-field post-submission editing are required above. Which fields remain editable, can organizers edit drafts and submitted applications, and how are changes shown to application managers? Is waitlisting supported, and how does it affect acceptance and attendance confirmation?
+
+- **Attendance and check-in:** Confirmed attendees can form teams; participants can submit projects after check-in at any event. Confirm whether this is the intended eligibility rule. Is one checked-in member sufficient for a team submission, or must every member check in? What happens to team membership and submission access when an attendee declines after joining or checking in? Which manual corrections may organizers perform?
+
+- **Team management:** The creator is leader, joining uses requests and approval, and users may have one pending request at a time. Can leaders delegate approval or transfer leadership? What happens when a leader or the last member leaves? Who may edit details, remove members, or delete a team? Who may view team details before joining? Do requests expire or reserve capacity, and what happens when eligibility changes? Which corrections may organizers perform?
+
+- **Submission lifecycle:** Are project drafts supported, which members may edit or withdraw, and is withdrawal reversible? The current flow freezes editing per track; how does that interact with a hackathon submission deadline and projects entered in several tracks? Who may select or change a table, and how should organizers handle deadline exceptions, table conflicts, and corrections?
+
+- **Judging and results boundary:** Confirm the judge and sponsor actions and visibility described above. Who may select winners and publish them, and should publication be immediate, scheduled, or both? Track assignment, evaluation mechanics, breaks, routing, and deliberation need a separate judging RFC before dependent implementation. Sponsor track editing remains deferred with `sponsor-manager`; the API must respect that boundary.
+
+- **Communications priority:** Communications are a lower-priority follow-up. Which essential application or attendance notifications are needed for the initial rollout, and how will organizers send them until an integration exists? Discord is a candidate first integration; channel choice and delivery mechanics belong in a separate communications RFC.
 
 - **`applicant-rejected` role:** Is a distinct `applicant-rejected` role worth including?
   Are there meaningful differences in what should be accessible (e.g., should they no longer be able to edit their application)?

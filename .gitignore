@@ -18,6 +18,7 @@ target/
 # Bun / Node
 node_modules/
 dist/
+.svelte-kit/
 
 # Environment
 .env
