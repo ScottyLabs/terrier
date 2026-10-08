@@ -1,7 +1,7 @@
 # RFC 0010: User Flow
 
 - **Status:** Draft
-- **Author(s):** @brucemcrooster, @kritdass
+- **Author(s):** @evanfost, @kritdass
 - **Created:** 2026-04-19
 - **Updated:** 2026-10-08
 
@@ -101,8 +101,8 @@ If their application is accepted, they will get the additional role `attendee-po
 > For changes to non-editable fields, applicants must contact the organizing team directly,
 > and an `application-manager` can make the edit on their behalf.
 
-[^1]: When an application is updated, it should be made clear to `application-manager`s,
-    perhaps through a separate section of the dashboard, and preferably with a diff if possible.
+\[^1\]: When an application is updated, it should be made clear to `application-manager`s,
+perhaps through a separate section of the dashboard, and preferably with a diff if possible.
 
 ______________________________________________________________________
 
@@ -237,8 +237,8 @@ since they're now able to attend talks and be logged correctly.
 - Select a table number after submitting a project (manual entry or QR code scan; one team per table)
 - Edit table number selection (until frozen by a `judge-organizer`)
 
-[^2]: Team operations remain accessible after check-in.
-    Member removal permissions and organizer recovery controls must be resolved before implementation.
+\[^2\]: Team operations remain accessible after check-in.
+Member removal permissions and organizer recovery controls must be resolved before implementation.
 
 ______________________________________________________________________
 
@@ -384,8 +384,8 @@ The following features are available to every authenticated user, regardless of 
 - Edit editable (or all if did not apply) profile fields[^3] (display name, dietary restrictions, shirt size, and other fields flagged as post-submission editable)
 - View the schedule of events
 
-[^3]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile.
-    People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
+\[^3\]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile.
+People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
 
 ## Alternatives Considered
 
