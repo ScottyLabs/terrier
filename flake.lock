@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "build-env": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY=",
+        "type": "file",
+        "url": "file:///dev/null"
+      },
+      "original": {
+        "type": "file",
+        "url": "file:///dev/null"
+      }
+    },
     "cachix": {
       "inputs": {
         "devenv": [
@@ -545,11 +557,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790578696,
-        "narHash": "sha256-ZoxIApko70jCdbH3l20HWXOBaT2HZd87orzd2yJ9dVE=",
+        "lastModified": 1791734076,
+        "narHash": "sha256-i5qk1kLiit98rRbh1AXmWBNT9QXC/y4l5Wk/u5EdpDQ=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "7a0f122f5090cf4c2ade2a13a0e229d4e19ba71f",
+        "rev": "7fd4004d0511991fff3a0524856a9be09e28c5f0",
         "type": "github"
       },
       "original": {
@@ -757,6 +769,7 @@
     },
     "scottylabs": {
       "inputs": {
+        "build-env": "build-env",
         "crane": "crane",
         "devenv": "devenv",
         "nixpkgs": [
@@ -769,11 +782,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790402528,
-        "narHash": "sha256-yY49D0h42wqWvE+m09EyvH8TlBdoyhNtQcw6IPCyN+Q=",
+        "lastModified": 1791873165,
+        "narHash": "sha256-qZ4jPV/BjGPqEjQL1i+xRHBHS0XT+FhJ1J0fkLGpn3g=",
         "ref": "refs/heads/main",
-        "rev": "577e99c9ffb8a739bdad9188abe6d10084a884e6",
-        "revCount": 371,
+        "rev": "c43e90ad28e5a1607194abc23b9db2045ca15373",
+        "revCount": 386,
         "type": "git",
         "url": "https://git.cmu.dev/ScottyLabs/kennel"
       },

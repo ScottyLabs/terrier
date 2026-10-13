@@ -15,7 +15,7 @@
     deno = {
       enable = true;
       svelte.enable = true;
-      svelte.dir = "app";
+      dirs = [ "app" ];
     };
 
     garage.enable = true;
@@ -71,14 +71,6 @@
   };
 
   treefmt.config.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
-
-  tasks."app:install" = {
-    exec = "cd app && deno install --frozen";
-    before = [
-      "devenv:enterShell"
-      "devenv:git-hooks:run"
-    ];
-  };
 
   tasks."docs:install" = {
     exec = "cd sites/docs && deno install --frozen && deno task astro sync";
