@@ -14,13 +14,13 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | Frontend | [app](app/package.json): SvelteKit, Svelte 5, TypeScript, Vite, Deno; routes in `app/src/routes/`, static output in `app/dist/`, API client and generated types in `app/src/lib/api/`. |
 | Documentation | [sites/docs](sites/docs/package.json): Astro/Starlight content in `sites/docs/src/content/docs/`. Legacy mdBook files and the flake's `buildMdbook` configuration also remain; check the relevant build path. |
 | Development/deployment | [devenv.nix](devenv.nix), [devenv.yaml](devenv.yaml), and [flake.nix](flake.nix). The ScottyLabs module supplies shared tooling and services. Deployment routing is declared in `devenv.nix`. |
-| RFC search | [fetch](crates/fetch/src/main.rs); usage and RFC creation in the [RFC guide](rfcs/README.md). |
+| Development CLI | [Collar](https://git.cmu.dev/ScottyLabs/collar): forge, checks, development workflows, and RFC search. |
 
 ## Environment and commands
 
-Use `devenv shell` from the root, or `devenv shell -- <command>`. See [dev shell setup](CONTRIBUTING.md#dev-shell) for activation and cache trust. Declare tools in `devenv.nix`. Shell entry installs Deno dependencies and syncs SvelteKit and Astro. Use `devenv up` when configured services (PostgreSQL, Valkey, Garage) are needed.
+Use `collar dev shell` from the root, or `collar dev run -- <command>` for noninteractive commands. See [dev shell setup](CONTRIBUTING.md#dev-shell) for activation and cache trust. Declare tools in `devenv.nix`. Shell entry installs Deno dependencies and syncs SvelteKit and Astro. Use `collar dev up` when configured services (PostgreSQL, Valkey, Garage) are needed, `collar dev down` to stop them, and `collar dev task` for named devenv tasks.
 
-Run these inside the development shell, from the indicated directory:
+Run component commands through `collar dev run -- <command>` from the indicated directory, or inside `collar dev shell`. Collar wrappers manage their own development shell:
 
 | Purpose | Directory | Command |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Run these inside the development shell, from the indicated directory:
 | Docs dev/build | `sites/docs` | `deno task dev`; `deno task build` |
 | Format changed files | root | `treefmt <changed-files>` |
 | Check formatting | root | `treefmt --fail-on-change --no-cache <changed-files>` |
-| Run applicable hooks | root | `pre-commit run --files <changed-files>` |
+| Run applicable hooks | root | `collar check --files <changed-files>` |
 
 Cover behavior changes with appropriate unit/integration tests, including failure paths. Run affected tests and required component checks/hooks. For documentation-only edits, check formatting and links. Report results and blockers accurately. Hook configuration is generated; edit its Nix source, not `.pre-commit-config.yaml`.
 
@@ -42,11 +42,12 @@ The `migration`, `migrate`, and `generate-entities` shell helpers currently refe
 
 ## Efficient context and tools
 
-Use the dev shell's `rg` (ripgrep), `fd`, `jq`, and repository-specific `fetch`:
+Use the dev shell's `rg` (ripgrep), `fd`, `jq`, and `collar`:
 
 - Find paths with `rg --files app/src` or `fd -e rs . crates`. Include hidden configuration explicitly when relevant; skip dependencies, build output, and caches.
 - Search with `rg -n 'symbol' crates/slac`; use `rg -l 'pattern' app/src` for filenames only. Read matching functions and relevant callers/tests.
-- Use `fetch <keywords>` for accepted RFC sections, source lines, and excerpts; `fetch --status all <keywords>` includes other statuses. Read relevant sections before relying on excerpts. See the [RFC guide](rfcs/README.md) for creation and search options.
+- Use the Collar skill and prefer Collar commands and wrappers wherever supported, including forge, checks, development, documentation, RFCs, secrets, infrastructure, and Kennel workflows. Discover capabilities with `collar --help` and command-specific help before using lower-level tools. Use `collar api` when no typed command covers a Forgejo operation. See [Using Collar with agents](https://git.cmu.dev/ScottyLabs/collar/src/branch/main/docs/agents.md).
+- Use `collar check --files <changed-files>` for applicable hooks, `collar check <hook> --files <changed-files>` for a specific hook, and `collar check --all` for all files. Direct `prek` or `pre-commit` invocation is normally unnecessary. Fall back to underlying tools only when Collar lacks the operation or a diagnosed wrapper failure requires it; report the reason.
 - Extract needed fields with `jq '.scripts' app/package.json` or `jq '.paths | keys' sites/docs/openapi.json`; avoid dumping lockfiles and generated schemas.
 - Inspect `git status --short`, `git diff --stat`, then diffs for affected paths. Include untracked files in review. Batch independent searches; narrow truncated queries rather than ignoring omitted results.
 - Save verbose check output to a temporary log, preserving exit status. Inspect failures and summaries without hiding diagnostics.

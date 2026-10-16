@@ -10,6 +10,13 @@ inputs:
     inputs:
       nixpkgs:
         follows: nixpkgs
+  collar:
+    url: git+https://git.cmu.dev/ScottyLabs/collar
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+      scottylabs:
+        follows: scottylabs
   rust-overlay:
     url: github:oxalica/rust-overlay
     inputs:

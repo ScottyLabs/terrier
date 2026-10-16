@@ -90,6 +90,29 @@
         "type": "github"
       }
     },
+    "collar": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "scottylabs": [
+          "scottylabs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792190365,
+        "narHash": "sha256-u6oFjwPepDun3hMLWG9FefBNeB14kP+EcZwrwRbYurA=",
+        "ref": "refs/heads/main",
+        "rev": "3fc49e27b02867f053f3f8411651d41944cc9d8e",
+        "revCount": 44,
+        "type": "git",
+        "url": "https://git.cmu.dev/ScottyLabs/collar"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://git.cmu.dev/ScottyLabs/collar"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1789760033,
@@ -788,6 +811,7 @@
     },
     "root": {
       "inputs": {
+        "collar": "collar",
         "devenv": "devenv",
         "git-hooks": "git-hooks",
         "nixpkgs": "nixpkgs",

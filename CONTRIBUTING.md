@@ -24,6 +24,8 @@ do you want to allow configuration setting 'extra-trusted-public-keys' to be set
 do you want to permanently mark this value as trusted (y/N)? y
 ```
 
+The dev shell includes [Collar](https://git.cmu.dev/ScottyLabs/collar) for forge, checks, development workflows, and RFC search. See the [Collar documentation](https://git.cmu.dev/ScottyLabs/collar/src/branch/main/docs/index.md) for usage and setup.
+
 ## Standards
 
 ### Artificial Intelligence
