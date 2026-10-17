@@ -197,6 +197,57 @@ async fn full_discovery_flow() {
 }
 
 #[tokio::test]
+async fn discovery_submit_requires_session_in_form() {
+    let state = Arc::new(AppState::new(test_config()).expect("failed to create AppState"));
+    let session_id = state.sessions.create(
+        "request".into(),
+        "http://localhost:3000/acs".into(),
+        "http://localhost:3000".into(),
+        None,
+    );
+    let app = saml_proxy::app(state.clone());
+
+    for (body, status) in [
+        (
+            "entity_id=https%3A%2F%2Fidp.example.edu",
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        (
+            "session_id=forged&entity_id=https%3A%2F%2Fidp.example.edu",
+            StatusCode::NOT_FOUND,
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                http::Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/discovery")
+                    .header(
+                        http::header::CONTENT_TYPE,
+                        "application/x-www-form-urlencoded",
+                    )
+                    .header(http::header::COOKIE, format!("session_id={session_id}"))
+                    .header(http::header::ORIGIN, "https://attacker.example")
+                    .body(axum::body::Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), status);
+        assert!(
+            state
+                .sessions
+                .get(&session_id)
+                .unwrap()
+                .selected_university
+                .is_none()
+        );
+    }
+}
+
+#[tokio::test]
 async fn search_returns_empty_for_no_match() {
     let app = test_app().await;
 

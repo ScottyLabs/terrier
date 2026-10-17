@@ -7,17 +7,10 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/health": {
+    "/api/health": {
       "get": {
         "operationId": "health",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "text/plain": { "schema": { "type": "string" } }
-            }
-          }
-        }
+        "responses": { "200": { "content": { "text/plain": { "schema": { "type": "string" } } } } }
       }
     }
   },

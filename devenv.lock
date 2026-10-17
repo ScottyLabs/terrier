@@ -100,11 +100,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792190365,
-        "narHash": "sha256-u6oFjwPepDun3hMLWG9FefBNeB14kP+EcZwrwRbYurA=",
+        "lastModified": 1792245779,
+        "narHash": "sha256-xMqCvNdCq7mjxS+cbcevODUXpjXN4GxZ6Dt/n2Jra5M=",
         "ref": "refs/heads/main",
-        "rev": "3fc49e27b02867f053f3f8411651d41944cc9d8e",
-        "revCount": 44,
+        "rev": "7708532a3d8bee9bc1462f464f6cd6f4301a6b3c",
+        "revCount": 47,
         "type": "git",
         "url": "https://git.cmu.dev/ScottyLabs/collar"
       },

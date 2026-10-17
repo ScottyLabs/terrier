@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-  "/health": {
+  "/api/health": {
     parameters: {
       query?: never;
       header?: never;
@@ -41,8 +41,10 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      "200": {
-        headers: Record<string, unknown>;
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
         content: {
           "text/plain": string;
         };

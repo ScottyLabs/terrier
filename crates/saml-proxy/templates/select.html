@@ -30,6 +30,8 @@
     <input type="text" id="search" autocomplete="off" placeholder="e.g. Carnegie Mellon" />
     <ul id="results"></ul>
 
+    <!-- Askama, not Django: the unguessable session_id is submitted explicitly, without cookie authentication. -->
+    <!-- nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -->
     <form id="selection-form" method="POST" action="/discovery">
       <input type="hidden" name="session_id" value="{{ session_id }}" />
       <input type="hidden" id="entity_id" name="entity_id" value="" />
