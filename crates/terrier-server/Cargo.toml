@@ -27,3 +27,7 @@ utoipa-swagger-ui = { features = [
   "axum",
   "vendored",
 ], version = "10.0.1", git = "https://github.com/juhaku/utoipa", rev = "edc9a57726f8ef6b3fbad594639922864e999f52" }
+
+[dev-dependencies]
+slac = { path = "../slac" }
+tower = { workspace = true, features = ["util"] }
