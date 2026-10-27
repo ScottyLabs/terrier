@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2026-11-27
+reason = "False positive for block-buffer 0.10.4: upstream limits affected versions to >=0.11.0,<0.12.1. Version 0.10.4 stores the cursor separately from the buffer. Recheck the OSV range before extending this exception: https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7"
