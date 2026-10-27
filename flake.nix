@@ -28,46 +28,44 @@
     {
       packages = forAllSystems (
         system:
-        (nixpkgs.lib.optionalAttrs (system == "x86_64-linux") (
-          let
-            pkgs = nixpkgs.legacyPackages.${system};
-            lib = scottylabs.mkLib pkgs;
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          lib = scottylabs.mkLib pkgs;
 
-            app = lib.buildDenoTask {
-              src = ./app;
-              pname = "terrier-app";
-              inherit ((builtins.fromJSON (builtins.readFile ./app/package.json))) version;
-            };
+          app = lib.buildDenoTask {
+            src = ./app;
+            pname = "terrier-app";
+            inherit ((builtins.fromJSON (builtins.readFile ./app/package.json))) version;
+          };
 
-            docs = lib.buildMdbook {
-              src = ./sites/docs;
-              name = "terrier-docs";
-            };
+          docs = lib.buildMdbook {
+            src = ./sites/docs;
+            name = "terrier-docs";
+          };
 
-            terrier = lib.buildRustService {
-              src = ./.;
-              pname = "terrier-server";
-              nativeBuildInputs = [ pkgs.pkg-config ];
-              buildInputs = with pkgs; [
-                xmlsec
-                libxml2
-                libtool
-                openssl
-                libxslt
-              ];
-              buildArgs = {
-                cargoExtraArgs = "-p terrier-server";
-                preBuild = ''
-                  mkdir -p assets
-                  cp -r ${app}/* assets/
-                '';
-              };
+          terrier = lib.buildRustService {
+            src = ./.;
+            pname = "terrier-server";
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = with pkgs; [
+              xmlsec
+              libxml2
+              libtool
+              openssl
+              libxslt
+            ];
+            buildArgs = {
+              cargoExtraArgs = "-p terrier-server";
+              preBuild = ''
+                mkdir -p assets
+                cp -r ${app}/* assets/
+              '';
             };
-          in
-          {
-            inherit terrier app docs;
-          }
-        ))
+          };
+        in
+        {
+          inherit terrier app docs;
+        }
       );
     };
 }
