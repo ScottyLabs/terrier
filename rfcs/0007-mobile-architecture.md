@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Author(s):** @kritdass
 - **Created:** 2026-03-05
-- **Updated:** 2026-06-23
+- **Updated:** 2026-11-04
 
 ## Overview
 
-This RFC establishes the core framework used for the Terrier mobile application (iOS and Android): Tauri 2.0.
+This RFC establishes the core framework used for the Terrier mobile application (iOS and Android): [Capacitor](https://capacitorjs.com/docs).
 
 ## Motivation
 
@@ -28,26 +28,28 @@ Providing Terrier as a native mobile application makes it easier for attendees, 
 
 ## Detailed Design
 
-Terrier Mobile will exist as a component within the monorepo, sharing the same stack as the web application to ensure UI parity. The mobile client wraps the web layer using Tauri 2.0, targeting both iOS and Android. While the majority of the logic will remain in the Svelte frontend or Rust backend, the architecture allows for direct access to native APIs via Switft and Kotlin through Tauri's plugin system when such low-level access (beyond existing plugins) is required.
+Terrier Mobile will exist as a component within the monorepo, sharing the Svelte frontend with the web application. Capacitor wraps that web layer for iOS and Android, while the Rust backend remains a separate server accessed through the same HTTP API as the web client. Using Capacitor aligns Terrier with other ScottyLabs mobile applications, including o-quest and the planned maps app.
 
-Tauri has the advantages of providing security, resource efficiency, and flexible architecture. Moreover, the following Tauri plugins allow support for essential native features: [`barcode-scanner`](https://tauri.app/plugin/barcode-scanner/), [`deep-link`](https://tauri.app/plugin/deep-linking/), [`notification`](https://tauri.app/plugin/notification/), and [`geolocation`](https://tauri.app/plugin/geolocation/).
+Native capabilities use [Capacitor plugins](https://capacitorjs.com/docs/plugins), with custom Swift and Java/Kotlin integration where needed. Deep links use the [App plugin](https://capacitorjs.com/docs/apis/app); push notifications and geolocation use the corresponding [Push Notifications](https://capacitorjs.com/docs/apis/push-notifications) and [Geolocation](https://capacitorjs.com/docs/apis/geolocation) plugins. QR scanning also requires a Capacitor-compatible integration; select and validate it during mobile implementation.
 
 ### App Distribution and Updates
 
-- **Single Official App**: Instead of individual apps per event, there will be one official Terrier app, as App Store rejects duplicate or very similar apps. Users will connect to their specific hackathon's instance by entering an instance URL. The App will then fetch the relevant branding and maintain its connection to that instance.
-- **Updating Mechanism**: Updates to the core application and Tauri wrapper will be distributed via standard platform channels (Apple App Store and Google Play Store). However, because the app dynamically connects to the web layer of the instance URL, updates to the web UI and business logic will be seamlessly applied as soon as the server instance updates, bypassing standard app store review cycles.
+- **Single Official App**: Publish one official Terrier app for iOS and Android. Users connect to their hackathon's instance by entering an instance URL, and the app fetches its branding and data.
+- **Updating Mechanism**: Distribute native wrapper and plugin changes through the Apple App Store and Google Play Store. The web-layer update mechanism and client/server compatibility checks remain open. A backend deployment alone does not establish that an installed mobile client has received updated web assets or native plugins.
 
-### Nix Build
+### Build and Packaging
 
-Like other Terrier frontend deliverables, the mobile app packaging follows the Kennel Deno and Nix helper workflow for deployment artifacts.
+Build the shared frontend using the repository's Deno workflow and synchronize its output into the Capacitor projects using the [Capacitor development workflow](https://capacitorjs.com/docs/basics/workflow). Declare shared tooling in `devenv.nix` and use Kennel where its build helpers support the artifact. Native builds require platform tooling, including Xcode for iOS and the Android SDK for Android, as described in [Capacitor environment setup](https://capacitorjs.com/docs/getting-started/environment-setup). Signing and store distribution need platform-specific release jobs.
 
 ## Alternatives Considered
 
-- **Capacitor**: A very strong contender that would also allow us to reuse code from our web app. Rejected because Tauri provides better security, higher performance, and has stable Rust bindings.
-- **React Native**: The most popular framework for cross-platform mobile apps. Rejected because it would force us to rewrite our web app in React.
-- **Flutter**: Rejected for similar reasons as React Native.
-- **Separate Native Applications (Swift/Kotlin)**: Would provide high performance and direct access to mobile APIs, but we would have to maintain two more codebases. Tauri allows us to call native APIs using Swift/Kotlin anyways.
+- **Tauri**: Supports sharing the web frontend and native integrations. Capacitor is selected to align mobile tooling and integration patterns across ScottyLabs applications.
+- **React Native**: Would require replacing the shared Svelte UI with a React-based mobile UI.
+- **Flutter**: Would require a separate UI implementation rather than reusing the Svelte frontend.
+- **Separate Native Applications (Swift/Kotlin)**: Would require maintaining two native UI codebases. Capacitor plugins provide native integration while preserving the shared frontend.
 
 ## Open Questions
 
-- How can we automate updates to the core Terrier application?
+- How should the mobile web layer be delivered and updated: bundled releases, downloaded updates, or an instance-hosted web layer?
+- How should installed clients detect incompatibility with an instance's unversioned API and obtain an update? Coordinate this with RFC 0011.
+- Which QR scanning integration should be used, and what native build, signing, and store-release automation is required?
