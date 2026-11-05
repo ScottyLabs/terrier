@@ -1,6 +1,8 @@
 use std::path::Path;
 
+use anyhow::Context;
 use axum::Router;
+use terrier_server::state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
@@ -20,7 +22,7 @@ async fn health() -> &'static str {
     "ok"
 }
 
-fn router(assets: Option<&Path>) -> Router {
+fn router(assets: Option<&Path>) -> Router<AppState> {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes!(health))
         .split_for_parts();
@@ -43,8 +45,11 @@ pub async fn run() -> anyhow::Result<()> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     let addr = format!("{host}:{port}");
 
+    let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
+    let state = AppState::connect(database_url).await?;
+
     let assets = Path::new("assets");
-    let app = router(assets.exists().then_some(assets));
+    let app = router(assets.exists().then_some(assets)).with_state(state);
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
@@ -65,7 +70,13 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    use super::router;
+    use super::AppState;
+
+    fn router(assets: Option<&Path>) -> axum::Router {
+        super::router(assets).with_state(AppState {
+            db: sea_orm::DatabaseConnection::Disconnected,
+        })
+    }
 
     #[tokio::test]
     async fn health_returns_ok() {

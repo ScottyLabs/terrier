@@ -1,5 +1,20 @@
 { pkgs, inputs, ... }:
 
+let
+  seaOrmCli = pkgs.sea-orm-cli.overrideAttrs (
+    finalAttrs: _: {
+      version = "1.1.20";
+      src = pkgs.fetchCrate {
+        pname = "sea-orm-cli";
+        inherit (finalAttrs) version;
+        hash = "sha256-n7QkCnMF15UMLPPEF093ylzzDESGKKG/q4Y2jvdTcUo=";
+      };
+      cargoDeps = pkgs.rustPlatform.importCargoLock {
+        lockFile = "${finalAttrs.src}/Cargo.lock";
+      };
+    }
+  );
+in
 {
   imports = [
     inputs.scottylabs.devenvModules.default
@@ -49,7 +64,7 @@
     openssl
 
     # Database tooling
-    sea-orm-cli
+    seaOrmCli
 
     # General tooling
     git
@@ -82,9 +97,9 @@
   };
 
   scripts = {
-    migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/migration'';
-    migrate.exec = "sea-orm-cli migrate up -d crates/migration";
-    generate-entities.exec = "sea-orm-cli generate entity -o crates/entity/src --with-serde both --lib --model-extra-derives 'utoipa::ToSchema' --enum-extra-derives 'utoipa::ToSchema'";
+    migration.exec = ''sea-orm-cli migrate generate "$1" -d crates/terrier-server/migration'';
+    migrate.exec = "cargo run -p migration -- up";
+    generate-entities.exec = "${seaOrmCli}/bin/sea-orm-cli generate entity -o crates/terrier-server/src/entities --with-serde both";
     generate-api.exec = "cd app && deno task generate-api";
   };
 }

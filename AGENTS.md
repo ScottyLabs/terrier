@@ -7,7 +7,7 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | Area | Entry point and context |
 | --- | --- |
 | API | [terrier-server](crates/terrier-server/src/main.rs): Rust, Axum, Tokio, Utoipa OpenAPI; currently a health endpoint and optional static assets. |
-| Database | [entities](crates/terrier-server/src/entities) and [migrations](crates/terrier-server/migration); PostgreSQL/SeaORM design in [RFC 0008](rfcs/0008-database-model.md). Entity files are not yet wired into the server entry point. |
+| Database | [entities](crates/terrier-server/src/entities) and [migrations](crates/terrier-server/migration); PostgreSQL/SeaORM design in [RFC 0008](rfcs/0008-database-model.md). |
 | Shared Rust | [terrier-common](crates/terrier-common/src/lib.rs): shared runtime helpers. |
 | Authorization | [SLAC](crates/slac/README.md): typed policy extractors; keep this crate independent of Terrier domain types. |
 | SSO | [SAML proxy](crates/saml-proxy/README.md); currently absent from root workspace members, so workspace checks do not cover it. |
@@ -38,7 +38,7 @@ Cover behavior changes with appropriate unit/integration tests, including failur
 
 For API contract changes, update Utoipa definitions, start the local API on port 3000, and run `deno task generate-api` in `app` and `sites/docs` as applicable. Validate the outputs and review diffs; do not hand-edit `app/src/lib/api/schema.d.ts` or `sites/docs/openapi.json`.
 
-The `migration`, `migrate`, and `generate-entities` shell helpers currently reference stale `crates/migration` or `crates/entity` paths. Use the actual paths above and the [migrator instructions](crates/terrier-server/migration/README.md) for database work.
+The `generate-entities` helper uses the SeaORM CLI pinned in `devenv.nix` and writes to `crates/terrier-server/src/entities`. Apply migrations before regenerating entities. See the [migrator instructions](crates/terrier-server/migration/README.md).
 
 ## Efficient context and tools
 

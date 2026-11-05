@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1
 - **Created:** 2026-02-08
-- **Updated:** 2026-02-10
+- **Updated:** 2026-11-05
 
 ## Overview
 
@@ -68,7 +68,7 @@ We're following the [12-factor methodology](https://12factor.net/):
 1. Fast startup, graceful shutdown on SIGTERM
 1. Docker Compose mirrors production
 1. Structured logging to stdout
-1. Database migrations as separate processes
+1. Apply pending database migrations before serving requests, serialized across instances
 
 Configuration splits between environment variables (deployment-specific: DATABASE_URL, REDIS_URL, S3_ENDPOINT, SMTP credentials, OIDC config) and database (user-facing: hackathon branding, email templates, judging rubrics, feature toggles). This keeps secrets out of the database and allows the same binary to work across dev/staging/prod.
 

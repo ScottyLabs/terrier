@@ -65,6 +65,13 @@
         in
         {
           inherit terrier app docs;
+          migrator = lib.buildRustService {
+            src = ./.;
+            pname = "migration";
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl ];
+            buildArgs.cargoExtraArgs = "--locked -p migration";
+          };
         }
       );
     };
