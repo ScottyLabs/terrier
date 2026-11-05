@@ -2130,6 +2130,7 @@ dependencies = [
  "axum",
  "dotenvy",
  "serde",
+ "serde_json",
  "slac",
  "terrier-common",
  "tokio",
