@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, request::Parts};
 use axum::response::IntoResponse;
 use axum::routing::get;
-use slac::{All, Any, Authorized, Either, Policy, policy};
+use slac::{Authorized, Either, Policy, all, any, policy};
 use tower::ServiceExt;
 
 #[derive(Clone, Default)]
@@ -213,7 +213,7 @@ async fn policy_macro_passes_through_attributes() {
 #[tokio::test]
 async fn any_left() {
     async fn handler(
-        Authorized { data, .. }: Authorized<Any<IsAdmin, IsMember>, AppState>,
+        Authorized { data, .. }: Authorized<any!(IsAdmin, IsMember), AppState>,
     ) -> impl IntoResponse {
         match data {
             Either::Left(p) => format!("left:{}", p.label),
@@ -229,7 +229,7 @@ async fn any_left() {
 #[tokio::test]
 async fn any_right() {
     async fn handler(
-        Authorized { data, .. }: Authorized<Any<IsAdmin, IsMember>, AppState>,
+        Authorized { data, .. }: Authorized<any!(IsAdmin, IsMember), AppState>,
     ) -> impl IntoResponse {
         match data {
             Either::Left(p) => format!("left:{}", p.label),
@@ -244,7 +244,7 @@ async fn any_right() {
 
 #[tokio::test]
 async fn any_propagates_right_error_when_both_fail() {
-    async fn handler(_: Authorized<Any<IsAdmin, IsMember>, AppState>) -> &'static str {
+    async fn handler(_: Authorized<any!(IsAdmin, IsMember), AppState>) -> &'static str {
         "ok"
     }
 
@@ -258,7 +258,7 @@ async fn any_propagates_right_error_when_both_fail() {
 #[tokio::test]
 async fn all_pass() {
     async fn handler(
-        Authorized { data, .. }: Authorized<All<IsAdmin, IsMember>, AppState>,
+        Authorized { data, .. }: Authorized<all!(IsAdmin, IsMember), AppState>,
     ) -> impl IntoResponse {
         let (a, m) = data;
         format!("{}+{}", a.label, m.label)
@@ -271,7 +271,7 @@ async fn all_pass() {
 
 #[tokio::test]
 async fn all_short_circuits_on_first_failure() {
-    async fn handler(_: Authorized<All<IsAdmin, IsMember>, AppState>) -> &'static str {
+    async fn handler(_: Authorized<all!(IsAdmin, IsMember), AppState>) -> &'static str {
         "ok"
     }
 
@@ -280,4 +280,70 @@ async fn all_short_circuits_on_first_failure() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), 1);
     assert_eq!(state.inner.member_calls.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn any_macro_preserves_order_and_short_circuiting() {
+    type Access = slac::any!(IsAdmin, IsAdmin, IsMember,);
+    async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
+        match data {
+            Either::Left(proof) => proof.label.into(),
+            Either::Right(Either::Left(proof)) => proof.label.into(),
+            Either::Right(Either::Right(proof)) => proof.label.into(),
+        }
+    }
+
+    for (state, expected, admin_calls, member_calls) in [
+        (AppState::admin(), (StatusCode::OK, "admin"), 1, 0),
+        (AppState::member(), (StatusCode::OK, "member"), 2, 1),
+        (AppState::anon(), (StatusCode::FORBIDDEN, ""), 2, 1),
+    ] {
+        let (status, body) = send(route(state.clone(), handler)).await;
+        assert_eq!((status, body.as_str()), expected);
+        assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), admin_calls);
+        assert_eq!(
+            state.inner.member_calls.load(Ordering::Relaxed),
+            member_calls
+        );
+    }
+}
+
+#[tokio::test]
+async fn all_macro_preserves_outputs_and_stops_on_failure() {
+    type Access = slac::all!(IsMember, IsAdmin, IsMember,);
+    async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
+        let (member, (admin, second_member)) = data;
+        format!("{}:{}:{}", member.label, admin.label, second_member.label)
+    }
+
+    for (state, expected, admin_calls, member_calls) in [
+        (
+            AppState::admin(),
+            (StatusCode::OK, "member:admin:member"),
+            1,
+            2,
+        ),
+        (AppState::member(), (StatusCode::FORBIDDEN, ""), 1, 1),
+        (AppState::anon(), (StatusCode::FORBIDDEN, ""), 0, 1),
+    ] {
+        let (status, body) = send(route(state.clone(), handler)).await;
+        assert_eq!((status, body.as_str()), expected);
+        assert_eq!(state.inner.admin_calls.load(Ordering::Relaxed), admin_calls);
+        assert_eq!(
+            state.inner.member_calls.load(Ordering::Relaxed),
+            member_calls
+        );
+    }
+}
+
+#[tokio::test]
+async fn macros_accept_nested_types_and_single_policies() {
+    type Access = slac::all!(slac::any!(IsAdmin,), any!(IsAdmin, IsMember));
+    async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
+        let (admin, _) = data;
+        admin.label.into()
+    }
+
+    let (status, body) = send(route(AppState::admin(), handler)).await;
+    assert_eq!((status, body.as_str()), (StatusCode::OK, "admin"));
 }

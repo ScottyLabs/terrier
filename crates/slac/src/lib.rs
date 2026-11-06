@@ -9,10 +9,11 @@ mod combinators;
 mod macros;
 mod policy;
 
-pub use combinators::{All, Any, Either};
+pub use combinators::Either;
 pub use policy::{Authorized, Policy};
 
 #[doc(hidden)]
 pub mod __private {
+    pub use crate::combinators::{All, Any};
     pub use axum::http::request::Parts;
 }

@@ -11,7 +11,7 @@ pub struct Any<A, B>(PhantomData<fn() -> (A, B)>);
 /// Require both `A` and `B` to pass; the proof is the pair of their outputs.
 pub struct All<A, B>(PhantomData<fn() -> (A, B)>);
 
-/// Result of an [`Any<A, B>`] check.
+/// Identifies the successful branch of an [`any!`](crate::any) check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Either<L, R> {
     Left(L),

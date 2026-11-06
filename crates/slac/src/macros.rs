@@ -75,3 +75,21 @@ macro_rules! policy {
         }
     };
 }
+
+/// Combines one or more policies in order, accepting the first success.
+#[macro_export]
+macro_rules! any {
+    ($only:ty $(,)?) => { $only };
+    ($first:ty, $($rest:ty),+ $(,)?) => {
+        $crate::__private::Any<$first, $crate::any!($($rest),+)>
+    };
+}
+
+/// Combines one or more policies in order, requiring every check to pass.
+#[macro_export]
+macro_rules! all {
+    ($only:ty $(,)?) => { $only };
+    ($first:ty, $($rest:ty),+ $(,)?) => {
+        $crate::__private::All<$first, $crate::all!($($rest),+)>
+    };
+}
