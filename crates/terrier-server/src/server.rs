@@ -1,7 +1,8 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
 use axum::Router;
+use terrier_server::auth::{config::AuthConfig, oidc, session};
 use terrier_server::state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -23,13 +24,12 @@ async fn health() -> &'static str {
 }
 
 fn router(assets: Option<&Path>) -> Router<AppState> {
-    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+    let (router, mut api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes!(health))
         .split_for_parts();
+    api.merge(oidc::AuthApiDoc::openapi());
 
-    let mut app = router
-        .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api))
-        .layer(TraceLayer::new_for_http());
+    let mut app = router.merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api));
 
     if let Some(assets) = assets {
         app = app.fallback_service(tower_http::services::ServeDir::new(assets).fallback(
@@ -46,10 +46,22 @@ pub async fn run() -> anyhow::Result<()> {
     let addr = format!("{host}:{port}");
 
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
+    let config = Arc::new(AuthConfig::from_env()?);
+    let valkey_url = std::env::var("VALKEY_URL").context("VALKEY_URL must be set")?;
     let state = AppState::connect(database_url).await?;
+    let sessions = session::connect(&valkey_url).await?;
+    let client = oidc::client(&config).await?;
+    let auth = oidc::routes(config.clone(), client)
+        .layer(session::layer(sessions, config.secure_cookies()))
+        .layer(axum::middleware::from_fn(session::error_response));
 
     let assets = Path::new("assets");
-    let app = router(assets.exists().then_some(assets)).with_state(state);
+    let app = router(assets.exists().then_some(assets))
+        .merge(auth)
+        .with_state(state)
+        .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
+            tracing::info_span!("request", method = %request.method(), path = request.uri().path())
+        }));
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;

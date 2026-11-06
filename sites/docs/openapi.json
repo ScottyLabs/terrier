@@ -7,6 +7,85 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/auth/callback": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "callback",
+        "parameters": [
+          { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "303": { "description": "Complete sign-in" },
+          "400": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "finish_login",
+        "parameters": [
+          {
+            "name": "return_to",
+            "in": "query",
+            "description": "Local application path after sign-in",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "303": { "description": "Redirect to Keycloak or the requested page" },
+          "400": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "logout",
+        "parameters": [
+          {
+            "name": "x-csrf-token",
+            "in": "header",
+            "description": "Session-bound CSRF token",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Local session deleted" },
+          "403": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health",
@@ -14,5 +93,22 @@
       }
     }
   },
-  "components": {}
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Error response body. Omits empty field errors.",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "fields": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "propertyNames": { "type": "string" }
+          },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
 }

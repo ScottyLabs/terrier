@@ -74,6 +74,7 @@ in
   env = {
     HOST = "127.0.0.1";
     PORT = "3000";
+    INSTANCE_ADMIN_SUBJECTS = "[]";
 
     # saml-proxy configuration
     SAML_PROXY_BASE_URL = "http://localhost:8443";

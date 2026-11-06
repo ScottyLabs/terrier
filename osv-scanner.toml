@@ -6,4 +6,4 @@ reason = "False positive for block-buffer 0.10.4: upstream limits affected versi
 [[IgnoredVulns]]
 id = "RUSTSEC-2023-0071"
 ignoreUntil = 2026-12-05
-reason = "RSA is a lockfile-only dependency of SQLx's disabled MySQL driver. Terrier enables only PostgreSQL. Verified absent with cargo tree --workspace --all-features --target all -i rsa. Recheck reachability before extending this exception or enabling another database driver. https://rustsec.org/advisories/RUSTSEC-2023-0071.html"
+reason = "The advisory affects private-key RSA decryption. OpenID Connect uses RSA only to verify provider signatures with public keys; Terrier performs no RSA decryption. SQLx's MySQL driver remains disabled. Recheck before adding private-key RSA operations or enabling MySQL. https://rustsec.org/advisories/RUSTSEC-2023-0071.html"
