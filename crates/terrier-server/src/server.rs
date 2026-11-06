@@ -53,6 +53,7 @@ pub async fn run() -> anyhow::Result<()> {
     let state = AppState::connect(database_url).await?;
     let sessions = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
+    let metadata_client = client.clone();
     let application =
         application_routes(Router::new(), state.clone(), config.clone(), client.clone());
     let auth = oidc::routes(config.clone(), client, state.clone())
@@ -69,9 +70,15 @@ pub async fn run() -> anyhow::Result<()> {
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
-    axum::serve(listener, app)
+    let metadata_refresh = tokio::spawn(oidc::refresh_metadata(
+        metadata_client,
+        axum_oidc::openidconnect::IssuerUrl::new(config.issuer.to_string())?,
+    ));
+    let result = axum::serve(listener, app)
         .with_graceful_shutdown(terrier_common::shutdown_signal())
-        .await?;
+        .await;
+    metadata_refresh.abort();
+    result?;
 
     Ok(())
 }

@@ -30,10 +30,12 @@ struct Exchange {
 struct Provider {
     url: String,
     exchange: Mutex<Exchange>,
+    discovered: tokio::sync::Notify,
 }
 
 struct Fixture {
     provider: Arc<Provider>,
+    client: OidcClient<Claims>,
     task: tokio::task::JoinHandle<()>,
     app: Router,
     store: MemoryStore,
@@ -65,12 +67,14 @@ impl Fixture {
         let provider = Arc::new(Provider {
             url: format!("http://{}", listener.local_addr().unwrap()),
             exchange: Mutex::new(Exchange::default()),
+            discovered: tokio::sync::Notify::new(),
         });
         let metadata = provider.clone();
         let mock = Router::new()
             .route(
                 "/.well-known/openid-configuration",
                 get(move || async move {
+                    metadata.discovered.notify_one();
                     Json(json!({
                         "issuer": format!("{}/", metadata.url),
                         "authorization_endpoint": format!("{}/authorize", metadata.url),
@@ -131,7 +135,7 @@ impl Fixture {
             config.clone(),
             client.clone(),
         );
-        let app = routes(config, client, AppState { db: db.clone() })
+        let app = routes(config, client.clone(), AppState { db: db.clone() })
             .nest("/api", application)
             .merge(probe)
             .layer(super::super::session::layer(store.clone(), true))
@@ -139,6 +143,7 @@ impl Fixture {
             .with_state(AppState { db });
         Self {
             provider,
+            client,
             task,
             app,
             store,
@@ -204,6 +209,44 @@ impl Fixture {
         )
         .await
     }
+}
+
+#[tokio::test]
+async fn provider_metadata_is_refreshed_after_the_cache_interval() {
+    let fixture = Fixture::new().await;
+    fixture.provider.discovered.notified().await;
+    tokio::time::pause();
+    let refresh = tokio::spawn(refresh_metadata(
+        fixture.client.clone(),
+        IssuerUrl::new(format!("{}/", fixture.provider.url)).unwrap(),
+    ));
+    tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+    tokio::time::advance(std::time::Duration::from_secs(15 * 60)).await;
+    tokio::time::resume();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        fixture.provider.discovered.notified(),
+    )
+    .await
+    .unwrap();
+    refresh.abort();
+}
+
+#[test]
+fn session_errors_keep_backend_details_but_redact_stored_values() {
+    let backend = tower_sessions::session::Error::Store(
+        tower_sessions::session_store::Error::Backend("connection refused".into()),
+    );
+    let ApiError::Internal(error) = session_error(backend) else {
+        panic!("expected internal error")
+    };
+    assert!(format!("{error:#}").contains("connection refused"));
+    let error = serde_json::from_str::<bool>("\"private-token\"").unwrap_err();
+    let ApiError::Internal(error) = session_error(tower_sessions::session::Error::SerdeJson(error))
+    else {
+        panic!("expected internal error")
+    };
+    assert!(!format!("{error:#}").contains("private-token"));
 }
 
 async fn token(
@@ -385,9 +428,7 @@ async fn refresh_rejection_is_anonymous_but_provider_failure_is_an_error() {
         let authenticated = cookie(&response);
         // Replace only the signed token's expiry, keeping the actual session and refresh token.
         let mut record = fixture.record(&authenticated).await;
-        let mut exchange = fixture.provider.exchange.lock().unwrap();
-        exchange.refresh_status = failure;
-        drop(exchange);
+        fixture.provider.exchange.lock().unwrap().refresh_status = failure;
         let raw = record
             .data
             .get_mut(OIDC_KEY)

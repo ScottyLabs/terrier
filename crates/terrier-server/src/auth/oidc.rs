@@ -74,6 +74,18 @@ pub async fn client(config: &AuthConfig) -> anyhow::Result<OidcClient<Claims>> {
         .build())
 }
 
+pub async fn refresh_metadata(client: OidcClient<Claims>, issuer: IssuerUrl) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    interval.tick().await;
+    loop {
+        interval.tick().await;
+        if let Err(error) = client.rediscover(issuer.clone()).await {
+            tracing::error!(%error, "failed to refresh OIDC provider metadata");
+        }
+    }
+}
+
 pub fn routes(
     config: Arc<AuthConfig>,
     client: OidcClient<Claims>,
@@ -253,7 +265,7 @@ fn callback_error(error: HandlerError) -> ApiError {
         | HandlerError::AccessTokenHashInvalid => {
             ApiError::BadRequest("Invalid or expired login response. Start sign-in again.".into())
         }
-        HandlerError::Session(_) => internal("failed to persist OIDC callback session"),
+        HandlerError::Session(error) => oidc_session_error(error),
         _ => internal("OIDC callback failed"),
     }
 }
@@ -261,7 +273,7 @@ fn callback_error(error: HandlerError) -> ApiError {
 pub(super) async fn oidc_error(error: MiddlewareError) -> ApiError {
     // Provider errors can contain token responses; log only the failure category.
     match error {
-        MiddlewareError::Session(_) => internal("OIDC session storage failed"),
+        MiddlewareError::Session(error) => oidc_session_error(error),
         MiddlewareError::RequestToken(_) => internal("OIDC token refresh failed"),
         MiddlewareError::UserInfoRetrieval(_) => internal("OIDC user info request failed"),
         _ => internal("OIDC middleware failed"),
@@ -272,8 +284,22 @@ fn internal(message: &'static str) -> ApiError {
     ApiError::Internal(anyhow::anyhow!(message))
 }
 
-pub(super) fn session_error(_: tower_sessions::session::Error) -> ApiError {
-    internal("session storage failed")
+fn oidc_session_error(error: Box<dyn std::error::Error + Send>) -> ApiError {
+    match error.downcast::<tower_sessions::session::Error>() {
+        Ok(error) => session_error(*error),
+        Err(_) => internal("unexpected OIDC session error"),
+    }
+}
+
+pub(super) fn session_error(error: tower_sessions::session::Error) -> ApiError {
+    use tower_sessions::{session::Error, session_store};
+    match error {
+        Error::Store(session_store::Error::Backend(message)) => {
+            ApiError::Internal(anyhow::anyhow!(message).context("session backend failed"))
+        }
+        // Serialization errors can include the stored tokens or profile values.
+        Error::Store(_) | Error::SerdeJson(_) => internal("invalid session data"),
+    }
 }
 
 #[cfg(test)]

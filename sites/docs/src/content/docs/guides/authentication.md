@@ -50,6 +50,10 @@ The frontend and API must share `APP_URL`. The Vite development server proxies
 
 Rejected refresh tokens require a new sign-in. Provider and storage failures
 return server errors. Login failures do not redirect silently to the home page.
+Provider metadata and signing keys refresh every 15 minutes. Refresh failures
+are logged; token validation continues against the cached keys until the next
+successful refresh. A newly activated signing key may require up to 15 minutes
+to become available without a restart.
 
 ## Logout
 

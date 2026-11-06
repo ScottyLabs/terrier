@@ -48,3 +48,4 @@ uuid = { version = "1.29.0", features = ["v4"] }
 
 [dev-dependencies]
 slac = { path = "../slac" }
+tokio = { workspace = true, features = ["test-util"] }
