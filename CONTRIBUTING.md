@@ -28,6 +28,9 @@ The dev shell includes [Collar](https://git.cmu.dev/ScottyLabs/collar) for forge
 
 ## Standards
 
+For backend routes, follow the [API implementation workflow](sites/docs/src/content/docs/guides/api-routes.md).
+Add policies, tests, generated contracts, and documentation with the route.
+
 ### Artificial Intelligence
 
 We acknowledge that AI can be a useful tool when used responsibly. However, to ensure code quality, we enforce:

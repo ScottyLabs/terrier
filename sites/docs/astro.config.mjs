@@ -4,7 +4,6 @@ import * as starlightOpenAPI from "starlight-openapi";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
-// https://astro.build/config
 export default defineConfig({
   integrations: [
     starlight({
@@ -19,11 +18,12 @@ export default defineConfig({
       sidebar: [
         {
           items: [
-            // Each item here is one entry in the navigation menu.
-            { label: "Example Guide", slug: "guides/example" },
             { label: "Frontend development", slug: "guides/frontend" },
+            { label: "Authentication", slug: "guides/authentication" },
+            { label: "Database", slug: "guides/database" },
+            { label: "API routes and policies", slug: "guides/api-routes" },
           ],
-          label: "Guides",
+          label: "Development",
         },
         {
           autogenerate: { directory: "reference" },
@@ -33,9 +33,9 @@ export default defineConfig({
       ],
       social: [
         {
-          href: "https://codeberg.org/ScottyLabs/terrier",
-          icon: "codeberg",
-          label: "Codeberg",
+          href: "https://git.cmu.dev/ScottyLabs/terrier",
+          icon: "external",
+          label: "Repository",
         },
       ],
       title: "Terrier Docs",

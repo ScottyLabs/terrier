@@ -78,7 +78,7 @@ Unknown API paths return JSON 404 responses, including when serving the frontend
 
 Health, auth status, login, callback, and logout remain outside the application
 verification gate. To recheck verification, start a new login with an explicit
-`return_to` path. Existing session claims do not update when Keycloak changes.
+`return_to` path. Existing session claims do not immediately reflect changes in Keycloak.
 
-See [API routes and policies](./api-routes.md) for the own-profile policy,
+See [API routes and policies](/guides/api-routes/) for the own-profile policy,
 route registration, shared errors, and typed client usage.

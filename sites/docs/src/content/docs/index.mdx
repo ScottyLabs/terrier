@@ -1,33 +1,16 @@
 ---
 title: Terrier
-description: Get started building your docs site with Starlight.
-template: splash
-hero:
-  tagline: Documentation for the Terrier platform
-  # image:
-  #  file: ../../assets/houston.webp
-  actions:
-    - text: Example Guide
-      link: /guides/example/
-      icon: right-arrow
-    - text: Visit the repository
-      link: https://codeberg.org/ScottyLabs/terrier
-      icon: external
-      variant: minimal
+description: Contributor documentation for Terrier, a hackathon management platform.
 ---
 
-import { Card, CardGrid } from "@astrojs/starlight/components";
+Terrier is a hackathon management platform. These docs cover development and the API.
 
-## Next steps
+- [API routes and policies](/guides/api-routes/): add a route with its access checks, tests, and docs.
+- [Frontend development](/guides/frontend/): work on the Svelte app and use the API client.
+- [Authentication](/guides/authentication/): configure sign-in and sessions.
+- [Database](/guides/database/): find tables, write queries, and add migrations.
+- [Authorization policies](/reference/policies/): find permission rules and policy outputs.
+- [API errors](/reference/api-errors/): choose an error and handle its response.
 
-<CardGrid stagger>
-  <Card title="Update content" icon="pencil">
-    Edit `src/content/docs/index.mdx` to see this page change.
-  </Card>
-  <Card title="Change page layout" icon="document">
-    Delete `template: splash` in `src/content/docs/index.mdx` to display a sidebar on this page.
-  </Card>
-  <Card title="Add new content" icon="add-document">
-    Add Markdown or MDX files to `src/content/docs` to create new pages.
-  </Card>
-</CardGrid>
+See the [repository](https://git.cmu.dev/ScottyLabs/terrier) for source code,
+contributor instructions, and RFCs. Endpoint documentation is in the API sidebar.
