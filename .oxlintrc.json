@@ -1,5 +1,6 @@
 {
   "env": {
     "browser": true
-  }
+  },
+  "ignorePatterns": ["app/src/lib/api/schema.d.ts"]
 }
