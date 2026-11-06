@@ -57,5 +57,23 @@ return server errors. Login failures do not redirect silently to the home page.
 It requires the session-bound `x-csrf-token` header and rejects a foreign Origin.
 Successful deletion returns 204; storage failures return 500.
 
-The auth-status endpoint that exposes the CSRF token, application authentication
-and email-verification gates, and frontend integration are not implemented yet.
+## Request authentication
+
+`GET /api/auth/status` returns `user` and `csrf_token`. Both are null when signed
+out. The user contains its Terrier ID, email, display name, and verified-email
+status. Tokens and provider identity details are never returned. Responses use
+`Cache-Control: no-store`.
+
+Register application routes through `auth::middleware::application_routes`, then
+nest them under `/api` within the session layer. Handlers extract `CurrentUser`
+to access the local user and validated email-verification status. The middleware
+rejects anonymous requests with 401, unverified email with 403 and code
+`email_verification_required`, and unsafe requests without a matching CSRF token
+with 403. Database and session failures return 500 and stop handler execution.
+Unknown API paths return JSON 404 responses, including when serving the frontend.
+
+Health, auth status, login, callback, and logout remain outside the application
+verification gate. To recheck verification, start a new login with an explicit
+`return_to` path. Existing session claims do not update when Keycloak changes.
+
+Frontend integration and SLAC authorization are not implemented yet.

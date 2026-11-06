@@ -47,6 +47,20 @@ impl Drop for Fixture {
 
 impl Fixture {
     async fn new() -> Self {
+        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = unavailable.local_addr().unwrap();
+        drop(unavailable);
+        let mut options = sea_orm::ConnectOptions::new(format!("postgres://test@{address}/test"));
+        options
+            .connect_lazy(true)
+            .max_connections(1)
+            .acquire_timeout(std::time::Duration::from_millis(100))
+            .connect_timeout(std::time::Duration::from_millis(100));
+        let db = sea_orm::Database::connect(options).await.unwrap();
+        Self::with_db(db).await
+    }
+
+    async fn with_db(db: sea_orm::DatabaseConnection) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let provider = Arc::new(Provider {
             url: format!("http://{}", listener.local_addr().unwrap()),
@@ -107,17 +121,18 @@ impl Fixture {
                     )),
             );
         let store = MemoryStore::default();
-        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = unavailable.local_addr().unwrap();
-        drop(unavailable);
-        let mut options = sea_orm::ConnectOptions::new(format!("postgres://test@{address}/test"));
-        options
-            .connect_lazy(true)
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_millis(100))
-            .connect_timeout(std::time::Duration::from_millis(100));
-        let db = sea_orm::Database::connect(options).await.unwrap();
-        let app = routes(config, client)
+        let application = super::super::middleware::application_routes(
+            Router::new().route(
+                "/test",
+                get(|user: CurrentUser| async move { user.user().id.to_string() })
+                    .post(|| async { StatusCode::NO_CONTENT }),
+            ),
+            AppState { db: db.clone() },
+            config.clone(),
+            client.clone(),
+        );
+        let app = routes(config, client, AppState { db: db.clone() })
+            .nest("/api", application)
             .merge(probe)
             .layer(super::super::session::layer(store.clone(), true))
             .layer(middleware::from_fn(super::super::session::error_response))
@@ -420,7 +435,7 @@ async fn logout_requires_csrf_and_deletes_the_session() {
             .oneshot(
                 Request::post("/api/auth/logout")
                     .header(COOKIE, &authenticated)
-                    .header(header::ORIGIN, origin)
+                    .header(axum::http::header::ORIGIN, origin)
                     .header("x-csrf-token", supplied)
                     .body(Body::empty())
                     .unwrap(),
@@ -463,4 +478,121 @@ fn rejects_external_and_ambiguous_return_paths() {
         local_return_path("/dashboard?tab=profile").unwrap(),
         "/dashboard?tab=profile"
     );
+}
+
+#[tokio::test]
+async fn anonymous_status_and_application_requests_have_distinct_responses() {
+    let fixture = Fixture::new().await;
+    let response = fixture.request("/api/auth/status", None).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[axum::http::header::CACHE_CONTROL],
+        "no-store"
+    );
+    let body = to_bytes(response.into_body(), 4096).await.unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap(),
+        json!({"user": null, "csrf_token": null})
+    );
+    assert_eq!(
+        fixture.request("/api/test", None).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+    let response = fixture.request("/api/missing", None).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    assert_eq!(
+        fixture
+            .request("/api/auth/status", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert_eq!(
+        fixture
+            .request("/api/test", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
+async fn authenticated_requests_enforce_verification_and_csrf() -> anyhow::Result<()> {
+    use sea_orm::ConnectionTrait;
+    let url = std::env::var("TEST_DATABASE_URL")?;
+    let admin = sea_orm::Database::connect(&url).await?;
+    let schema = format!("auth_{}", uuid::Uuid::new_v4().simple());
+    admin
+        .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
+        .await?;
+    let mut options = sea_orm::ConnectOptions::new(url);
+    options.set_schema_search_path(&schema);
+    let state = AppState::connect(options).await?;
+    let fixture = Fixture::with_db(state.db).await;
+    for verified in [false, true] {
+        let (pending, state) = fixture.begin().await;
+        fixture
+            .provider
+            .exchange
+            .lock()
+            .unwrap()
+            .overrides
+            .insert("email_verified".into(), json!(verified));
+        let response = fixture.callback(&pending, &state).await;
+        let authenticated = cookie(&response);
+        let status = fixture
+            .request("/api/auth/status", Some(&authenticated))
+            .await;
+        assert_eq!(status.status(), StatusCode::OK);
+        let body = to_bytes(status.into_body(), 4096).await?;
+        let status: Value = serde_json::from_slice(&body)?;
+        assert_eq!(status["user"]["email_verified"], verified);
+        assert!(status["user"].get("oidc_subject").is_none());
+        let response = fixture.request("/api/test", Some(&authenticated)).await;
+        if !verified {
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            let body = to_bytes(response.into_body(), 4096).await?;
+            assert_eq!(
+                serde_json::from_slice::<Value>(&body)?["code"],
+                "email_verification_required"
+            );
+            continue;
+        }
+        assert_eq!(response.status(), StatusCode::OK);
+        for (origin, csrf, expected) in [
+            ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
+            (
+                "https://evil.example",
+                status["csrf_token"].as_str().unwrap(),
+                StatusCode::FORBIDDEN,
+            ),
+            (
+                "https://terrier.example",
+                status["csrf_token"].as_str().unwrap(),
+                StatusCode::NO_CONTENT,
+            ),
+        ] {
+            let response = fixture
+                .app
+                .clone()
+                .oneshot(
+                    Request::post("/api/test")
+                        .header(COOKIE, &authenticated)
+                        .header("origin", origin)
+                        .header("x-csrf-token", csrf)
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(response.status(), expected);
+        }
+    }
+    drop(fixture);
+    admin
+        .execute_unprepared(&format!("DROP SCHEMA {schema} CASCADE"))
+        .await?;
+    Ok(())
 }

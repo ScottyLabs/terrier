@@ -86,6 +86,24 @@
         }
       }
     },
+    "/api/auth/status": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AuthStatus" } }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health",
@@ -95,6 +113,13 @@
   },
   "components": {
     "schemas": {
+      "AuthStatus": {
+        "type": "object",
+        "properties": {
+          "csrf_token": { "type": ["string", "null"] },
+          "user": { "oneOf": [{ "$ref": "#/components/schemas/UserProfile" }, { "type": "null" }] }
+        }
+      },
       "ErrorResponse": {
         "type": "object",
         "description": "Error response body. Omits empty field errors.",
@@ -107,6 +132,16 @@
             "propertyNames": { "type": "string" }
           },
           "message": { "type": "string" }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "required": ["id", "email", "display_name", "email_verified"],
+        "properties": {
+          "display_name": { "type": "string" },
+          "email": { "type": "string" },
+          "email_verified": { "type": "boolean" },
+          "id": { "type": "string" }
         }
       }
     }

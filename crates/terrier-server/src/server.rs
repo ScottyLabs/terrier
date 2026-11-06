@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
 use axum::Router;
-use terrier_server::auth::{config::AuthConfig, oidc, session};
+use terrier_server::auth::{config::AuthConfig, middleware::application_routes, oidc, session};
 use terrier_server::state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -23,13 +23,15 @@ async fn health() -> &'static str {
     "ok"
 }
 
-fn router(assets: Option<&Path>) -> Router<AppState> {
+fn router(assets: Option<&Path>, api_routes: Router<AppState>) -> Router<AppState> {
     let (router, mut api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes!(health))
         .split_for_parts();
     api.merge(oidc::AuthApiDoc::openapi());
 
-    let mut app = router.merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api));
+    let mut app = router
+        .merge(api_routes)
+        .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api));
 
     if let Some(assets) = assets {
         app = app.fallback_service(tower_http::services::ServeDir::new(assets).fallback(
@@ -51,13 +53,15 @@ pub async fn run() -> anyhow::Result<()> {
     let state = AppState::connect(database_url).await?;
     let sessions = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
-    let auth = oidc::routes(config.clone(), client)
+    let application =
+        application_routes(Router::new(), state.clone(), config.clone(), client.clone());
+    let auth = oidc::routes(config.clone(), client, state.clone())
+        .nest("/api", application)
         .layer(session::layer(sessions, config.secure_cookies()))
         .layer(axum::middleware::from_fn(session::error_response));
 
     let assets = Path::new("assets");
-    let app = router(assets.exists().then_some(assets))
-        .merge(auth)
+    let app = router(assets.exists().then_some(assets), auth)
         .with_state(state)
         .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
             tracing::info_span!("request", method = %request.method(), path = request.uri().path())
@@ -85,7 +89,15 @@ mod tests {
     use super::AppState;
 
     fn router(assets: Option<&Path>) -> axum::Router {
-        super::router(assets).with_state(AppState {
+        super::router(
+            assets,
+            axum::Router::new().nest(
+                "/api",
+                axum::Router::new()
+                    .fallback(|| async { terrier_server::error::ApiError::NotFound }),
+            ),
+        )
+        .with_state(AppState {
             db: sea_orm::DatabaseConnection::Disconnected,
         })
     }
@@ -156,6 +168,14 @@ mod tests {
                 include_bytes!("../tests/fixtures/assets/index.html")
             );
         }
+
+        let missing = app
+            .clone()
+            .oneshot(Request::get("/api/missing").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+        assert_eq!(missing.headers()[CONTENT_TYPE], "application/json");
 
         let response = app
             .oneshot(Request::get("/api/health").body(Body::empty()).unwrap())

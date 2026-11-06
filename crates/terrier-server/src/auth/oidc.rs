@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension, Router,
+    Extension, Json, Router,
     error_handling::HandleErrorLayer,
     extract::{Query, Request, State},
-    http::{StatusCode, Uri, header},
+    http::{StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -21,16 +21,17 @@ use tower_sessions::Session;
 
 use super::{
     config::AuthConfig,
+    current_user::CurrentUser,
+    middleware::{check_csrf, resolve_user},
     session::{Claims, OIDC_KEY, OidcSessionStore},
-    user::{OidcIdentity, sync_user},
 };
 use crate::{error::ApiError, state::AppState};
 
 const RETURN_TO: &str = "return_to";
-const CSRF: &str = "csrf";
+pub(super) const CSRF: &str = "csrf";
 
 #[derive(utoipa::OpenApi)]
-#[openapi(paths(finish_login, callback, logout))]
+#[openapi(paths(finish_login, callback, logout, status))]
 pub struct AuthApiDoc;
 
 #[derive(Serialize)]
@@ -73,7 +74,11 @@ pub async fn client(config: &AuthConfig) -> anyhow::Result<OidcClient<Claims>> {
         .build())
 }
 
-pub fn routes(config: Arc<AuthConfig>, client: OidcClient<Claims>) -> Router<AppState> {
+pub fn routes(
+    config: Arc<AuthConfig>,
+    client: OidcClient<Claims>,
+    state: AppState,
+) -> Router<AppState> {
     let auth = ServiceBuilder::new()
         .layer(HandleErrorLayer::new(oidc_error))
         .layer(OidcAuthLayer::<Claims, OidcSessionStore>::new(client));
@@ -84,7 +89,15 @@ pub fn routes(config: Arc<AuthConfig>, client: OidcClient<Claims>) -> Router<App
         .layer(OidcLoginLayer::<Claims, OidcSessionStore>::new());
     Router::new()
         .route("/api/auth/login", get(finish_login).layer(login))
-        .route("/api/auth/callback", get(callback).layer(auth))
+        .route("/api/auth/callback", get(callback).layer(auth.clone()))
+        .route(
+            "/api/auth/status",
+            get(status).layer(
+                ServiceBuilder::new()
+                    .layer(auth)
+                    .layer(middleware::from_fn_with_state(state, resolve_user)),
+            ),
+        )
         .route("/api/auth/logout", post(logout))
         .layer(Extension(config))
 }
@@ -145,25 +158,7 @@ async fn finish_login(
     claims: OidcClaims<Claims>,
     session: Session,
 ) -> Result<Redirect, ApiError> {
-    let claims = &claims.0;
-    let email = claims
-        .email()
-        .ok_or_else(|| internal("OIDC email is missing"))?;
-    let name = claims
-        .name()
-        .and_then(|name| name.get(None))
-        .ok_or_else(|| internal("OIDC display name is missing"))?;
-    sync_user(
-        &state.db,
-        &OidcIdentity {
-            issuer: claims.issuer().as_str(),
-            subject: claims.subject().as_str(),
-            email: email.as_str(),
-            display_name: name.as_str(),
-        },
-    )
-    .await
-    .map_err(ApiError::Internal)?;
+    CurrentUser::resolve(&state.db, &claims).await?;
     let destination = session
         .remove::<String>(RETURN_TO)
         .await
@@ -206,20 +201,48 @@ async fn logout(
     session: Session,
     headers: axum::http::HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    if let Some(origin) = headers.get(header::ORIGIN)
-        && origin.to_str().ok() != Some(config.app_url.origin().ascii_serialization().as_str())
-    {
-        return Err(ApiError::Forbidden);
-    }
-    let expected: Option<String> = session.get(CSRF).await.map_err(session_error)?;
-    let supplied = headers
-        .get("x-csrf-token")
-        .and_then(|value| value.to_str().ok());
-    if expected.as_deref().is_none() || expected.as_deref() != supplied {
-        return Err(ApiError::Forbidden);
-    }
+    check_csrf(&session, &headers, &config).await?;
     session.flush().await.map_err(session_error)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+struct AuthStatus {
+    user: Option<UserProfile>,
+    csrf_token: Option<String>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+struct UserProfile {
+    id: String,
+    email: String,
+    display_name: String,
+    email_verified: bool,
+}
+
+#[utoipa::path(get, path = "/api/auth/status", tag = "auth",
+    responses((status = 200, body = AuthStatus), (status = 500, body = crate::error::ErrorResponse)))]
+async fn status(user: Option<CurrentUser>, session: Session) -> Result<Json<AuthStatus>, ApiError> {
+    let Some(user) = user else {
+        return Ok(Json(AuthStatus {
+            user: None,
+            csrf_token: None,
+        }));
+    };
+    let csrf_token: String = session
+        .get(CSRF)
+        .await
+        .map_err(session_error)?
+        .ok_or_else(|| internal("authenticated session is missing its CSRF token"))?;
+    Ok(Json(AuthStatus {
+        user: Some(UserProfile {
+            id: user.user().id.to_string(),
+            email: user.user().email.clone(),
+            display_name: user.user().display_name.clone(),
+            email_verified: user.email_verified(),
+        }),
+        csrf_token: Some(csrf_token),
+    }))
 }
 
 fn callback_error(error: HandlerError) -> ApiError {
@@ -235,7 +258,7 @@ fn callback_error(error: HandlerError) -> ApiError {
     }
 }
 
-async fn oidc_error(error: MiddlewareError) -> ApiError {
+pub(super) async fn oidc_error(error: MiddlewareError) -> ApiError {
     // Provider errors can contain token responses; log only the failure category.
     match error {
         MiddlewareError::Session(_) => internal("OIDC session storage failed"),
@@ -249,7 +272,7 @@ fn internal(message: &'static str) -> ApiError {
     ApiError::Internal(anyhow::anyhow!(message))
 }
 
-fn session_error(_: tower_sessions::session::Error) -> ApiError {
+pub(super) fn session_error(_: tower_sessions::session::Error) -> ApiError {
     internal("session storage failed")
 }
 
