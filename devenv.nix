@@ -88,6 +88,7 @@ in
   };
 
   treefmt.config.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
+  git-hooks.hooks.oxlint.excludes = [ "^app/src/lib/api/schema[.]d[.]ts$" ];
 
   tasks."docs:install" = {
     exec = "cd sites/docs && deno install --frozen && deno task astro sync";

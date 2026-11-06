@@ -109,6 +109,48 @@
         "operationId": "health",
         "responses": { "200": { "content": { "text/plain": { "schema": { "type": "string" } } } } }
       }
+    },
+    "/api/users/{user_id}": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "profile",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "Terrier user UUID",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Profile" } }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -132,6 +174,15 @@
             "propertyNames": { "type": "string" }
           },
           "message": { "type": "string" }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": ["id", "email", "display_name"],
+        "properties": {
+          "display_name": { "type": "string" },
+          "email": { "type": "string" },
+          "id": { "type": "string" }
         }
       },
       "UserProfile": {

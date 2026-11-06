@@ -27,6 +27,7 @@ sea-orm = { version = "1.1.20", default-features = false, features = [
 ] }
 serde.workspace = true
 serde_json = "1.0.151"
+slac = { version = "0.1.0", path = "../slac" }
 terrier-common.workspace = true
 tokio.workspace = true
 tower = { workspace = true, features = ["util"] }
@@ -47,5 +48,4 @@ utoipa-swagger-ui = { features = [
 uuid = { version = "1.29.0", features = ["v4"] }
 
 [dev-dependencies]
-slac = { path = "../slac" }
 tokio = { workspace = true, features = ["test-util"] }

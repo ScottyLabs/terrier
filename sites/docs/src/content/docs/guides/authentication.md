@@ -80,4 +80,5 @@ Health, auth status, login, callback, and logout remain outside the application
 verification gate. To recheck verification, start a new login with an explicit
 `return_to` path. Existing session claims do not update when Keycloak changes.
 
-Frontend integration and SLAC authorization are not implemented yet.
+See [API routes and policies](./api-routes.md) for the own-profile policy,
+route registration, shared errors, and typed client usage.

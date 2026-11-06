@@ -126,7 +126,7 @@ impl Fixture {
             );
         let store = MemoryStore::default();
         let application = super::super::middleware::application_routes(
-            Router::new().route(
+            crate::profile::routes().route(
                 "/test",
                 get(|user: CurrentUser| async move { user.user().id.to_string() })
                     .post(|| async { StatusCode::NO_CONTENT }),
@@ -601,9 +601,48 @@ async fn authenticated_requests_enforce_verification_and_csrf() -> anyhow::Resul
                 serde_json::from_slice::<Value>(&body)?["code"],
                 "email_verification_required"
             );
+            assert_eq!(
+                fixture
+                    .request(
+                        &format!("/api/users/{}", status["user"]["id"].as_str().unwrap()),
+                        Some(&authenticated)
+                    )
+                    .await
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
             continue;
         }
         assert_eq!(response.status(), StatusCode::OK);
+        let own_path = format!("/api/users/{}", status["user"]["id"].as_str().unwrap());
+        let own = fixture.request(&own_path, Some(&authenticated)).await;
+        assert_eq!(own.status(), StatusCode::OK);
+        let own: Value = serde_json::from_slice(&to_bytes(own.into_body(), 4096).await?)?;
+        assert_eq!(
+            own,
+            json!({"id": status["user"]["id"], "email": "member@example.com", "display_name": "Member"})
+        );
+        assert_eq!(
+            fixture.request(&own_path, None).await.status(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            fixture
+                .request(
+                    &format!("/api/users/{}", uuid::Uuid::new_v4()),
+                    Some(&authenticated)
+                )
+                .await
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            fixture
+                .request("/api/users/not-a-uuid", Some(&authenticated))
+                .await
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
         for (origin, csrf, expected) in [
             ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
             (

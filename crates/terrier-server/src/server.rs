@@ -28,6 +28,7 @@ fn router(assets: Option<&Path>, api_routes: Router<AppState>) -> Router<AppStat
         .routes(utoipa_axum::routes!(health))
         .split_for_parts();
     api.merge(oidc::AuthApiDoc::openapi());
+    api.merge(terrier_server::profile::ProfileApiDoc::openapi());
 
     let mut app = router
         .merge(api_routes)
@@ -54,8 +55,12 @@ pub async fn run() -> anyhow::Result<()> {
     let sessions = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
     let metadata_client = client.clone();
-    let application =
-        application_routes(Router::new(), state.clone(), config.clone(), client.clone());
+    let application = application_routes(
+        terrier_server::profile::routes(),
+        state.clone(),
+        config.clone(),
+        client.clone(),
+    );
     let auth = oidc::routes(config.clone(), client, state.clone())
         .nest("/api", application)
         .layer(session::layer(sessions, config.secure_cookies()))
