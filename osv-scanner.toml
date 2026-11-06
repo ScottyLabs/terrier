@@ -2,3 +2,8 @@
 id = "GHSA-qwgh-2vcv-g2f7"
 ignoreUntil = 2026-11-27
 reason = "False positive for block-buffer 0.10.4: upstream limits affected versions to >=0.11.0,<0.12.1. Version 0.10.4 stores the cursor separately from the buffer. Recheck the OSV range before extending this exception: https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+ignoreUntil = 2026-12-05
+reason = "RSA is a lockfile-only dependency of SQLx's disabled MySQL driver. Terrier enables only PostgreSQL. Verified absent with cargo tree --workspace --all-features --target all -i rsa. Recheck reachability before extending this exception or enabling another database driver. https://rustsec.org/advisories/RUSTSEC-2023-0071.html"
