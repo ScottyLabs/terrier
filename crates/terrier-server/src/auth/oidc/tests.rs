@@ -126,7 +126,7 @@ impl Fixture {
             );
         let store = MemoryStore::default();
         let application = super::super::middleware::application_routes(
-            crate::profile::routes().route(
+            crate::routes::routes().0.route(
                 "/test",
                 get(|user: CurrentUser| async move { user.user().id.to_string() })
                     .post(|| async { StatusCode::NO_CONTENT }),

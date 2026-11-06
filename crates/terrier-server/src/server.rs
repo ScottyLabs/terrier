@@ -23,12 +23,16 @@ async fn health() -> &'static str {
     "ok"
 }
 
-fn router(assets: Option<&Path>, api_routes: Router<AppState>) -> Router<AppState> {
+fn router(
+    assets: Option<&Path>,
+    api_routes: Router<AppState>,
+    application_api: utoipa::openapi::OpenApi,
+) -> Router<AppState> {
     let (router, mut api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes!(health))
         .split_for_parts();
     api.merge(oidc::AuthApiDoc::openapi());
-    api.merge(terrier_server::profile::ProfileApiDoc::openapi());
+    api.merge(application_api);
 
     let mut app = router
         .merge(api_routes)
@@ -55,19 +59,15 @@ pub async fn run() -> anyhow::Result<()> {
     let sessions = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
     let metadata_client = client.clone();
-    let application = application_routes(
-        terrier_server::profile::routes(),
-        state.clone(),
-        config.clone(),
-        client.clone(),
-    );
+    let (routes, application_api) = terrier_server::routes::routes();
+    let application = application_routes(routes, state.clone(), config.clone(), client.clone());
     let auth = oidc::routes(config.clone(), client, state.clone())
         .nest("/api", application)
         .layer(session::layer(sessions, config.secure_cookies()))
         .layer(axum::middleware::from_fn(session::error_response));
 
     let assets = Path::new("assets");
-    let app = router(assets.exists().then_some(assets), auth)
+    let app = router(assets.exists().then_some(assets), auth, application_api)
         .with_state(state)
         .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
             tracing::info_span!("request", method = %request.method(), path = request.uri().path())
@@ -108,6 +108,7 @@ mod tests {
                 axum::Router::new()
                     .fallback(|| async { terrier_server::error::ApiError::NotFound }),
             ),
+            terrier_server::routes::routes().1,
         )
         .with_state(AppState {
             db: sea_orm::DatabaseConnection::Disconnected,
@@ -127,7 +128,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn openapi_includes_health() {
+    async fn openapi_includes_registered_routes() {
         let response = router(None)
             .oneshot(Request::get("/openapi.json").body(Body::empty()).unwrap())
             .await
@@ -138,6 +139,7 @@ mod tests {
         let body = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
         let body = std::str::from_utf8(&body).unwrap();
         assert!(body.contains("\"/api/health\""));
+        assert!(body.contains("\"/api/users/{user_id}\""));
     }
 
     #[tokio::test]
