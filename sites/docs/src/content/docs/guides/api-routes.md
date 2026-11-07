@@ -9,6 +9,28 @@ find the route in `crates/terrier-server/src/profile.rs` and its policy in
 `crates/terrier-server/src/auth/policy.rs`. All `src/` paths below refer to the
 server crate, and commands assume the development shell is ready.
 
+## Deactivating resources and relationships
+
+Use `PATCH` on the existing resource or relationship to set `is_active: false`
+when a user wants to remove it. Do not add domain `DELETE` routes or physically
+delete rows. For pending join requests, set status to `withdrawn` or `rejected`
+instead. For example, `PATCH /api/hackathons/{slug}` with
+`{"is_active": false}` deactivates a hackathon through its existing update route.
+
+Check the permission for that lifecycle transition separately from ordinary field
+editing. Validate parent scope, current state, and dependent constraints; apply
+the flag, related state changes, and append-only audit record in one transaction.
+Organizer changes require the last-read revision and return `409 Conflict` when
+it is stale. Preserve data and references, exclude inactive records from ordinary
+reads and authorization, and expose history only to authorized users.
+
+Restoration must recheck permissions, uniqueness, and workflow constraints and
+append a new audit entry. Setting a flag back to true must not bypass those
+checks. Submitted projects cannot be deleted or withdrawn. Session/token cleanup
+and personal-data erasure need separate lifecycle policies. See
+[RFC 0011 recovery controls](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0011-api-architecture.md#organizer-recovery-controls)
+for the shared contract and unresolved domain policies.
+
 ## 1. Choose the route and response
 
 Start with what the route does and who should be able to use it. For the profile

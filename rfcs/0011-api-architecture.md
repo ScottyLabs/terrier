@@ -54,7 +54,7 @@ Clients and generated types must stay compatible with the deployment they connec
 
 `slug` resolves a hackathon; other resource IDs are UUIDs. User profiles are global, while applications, teams, projects, tracks, evaluations, and announcements belong to a hackathon.
 
-Use `GET` for reads, `POST` to create resources or perform explicit actions, `PATCH` for partial updates, and `DELETE` to deactivate an eligible resource or relationship while preserving its history. Use `PUT` where the caller replaces a complete resource. Ordinary CRUD paths use resource names without `create` or `edit` suffixes.
+Use `GET` for reads, `POST` to create resources or perform explicit actions, and `PATCH` for partial updates, including lifecycle flags. Do not expose `DELETE` routes for domain resources or relationships. Use `PUT` where the caller replaces a complete resource. Ordinary CRUD paths use resource names without `create` or `edit` suffixes.
 
 Use projects as the submission resource and evaluations as the judging resource. Prize tracks are always `tracks`; hackathon sponsor associations are always `sponsors`. Team membership lives under `members`, pending requests under `join-requests`, and judge work under track `assignments`. Reads never use `POST`, and ordinary CRUD routes never end in `/create` or `/edit`. Routes use explicit user IDs instead of a `me` alias; clients select the relevant ID and the server enforces access using the authenticated identity.
 
@@ -150,14 +150,13 @@ The route tables cover the shared architecture and selected domain operations. M
 | -------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------ |
 | `POST /api/hackathons` | Create a hackathon with its settings | Global-admin access |
 | `GET /api/hackathons/{slug}` | Read hackathon configuration visible to the caller | Public fields or management view |
-| `PATCH /api/hackathons/{slug}` | Update hackathon settings | Hackathon management |
-| `DELETE /api/hackathons/{slug}` | Deactivate a hackathon without deleting its data | Hackathon management |
+| `PATCH /api/hackathons/{slug}` | Update hackathon settings or set `is_active: false` to deactivate it | Hackathon management |
 | `POST /api/hackathons/{slug}/tracks` | Create a prize track | Management; sponsor creation access remains open |
 | `PATCH /api/hackathons/{slug}/tracks/{track_id}` | Update a prize track | Management; sponsor editing access remains open |
 | `POST /api/hackathons/{slug}/sponsors` | Associate a sponsor organization with the hackathon | Hackathon management |
 | `PATCH /api/hackathons/{slug}/sponsors/{sponsor_org_id}` | Update the hackathon's sponsor association | Hackathon management |
 | `POST /api/hackathons/{slug}/organizers` | Add an organizer by user ID | Hackathon management |
-| `DELETE /api/hackathons/{slug}/organizers/{user_id}` | Remove an organizer | Hackathon management |
+| `PATCH /api/hackathons/{slug}/organizers/{user_id}` | Set the organizer relationship to `is_active: false` | Hackathon management |
 
 Sponsor organization data can be shared across hackathons. Updating an association must not implicitly edit the organization everywhere. Organizer and sponsor writes also need to keep their relationships and hackathon role assignments consistent. Hackathon creation requires environment-configured global-admin access. What sponsors can edit remains [an open question](#question-administration).
 
@@ -173,7 +172,7 @@ Recovery actions must enforce hackathon scope and data integrity, preserve relev
 
 Persistent domain mutations, including deactivations and automated changes, must append an audit record in the same database transaction as the change. Record the actor or service, hackathon scope where applicable, timestamp, action, affected resource, and sufficient change history for authorized recovery. Privileged corrections and recovery actions also record a reason. Audit history is append-only: application credentials must not permit updating or deleting existing audit records. Secrets must not be copied into audit records.
 
-Business deletion deactivates persistent domain records. Session/token cleanup and personal-data erasure require their own lifecycle policies rather than indefinite retention under this rule. `DELETE` marks a resource or relationship inactive or deleted while preserving its data and references; do not use cascading physical deletes. Ordinary reads and authorization must exclude inactive resources and relationships as appropriate. Authorized organizers and admins can inspect history and restore eligible records through explicit recovery actions that recheck permissions, uniqueness, and current workflow constraints. Restoration creates a new audit entry and must not overwrite intervening changes silently. Submitted projects have no deletion or withdrawal operation, as established in RFC 0010.
+Business deletion deactivates persistent domain records. Session/token cleanup and personal-data erasure require their own lifecycle policies rather than indefinite retention under this rule. Use `PATCH` on the resource or relationship to set `is_active: false`; join requests instead use an explicit `withdrawn` or `rejected` status. Preserve data and references, and do not use physical or cascading deletes. Ordinary field-edit permissions do not grant deactivation or restoration permission. Validate lifecycle transitions and dependent state in the same transaction as the flag update and audit record. Channel deactivation must stop new delivery work through that channel; handling already accepted work requires the communications policy. Ordinary reads and authorization must exclude inactive resources and relationships as appropriate. Authorized organizers and admins can inspect history and restore eligible records through explicit recovery actions that recheck permissions, uniqueness, and current workflow constraints. Restoration creates a new audit entry and must not overwrite intervening changes silently. Submitted projects have no deletion or withdrawal operation, as established in RFC 0010.
 
 ### Registration and Applications
 
@@ -202,12 +201,11 @@ Application statuses are `pending`, `accepted`, `rejected`, and `waitlisted`. Re
 | `POST /api/hackathons/{slug}/teams` | Create a team from a name; add the caller | Confirmed attendee without an active team in this hackathon |
 | `GET /api/hackathons/{slug}/teams` | List visible teams; optionally filter teams seeking members | Eligible authenticated users |
 | `GET /api/hackathons/{slug}/teams/{team_id}` | Read team details, permitted member fields, and submission information | Confirmed attendees see discovery fields; members, permitted judges, and management see their authorized detail views |
-| `PATCH /api/hackathons/{slug}/teams/{team_id}` | Update editable team fields | Team leader or hackathon management |
+| `PATCH /api/hackathons/{slug}/teams/{team_id}` | Update editable team fields; management may set `is_active: false` to dismiss the team, subject to the unresolved dismissal policy | Team leader or hackathon management |
 | `POST /api/hackathons/{slug}/teams/{team_id}/join-requests` | Request membership as the authenticated caller | Confirmed attendee without an active team in this hackathon |
 | `POST /api/hackathons/{slug}/teams/{team_id}/join-requests/{user_id}/accept` | Accept a pending request | Team leader |
-| `DELETE /api/hackathons/{slug}/teams/{team_id}/join-requests/{user_id}` | Withdraw or reject a request | Request owner may withdraw; team leader may reject |
-| `DELETE /api/hackathons/{slug}/teams/{team_id}/members/{user_id}` | Leave or remove a member | Self may leave; only hackathon management may remove another member |
-| `DELETE /api/hackathons/{slug}/teams/{team_id}` | Dismiss the team | Management policy unresolved |
+| `PATCH /api/hackathons/{slug}/teams/{team_id}/join-requests/{user_id}` | Set request status to `withdrawn` or `rejected` | Request owner may withdraw; team leader may reject |
+| `PATCH /api/hackathons/{slug}/teams/{team_id}/members/{user_id}` | Set membership to `is_active: false` to leave or remove a member | Self may leave; only hackathon management may remove another member |
 
 Only confirmed attendees can create or join teams, with at most one active team per hackathon. Membership in a different hackathon is independent. These eligibility rules follow RFC 0010.
 
@@ -276,7 +274,7 @@ TODO: Define how external integrations work end to end, including provider adapt
 | `GET /api/hackathons/{slug}/announcements/{announcement_id}` | Read one announcement permitted for the caller | Same audience policy |
 | `POST /api/hackathons/{slug}/channels` | Configure a supported channel using validated configuration | Hackathon management |
 | `GET /api/hackathons/{slug}/channels` | List channel configuration with secrets omitted | Hackathon management |
-| `DELETE /api/hackathons/{slug}/channels/{channel_id}` | Remove a configured channel | Hackathon management |
+| `PATCH /api/hackathons/{slug}/channels/{channel_id}` | Set the configured channel to `is_active: false` | Hackathon management |
 
 Audiences may select hackathon roles or a prize track. Sponsors cannot expand their audience beyond their authorized track. A channel identifier supplied by a caller must resolve inside the hackathon.
 
