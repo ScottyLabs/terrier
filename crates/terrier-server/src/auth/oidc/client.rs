@@ -5,11 +5,13 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use openidconnect::{
     AccessTokenHash, AuthorizationCode, ClaimsVerificationError, ClientId, ClientSecret, CsrfToken,
     EndpointMaybeSet, EndpointNotSet, EndpointSet, IssuerUrl, Nonce, OAuth2TokenResponse,
-    PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, RefreshToken, RequestTokenError, Scope,
-    SubjectIdentifier, TokenResponse,
+    PkceCodeChallenge, PkceCodeVerifier, ProviderMetadata, RedirectUrl, RefreshToken,
+    RequestTokenError, Scope, SubjectIdentifier, TokenResponse,
     core::{
-        CoreAuthenticationFlow, CoreClient, CoreErrorResponseType, CoreIdToken, CoreIdTokenClaims,
-        CoreProviderMetadata, CoreTokenResponse,
+        CoreAuthDisplay, CoreAuthenticationFlow, CoreClaimName, CoreClaimType, CoreClient,
+        CoreClientAuthMethod, CoreErrorResponseType, CoreGrantType, CoreIdToken, CoreIdTokenClaims,
+        CoreJsonWebKey, CoreJweContentEncryptionAlgorithm, CoreJweKeyManagementAlgorithm,
+        CoreResponseMode, CoreResponseType, CoreSubjectIdentifierType, CoreTokenResponse,
     },
     reqwest,
 };
@@ -32,11 +34,40 @@ type ProviderClient = CoreClient<
     EndpointMaybeSet,
     EndpointMaybeSet,
 >;
+type Metadata = ProviderMetadata<
+    ProviderOptions,
+    CoreAuthDisplay,
+    CoreClientAuthMethod,
+    CoreClaimName,
+    CoreClaimType,
+    CoreGrantType,
+    CoreJweContentEncryptionAlgorithm,
+    CoreJweKeyManagementAlgorithm,
+    CoreJsonWebKey,
+    CoreResponseMode,
+    CoreResponseType,
+    CoreSubjectIdentifierType,
+>;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ProviderOptions {
+    #[serde(default)]
+    authorization_response_iss_parameter_supported: bool,
+}
+
+impl openidconnect::AdditionalProviderMetadata for ProviderOptions {}
+
+#[derive(Clone)]
+struct Provider {
+    client: ProviderClient,
+    require_response_issuer: bool,
+}
+
 pub(super) const PENDING: &str = "oidc_pending";
 
 #[derive(Clone)]
 pub struct OidcClient {
-    provider: Arc<RwLock<ProviderClient>>,
+    provider: Arc<RwLock<Provider>>,
     http: reqwest::Client,
     config: Arc<AuthConfig>,
 }
@@ -78,8 +109,13 @@ impl OidcClient {
         })
     }
 
-    pub async fn rediscover(&self, issuer: IssuerUrl) -> anyhow::Result<()> {
-        let provider = discover(&self.config, &self.http, issuer).await?;
+    pub async fn rediscover(&self) -> anyhow::Result<()> {
+        let provider = discover(
+            &self.config,
+            &self.http,
+            IssuerUrl::new(self.config.issuer.to_string())?,
+        )
+        .await?;
         *self.provider.write().await = provider;
         Ok(())
     }
@@ -109,6 +145,7 @@ impl OidcClient {
             .provider
             .read()
             .await
+            .client
             .authorize_url(
                 CoreAuthenticationFlow::AuthorizationCode,
                 || state,
@@ -140,12 +177,21 @@ impl OidcClient {
         state: String,
         code: Option<String>,
         error: Option<String>,
+        issuer: Option<String>,
     ) -> Result<(), ApiError> {
         let pending: PendingLogin = session
             .get(PENDING)
             .await
             .map_err(session_error)?
             .ok_or_else(invalid_callback)?;
+        let provider = self.provider.read().await.clone();
+        if issuer
+            .as_ref()
+            .is_some_and(|issuer| issuer != self.config.issuer.as_str())
+            || (provider.require_response_issuer && issuer.is_none())
+        {
+            return Err(invalid_callback());
+        }
         let age = OffsetDateTime::now_utc().unix_timestamp() - pending.created_at;
         if pending.state != CsrfToken::new(state) || !(0..600).contains(&age) {
             return Err(invalid_callback());
@@ -156,8 +202,8 @@ impl OidcClient {
         if error.is_some() || code.as_ref().is_none_or(|code| code.is_empty()) {
             return Err(invalid_callback());
         }
-        let provider = self.provider.read().await.clone();
         let response = provider
+            .client
             .exchange_code(AuthorizationCode::new(code.ok_or_else(invalid_callback)?))
             .map_err(|_| internal("OIDC token endpoint is missing"))?
             .set_pkce_verifier(pending.verifier)
@@ -175,9 +221,9 @@ impl OidcClient {
             .id_token()
             .ok_or_else(|| internal("OIDC ID token is missing"))?;
         let claims = id_token
-            .claims(&provider.id_token_verifier(), &pending.nonce)
+            .claims(&provider.client.id_token_verifier(), &pending.nonce)
             .map_err(|_| invalid_callback())?;
-        validate_access_token(&provider, &response).map_err(|_| invalid_callback())?;
+        validate_token_response(&provider.client, &response).map_err(|_| invalid_callback())?;
         session.cycle_id().await.map_err(session_error)?;
         session
             .insert(
@@ -210,11 +256,10 @@ impl OidcClient {
             return Ok(None);
         };
         let provider = self.provider.read().await.clone();
-        match credentials
-            .id_token
-            .claims(&provider.id_token_verifier(), |nonce: Option<&Nonce>| {
-                verify_refresh_nonce(nonce, &credentials.nonce)
-            }) {
+        match credentials.id_token.claims(
+            &provider.client.id_token_verifier(),
+            |nonce: Option<&Nonce>| verify_refresh_nonce(nonce, &credentials.nonce),
+        ) {
             Ok(claims) => return Ok(Some(claims.clone())),
             Err(ClaimsVerificationError::Expired(_)) => {}
             Err(_) => return Err(internal("stored OIDC ID token validation failed")),
@@ -224,6 +269,7 @@ impl OidcClient {
             return Ok(None);
         };
         let response = match provider
+            .client
             .exchange_refresh_token(refresh_token)
             .map_err(|_| internal("OIDC token endpoint is missing"))?
             .request_async(&self.http)
@@ -243,9 +289,10 @@ impl OidcClient {
             .id_token()
             .ok_or_else(|| internal("refreshed OIDC ID token is missing"))?;
         let claims = id_token
-            .claims(&provider.id_token_verifier(), |nonce: Option<&Nonce>| {
-                verify_refresh_nonce(nonce, &credentials.nonce)
-            })
+            .claims(
+                &provider.client.id_token_verifier(),
+                |nonce: Option<&Nonce>| verify_refresh_nonce(nonce, &credentials.nonce),
+            )
             .map_err(|_| internal("refreshed OIDC ID token validation failed"))?
             .clone();
         if claims.subject() != &credentials.subject
@@ -253,7 +300,7 @@ impl OidcClient {
         {
             return Err(internal("OIDC refresh changed the authenticated identity"));
         }
-        validate_access_token(&provider, &response)
+        validate_token_response(&provider.client, &response)
             .map_err(|_| internal("refreshed OIDC access token hash is invalid"))?;
         credentials.id_token = id_token.clone();
         if let Some(refresh_token) = response.refresh_token() {
@@ -273,27 +320,34 @@ async fn discover(
     config: &AuthConfig,
     http: &reqwest::Client,
     issuer: IssuerUrl,
-) -> anyhow::Result<ProviderClient> {
-    let metadata = CoreProviderMetadata::discover_async(issuer, http)
+) -> anyhow::Result<Provider> {
+    let metadata = Metadata::discover_async(issuer, http)
         .await
         .context("failed to discover Keycloak OIDC configuration")?;
     anyhow::ensure!(
         metadata.token_endpoint().is_some(),
         "OIDC token endpoint is missing"
     );
+    let require_response_issuer = metadata
+        .additional_metadata()
+        .authorization_response_iss_parameter_supported;
     let redirect = config
         .relay_url
         .clone()
         .unwrap_or(config.app_url.join("api/auth/callback")?);
-    Ok(CoreClient::from_provider_metadata(
+    let client = CoreClient::from_provider_metadata(
         metadata,
         ClientId::new(config.client_id.clone()),
         Some(ClientSecret::new(config.client_secret.clone())),
     )
-    .set_redirect_uri(RedirectUrl::new(redirect.to_string())?))
+    .set_redirect_uri(RedirectUrl::new(redirect.to_string())?);
+    Ok(Provider {
+        client,
+        require_response_issuer,
+    })
 }
 
-fn validate_access_token(
+fn validate_token_response(
     provider: &ProviderClient,
     response: &CoreTokenResponse,
 ) -> Result<(), ()> {
@@ -302,6 +356,12 @@ fn validate_access_token(
     let claims = token
         .claims(&verifier, |_: Option<&Nonce>| Ok(()))
         .map_err(|_| ())?;
+    if claims
+        .authorized_party()
+        .is_some_and(|party| party != provider.client_id())
+    {
+        return Err(());
+    }
     if let Some(expected) = claims.access_token_hash() {
         let actual = AccessTokenHash::from_token(
             response.access_token(),

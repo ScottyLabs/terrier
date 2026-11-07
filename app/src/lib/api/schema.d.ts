@@ -138,8 +138,10 @@ export interface operations {
   callback: {
     parameters: {
       query: {
-        code: string;
+        code?: string;
         state: string;
+        error?: string;
+        iss?: string;
       };
       header?: never;
       path?: never;

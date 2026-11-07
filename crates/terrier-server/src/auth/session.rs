@@ -16,11 +16,14 @@ use tower_sessions::{
 };
 use tower_sessions_redis_store::RedisStore;
 
+pub mod lock;
+
 pub const OIDC_KEY: &str = "oidc_v2";
+pub const SESSION_COOKIE: &str = "terrier_session";
 
 pub fn layer<S: tower_sessions::SessionStore>(store: S, secure: bool) -> SessionManagerLayer<S> {
     SessionManagerLayer::new(store)
-        .with_name("terrier_session")
+        .with_name(SESSION_COOKIE)
         .with_path("/")
         .with_http_only(true)
         .with_secure(secure)
@@ -29,7 +32,7 @@ pub fn layer<S: tower_sessions::SessionStore>(store: S, secure: bool) -> Session
         .with_always_save(true)
 }
 
-pub async fn connect(url: &str) -> anyhow::Result<RedisStore<Pool>> {
+pub async fn connect(url: &str) -> anyhow::Result<(RedisStore<Pool>, Pool)> {
     let config = Config::from_url(url).context("invalid VALKEY_URL")?;
     let performance = fred::types::config::PerformanceConfig {
         default_command_timeout: Duration::from_secs(5),
@@ -42,7 +45,7 @@ pub async fn connect(url: &str) -> anyhow::Result<RedisStore<Pool>> {
         .await
         .context("timed out connecting to Valkey")?
         .context("failed to connect to Valkey")?;
-    Ok(RedisStore::new(pool))
+    Ok((RedisStore::new(pool.clone()), pool))
 }
 
 pub async fn error_response(request: Request, next: Next) -> Response {

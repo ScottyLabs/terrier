@@ -12,8 +12,10 @@
         "tags": ["auth"],
         "operationId": "callback",
         "parameters": [
-          { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } }
+          { "name": "code", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "error", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "iss", "in": "query", "required": false, "schema": { "type": "string" } }
         ],
         "responses": {
           "303": { "description": "Complete sign-in" },

@@ -75,7 +75,7 @@ pub async fn run() -> anyhow::Result<()> {
     let config = Arc::new(AuthConfig::from_env()?);
     let valkey_url = std::env::var("VALKEY_URL").context("VALKEY_URL must be set")?;
     let state = AppState::connect(database_url).await?;
-    let sessions = session::connect(&valkey_url).await?;
+    let (sessions, locks) = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
     let metadata_client = client.clone();
     let (routes, application_api) = terrier_server::routes::routes();
@@ -83,6 +83,10 @@ pub async fn run() -> anyhow::Result<()> {
     let auth = oidc::routes(config.clone(), client, state.clone())
         .nest("/api", application)
         .layer(session::layer(sessions, config.secure_cookies()))
+        .layer(axum::middleware::from_fn_with_state(
+            locks,
+            session::lock::serialize::<fred::prelude::Pool>,
+        ))
         .layer(axum::middleware::from_fn(session::error_response));
 
     let app = router(assets.as_deref(), auth, application_api)
@@ -93,10 +97,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
-    let metadata_refresh = tokio::spawn(oidc::refresh_metadata(
-        metadata_client,
-        openidconnect::IssuerUrl::new(config.issuer.to_string())?,
-    ));
+    let metadata_refresh = tokio::spawn(oidc::refresh_metadata(metadata_client));
     let result = axum::serve(listener, app)
         .with_graceful_shutdown(terrier_common::shutdown_signal())
         .await;
