@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Author(s):** @amzoeee, @anish, @ethanli, @evanfost, @ipae, @JacenL, @mdn2, @sbwang, @skancher, @kritdass
 - **Created:** 2026-04-19
-- **Updated:** 2026-11-04
+- **Updated:** 2026-11-06
 
 ## Overview
 
@@ -176,7 +176,7 @@ since almost all will reach this stage before the beginning of the event.
 - Create a new team (automatically added as a member and designated leader)
 - Browse and search open teams (by team name or member names)
 - View team details (description, members list)
-- Request to join a team (if confirmed, without a current team, and if the team is not full; the pending-request limit remains open)
+- Request to join a team (if confirmed, without a current team, with no other pending join request, and if the team is not full)
 - Withdraw a pending join request
 - Accept or reject join requests from others (if the team leader)
 - Share a team link or QR code that opens the request-to-join page
@@ -189,12 +189,12 @@ ______________________________________________________________________
 #### `attendee-declined`
 
 A user who has been accepted but declined to come.
-The dashboard should show the declined status and explain that organizers must reopen the attendance offer before the attendee can confirm again.
+The dashboard should show the declined status and allow the attendee to confirm again before the confirmation deadline. Reconfirmation does not require organizer approval and must be clearly highlighted to application managers.
 
 **Features:**
 
 - View declined status message
-- Ask organizers to reopen the attendance offer; confirmation requires organizer approval
+- Confirm attendance again before the confirmation deadline; application managers see that the attendee previously declined
 
 ______________________________________________________________________
 
@@ -205,7 +205,7 @@ This role will have access to the full list of applications, with the ability to
 **Features:**
 
 - View submitted applications, with search and filtering
-  - Lists include submitted applications only. Draft contents are private to the applicant; troubleshooting access requires a separate, explicitly approved support flow.
+  - The decision-review list includes submitted applications only. Managers can inspect draft applications for troubleshooting in a separate view; drafts are clearly labeled and cannot receive admission decisions.
 - View individual application details
 - Accept, reject, or waitlist submitted applications
 - Edit application details on behalf of applicants (for changes to non-editable fields)
@@ -343,7 +343,7 @@ ______________________________________________________________________
 
 #### `admin`
 
-This label denotes hackathon administration, scoped to one hackathon, and includes the special permissions given to `*-organizer`s. Deployment-wide global administration is separate and belongs in RFC 0011. Administration does not imply unrestricted editing of private drafts or rewriting judging history.
+This label denotes hackathon administration, scoped to one hackathon, and includes the special permissions given to `*-organizer`s. Deployment-wide global administration is separate and belongs in RFC 0011. Admins can inspect application drafts for support through the separate draft view; corrections preserve history and cannot rewrite judging history.
 
 **Features:**
 
@@ -366,14 +366,14 @@ ______________________________________________________________________
 Terrier records teams and membership as the source of truth. Automated matching and suggested teammates are deferred; Discord channels and the team-finding mixer support finding teammates initially. Browsing and searching teams remain part of the flow above.
 
 - The team creator becomes the leader and can approve or reject join requests.
-- A user can belong to at most one team per hackathon. Whether multiple pending join requests are allowed remains open.
-- To switch teams, a member must leave their current team before requesting another team or creating one.
+- A user can belong to at most one team per hackathon. A user can have at most one pending join request per hackathon. They must withdraw it or receive a rejection before requesting another team. Leader acceptance joins the requester directly, without a second confirmation.
+- To switch teams, a member must leave their current team before requesting another team or creating one. Creating a team also requires withdrawing any pending join request.
 - Team links and QR codes open the request-to-join page. Joining requires a request and leader approval, including when someone shares a link as an invitation.
 - Pending applicants are distinct from members. Approval must respect eligibility, team capacity, and the one-team constraint even when requests are handled concurrently.
 
 Pending requests do not reserve capacity. They close when withdrawn, rejected, accepted, the requester loses eligibility, or team formation closes. Approval rechecks confirmed attendance, capacity, and absence of an active membership atomically. Team size is configured per hackathon; lowering the maximum below an existing team's size requires resolving that team first.
 
-The leader edits team details and can transfer leadership to another active member. When the leader leaves, the remaining member with the earliest membership start time automatically becomes leader, with user ID as a stable tie-breaker. The last member leaving deactivates the team, preserving submission and membership history. Leaders cannot unilaterally remove accepted members; members can leave voluntarily. An organizer can remove a member or replace an absent leader after reviewing the request, recording a reason and notifying affected members. The dispute and escalation policy remains an Events decision.
+The leader edits team details and can transfer leadership to another active member. When the leader leaves, the remaining member with the earliest membership start time automatically becomes leader, with user ID as a stable tie-breaker. The last member leaving deactivates the team, preserving submission and membership history. Leaders cannot unilaterally remove accepted members; members can leave voluntarily. An organizer can remove a member after reviewing the request, recording a reason and notifying affected members. Members with an absent or unresponsive leader contact an `admin`, who can transfer leadership through the existing management controls. A dedicated leadership-change request or verification workflow is not required.
 
 Declining attendance atomically removes active membership and pending requests. If the departing attendee was leader, the remaining member with the earliest membership start time succeeds them, with user ID as a stable tie-breaker. The same succession rule applies to voluntary departure and organizer correction of attendance. A team without remaining members is deactivated. How membership changes affect projects already being judged belongs in the judging RFC.
 
@@ -390,9 +390,9 @@ People coming in through other routes (organizers, judges, sponsors) will edit a
 
 ### Application and attendance transitions
 
-Application drafts are private working copies. Submitting creates an immutable revision with a server-assigned revision ID and timestamp; later edits create a new submitted revision. Managers can compare revisions and see which revision informed a decision. A saved working copy is not a new submitted revision.
+Application drafts are working copies visible to their owner and authorized application managers through a separate troubleshooting view. They are excluded from submitted-application review lists and cannot receive admission decisions. Submitting creates an immutable revision with a server-assigned revision ID and timestamp; later edits create a new submitted revision. Managers can compare revisions and see which revision informed a decision. A saved working copy is not a new submitted revision.
 
-Each application field has a post-submission edit flag and a configured edit deadline. The hackathon application deadline is the upper bound for applicant edits. Organizers can set earlier locks for decision-relevant fields, including rolling admissions. Rejected and waitlisted applications are read-only. Managers may correct submitted data with a reason and visible history; they cannot silently change an applicant's private draft. Name and other global profile edits do not rewrite the submitted application snapshot.
+Each application field has a post-submission edit flag and a configured edit deadline. The hackathon application deadline is the upper bound for applicant edits. Organizers can set earlier locks for decision-relevant fields, including rolling admissions. Rejected and waitlisted applications are read-only. Managers may correct submitted data with a reason and visible history; draft corrections likewise require a reason and visible history. Name and other global profile edits do not rewrite the submitted application snapshot.
 
 | Current state | Action | Result and guard |
 | --- | --- | --- |
@@ -401,18 +401,19 @@ Each application field has a post-submission edit flag and a configured edit dea
 | Accepted, attendance pending | Applicant confirms | Confirmed before the confirmation deadline |
 | Accepted, attendance pending | Applicant declines, or offer expires | Declined or expired |
 | Confirmed | Applicant declines | Declined; membership rules applied |
+| Declined | Applicant confirms again | Confirmed before the confirmation deadline; visibly flagged to application managers as previously declined |
 | Declined or expired | Manager reopens offer | Attendance pending with a new confirmation deadline |
 | Confirmed | Organizer checks in at an event | Participant capability; duplicate scans do not duplicate attendance |
 
-Organizers can accept applicants, including waitlisted applicants, and reopen attendance confirmation. Bulk organizer operations will be supported in a later phase; their API and per-item outcomes belong in RFC 0011. Attendance capacity allocation and reservation mechanisms are outside this RFC. Expiry closes an offer rather than treating silence as a personal decline. Attendance changes after check-in preserve the check-in history, but declining removes current submission eligibility.
+Organizers can accept applicants, including waitlisted applicants, and reopen attendance confirmation. Reconfirmation preserves the earlier decline in attendance history and does not restore former team membership. A configurable approval or reapplication flow for other hackathons is deferred. Bulk organizer operations will be supported in a later phase; their API and per-item outcomes belong in RFC 0011. Attendance capacity allocation and reservation mechanisms are outside this RFC. Expiry closes an offer rather than treating silence as a personal decline. Attendance changes after check-in preserve the check-in history, but declining removes current submission eligibility.
 
 ### Submission and judging boundary
 
-One currently confirmed and checked-in member is sufficient to submit for the team. Other members do not need to have checked in. All active members can save a project draft and edit the shared project before the hackathon submission deadline. A submitted project cannot be removed or withdrawn; it can only be edited within the applicable deadline and locks. The team retains one project record and its revision history.
+One currently confirmed and checked-in member is sufficient to submit for the team. Other members do not need to have checked in. Only currently confirmed, checked-in team members can access the submission form, save a project draft, or edit the shared project before the hackathon submission deadline. A submitted project cannot be removed or withdrawn; it can only be edited within the applicable deadline and locks. The team retains one project record and its revision history.
 
 The hackathon submission deadline governs ordinary project edits. Cross-track freezes, judging snapshots, and handling edits after judging starts are outside this RFC and belong in the judging RFC. Table selection remains editable until frozen by a judging organizer.
 
-Sponsors select the final winners for their own tracks. Judging scores inform that decision; organizer approval is not required for sponsor winner selections. Publishing is a separate organizer action, immediate or scheduled. Published winners do not expose raw evaluations, private notes, or participant email addresses. Broader score sharing and the judging algorithm remain separate design work.
+Sponsors select the final winners for their own tracks. Judging scores inform that decision; organizer approval is not required for sponsor winner selections. Publishing is a separate organizer action, immediate or scheduled, and exposes only a manually curated winners list, not automatically generated rankings. Published winners do not expose raw evaluations, private notes, or participant email addresses. Broader score sharing and the judging algorithm remain separate design work.
 
 ### Recovery and initial communications
 
@@ -442,8 +443,6 @@ The separate role remains deferred. Whether existing sponsors should have these 
 The rules above are proposed resolutions for review, not an accepted implementation mandate. The following decisions still need named owners before dependent tasks start:
 
 - **Events: organizer permissions.** Confirm the action-to-capability matrix for application, judging, sponsorship, and hackathon administration. Preserve overlapping responsibilities without granting every organizer every private-data permission. RFC 0011 must reconcile this with the current one-role-per-hackathon schema.
-- **Events: leadership recovery.** Oldest-member succession applies when a leader leaves or declines attendance. Only organizers can involuntarily remove members. Define how organizers verify an absent-leader request, notify members, and escalate disputes.
-- **Events: pending join requests.** Allow one pending request at a time, or multiple requests with the first acceptance joining the team and closing the others? This remains unresolved.
 - **Events: deadlines.** Choose default application, field-edit, attendance-confirmation, team-formation, and submission deadlines. Provide user-facing explanations when a spot expires or a change needs organizer help.
 - **Sponsorship: privacy and capabilities.** Which team member fields, including email, should sponsors be able to see for projects entered in their tracks? This remains an open question in this RFC. Should sponsors be able to edit their own track descriptions and invite colleagues within their company and tracks? This also remains open in this RFC.
 - **Finance: reimbursements.** Confirm categories, currencies, evidence requirements, receipt access, budget reservation rules, and retention. Issue #29 requires general reimbursements, including hotel and travel. Each category has an independent request and decision; payment and tax-form workflows are deferred.
