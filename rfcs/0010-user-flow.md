@@ -1,6 +1,6 @@
 # RFC 0010: User Flow
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Author(s):** @amzoeee, @anish, @ethanli, @evanfost, @ipae, @JacenL, @mdn2, @sbwang, @skancher, @kritdass
 - **Created:** 2026-04-19
 - **Updated:** 2026-11-07
