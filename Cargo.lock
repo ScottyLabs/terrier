@@ -408,26 +408,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum-oidc"
-version = "1.0.0-dev-2"
-source = "git+https://codeberg.org/pfzetto/axum-oidc?rev=007135e2c26830f6c89d1659302c228076c7afa7#007135e2c26830f6c89d1659302c228076c7afa7"
-dependencies = [
- "arc-swap",
- "axum",
- "axum-core",
- "futures-util",
- "http",
- "openidconnect",
- "reqwest",
- "serde",
- "thiserror 2.0.20",
- "tower-layer",
- "tower-service",
- "tracing",
- "urlencoding",
-]
-
-[[package]]
 name = "base16ct"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3947,12 +3927,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "axum-oidc",
  "base64 0.22.1",
  "dotenvy",
  "fred",
  "leash",
  "migration",
+ "openidconnect",
  "sea-orm",
  "serde",
  "serde_json",

@@ -12,12 +12,16 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
-axum-oidc = { git = "https://codeberg.org/pfzetto/axum-oidc", rev = "007135e2c26830f6c89d1659302c228076c7afa7", version = "1.0.0-dev-2" }
 base64 = "0.22"
 dotenvy.workspace = true
 fred = { version = "10", features = ["unix-sockets"] }
 leash = { git = "https://git.cmu.dev/ScottyLabs/leash", branch = "main", version = "0.1.0" }
 migration = { version = "0.1.0", path = "migration" }
+openidconnect = { version = "4.1.0", default-features = false, features = [
+  "reqwest",
+  "rustls-tls",
+  "timing-resistant-secret-traits",
+] }
 sea-orm = { version = "2.0.4", default-features = false, features = [
   "macros",
   "runtime-tokio-native-tls",

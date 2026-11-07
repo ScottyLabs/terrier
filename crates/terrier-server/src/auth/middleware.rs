@@ -2,21 +2,18 @@ use std::sync::Arc;
 
 use axum::{
     Extension, Router,
-    error_handling::HandleErrorLayer,
     extract::{Request, State},
     http::{HeaderMap, header},
     middleware::{self, Next},
     response::Response,
 };
-use axum_oidc::{OidcAuthLayer, OidcClaims, OidcClient};
-use tower::ServiceBuilder;
+use openidconnect::core::CoreIdTokenClaims;
 use tower_sessions::Session;
 
 use super::{
     config::AuthConfig,
     current_user::CurrentUser,
-    oidc::{CSRF, oidc_error, session_error},
-    session::{Claims, OidcSessionStore},
+    oidc::{CSRF, OidcClient, authenticate, session_error},
 };
 use crate::{error::ApiError, state::AppState};
 
@@ -25,7 +22,7 @@ pub(super) async fn resolve_user(
     mut request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    if let Some(claims) = request.extensions().get::<OidcClaims<Claims>>() {
+    if let Some(claims) = request.extensions().get::<CoreIdTokenClaims>() {
         let user = CurrentUser::resolve(&state.db, claims).await?;
         request.extensions_mut().insert(user);
     }
@@ -39,7 +36,7 @@ pub fn application_routes(
     routes: Router<AppState>,
     state: AppState,
     config: Arc<AuthConfig>,
-    client: OidcClient<Claims>,
+    client: OidcClient,
 ) -> Router<AppState> {
     routes
         .layer(middleware::from_fn_with_state(
@@ -48,11 +45,7 @@ pub fn application_routes(
         ))
         .layer(middleware::from_fn(require_user))
         .layer(middleware::from_fn_with_state(state, resolve_user))
-        .layer(
-            ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(oidc_error))
-                .layer(OidcAuthLayer::<Claims, OidcSessionStore>::new(client)),
-        )
+        .layer(middleware::from_fn_with_state(client, authenticate))
         .layer(Extension(config))
         .fallback(|| async { ApiError::NotFound })
 }

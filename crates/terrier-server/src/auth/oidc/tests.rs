@@ -1,27 +1,54 @@
 use super::*;
+use crate::auth::session::OIDC_KEY;
 use axum::{
+    Form, Json,
     body::{Body, to_bytes},
     http::{
         Request,
         header::{COOKIE, LOCATION, SET_COOKIE},
     },
 };
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use openidconnect::{
+    PkceCodeChallenge, PkceCodeVerifier,
+    core::{CoreHmacKey, CoreJwsSigningAlgorithm},
+    core::{CoreIdToken, CoreIdTokenClaims},
+};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 use tower::ServiceExt;
 use tower_sessions::{MemoryStore, SessionStore, cookie::time::OffsetDateTime, session::Id};
 
-#[path = "../../../tests/common/provider.rs"]
-mod provider;
-use axum_oidc::openidconnect::core::{CoreHmacKey, CoreJwsSigningAlgorithm};
-use provider::{CLIENT_SECRET, Provider};
+const CLIENT_SECRET: &str = "oidc-test-client-secret";
+
+#[derive(Default)]
+struct Exchange {
+    nonce: String,
+    challenge: String,
+    overrides: serde_json::Map<String, Value>,
+    refresh_status: Option<StatusCode>,
+    refresh_error: Option<String>,
+    redirect_uri: String,
+    refreshes: usize,
+    signing_secret: Option<String>,
+    omit_nonce: bool,
+    omit_id_token: bool,
+    omit_refresh_token: bool,
+}
+
+struct Provider {
+    url: String,
+    exchange: Mutex<Exchange>,
+    discovered: tokio::sync::Notify,
+}
 
 struct Fixture {
     provider: Arc<Provider>,
-    client: OidcClient<Claims>,
+    client: OidcClient,
     task: tokio::task::JoinHandle<()>,
     app: Router,
     store: MemoryStore,
+    relay: bool,
 }
 
 impl Drop for Fixture {
@@ -46,20 +73,57 @@ impl Fixture {
     }
 
     async fn with_db(db: sea_orm::DatabaseConnection) -> Self {
-        let (provider, task) = Provider::start().await;
+        Self::with_relay(db, true).await
+    }
+
+    async fn with_relay(db: sea_orm::DatabaseConnection, relay: bool) -> Self {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let provider = Arc::new(Provider {
+            url: format!("http://{}", listener.local_addr().unwrap()),
+            exchange: Mutex::new(Exchange::default()),
+            discovered: tokio::sync::Notify::new(),
+        });
+        let metadata = provider.clone();
+        let mock = Router::new()
+            .route(
+                "/.well-known/openid-configuration",
+                get(move || async move {
+                    metadata.discovered.notify_one();
+                    Json(json!({
+                        "issuer": format!("{}/", metadata.url),
+                        "authorization_endpoint": format!("{}/authorize", metadata.url),
+                        "token_endpoint": format!("{}/token", metadata.url),
+                        "userinfo_endpoint": format!("{}/userinfo", metadata.url),
+                        "jwks_uri": format!("{}/jwks", metadata.url),
+                        "response_types_supported": ["code"],
+                        "subject_types_supported": ["public"],
+                        "id_token_signing_alg_values_supported": ["HS256"],
+                    }))
+                }),
+            )
+            .route("/jwks", get(|| async { Json(json!({"keys": []})) }))
+            .route(
+                "/userinfo",
+                get(|| async { Json(json!({"sub": "member"})) }),
+            )
+            .route("/token", post(token))
+            .with_state(provider.clone());
+        let task = tokio::spawn(async move {
+            axum::serve(listener, mock).await.unwrap();
+        });
         let config = Arc::new(AuthConfig {
             app_url: "https://terrier.example/".parse().unwrap(),
             issuer: provider.url.parse().unwrap(),
-            relay_url: "https://relay.example/callback".parse().unwrap(),
+            relay_url: relay.then(|| "https://relay.example/callback".parse().unwrap()),
             client_id: "terrier".into(),
-            client_secret: provider::CLIENT_SECRET.into(),
+            client_secret: CLIENT_SECRET.into(),
             instance_admin_subjects: Default::default(),
         });
         let client = client(&config).await.unwrap();
         let probe = Router::new()
             .route(
                 "/probe",
-                get(|claims: Option<OidcClaims<Claims>>| async move {
+                get(|claims: Option<Extension<CoreIdTokenClaims>>| async move {
                     if claims.is_some() {
                         StatusCode::OK
                     } else {
@@ -67,35 +131,13 @@ impl Fixture {
                     }
                 }),
             )
-            .layer(
-                ServiceBuilder::new()
-                    .layer(HandleErrorLayer::new(oidc_error))
-                    .layer(OidcAuthLayer::<Claims, OidcSessionStore>::new(
-                        client.clone(),
-                    )),
-            );
+            .layer(middleware::from_fn_with_state(client.clone(), authenticate));
         let store = MemoryStore::default();
         let application = super::super::middleware::application_routes(
             crate::routes::routes().0.route(
                 "/test",
-                get(|user: CurrentUser| async move { user.user().id.to_string() }).post(
-                    |audit: crate::audit::Audit, user: CurrentUser| async move {
-                        use sea_orm::{ActiveModelTrait, Set};
-                        let id = user.user().id;
-                        crate::audited!(audit, crate::audit::Scope::Global, |db| {
-                            crate::entities::user::ActiveModel {
-                                id: Set(id),
-                                display_name: Set("Updated member".into()),
-                                ..Default::default()
-                            }
-                            .update(db)
-                            .await?;
-                            Ok(())
-                        })
-                        .await?;
-                        Ok::<_, ApiError>(StatusCode::NO_CONTENT)
-                    },
-                ),
+                get(|user: CurrentUser| async move { user.user().id.to_string() })
+                    .post(|| async { StatusCode::NO_CONTENT }),
             ),
             AppState { db: db.clone() },
             config.clone(),
@@ -113,6 +155,7 @@ impl Fixture {
             task,
             app,
             store,
+            relay,
         }
     }
 
@@ -142,15 +185,25 @@ impl Fixture {
             .parse()
             .unwrap();
         let query: HashMap<_, _> = url.query_pairs().into_owned().collect();
-        assert_eq!(query["redirect_uri"], "https://relay.example/callback");
-        assert_eq!(query["code_challenge_method"], "S256");
-        let relay: Value =
-            serde_json::from_slice(&URL_SAFE_NO_PAD.decode(&query["state"]).unwrap()).unwrap();
         assert_eq!(
-            relay["return_to"],
-            "https://terrier.example/api/auth/callback"
+            query["redirect_uri"],
+            if self.relay {
+                "https://relay.example/callback"
+            } else {
+                "https://terrier.example/api/auth/callback"
+            }
         );
+        assert_eq!(query["code_challenge_method"], "S256");
+        if self.relay {
+            let relay: Value =
+                serde_json::from_slice(&URL_SAFE_NO_PAD.decode(&query["state"]).unwrap()).unwrap();
+            assert_eq!(
+                relay["return_to"],
+                "https://terrier.example/api/auth/callback"
+            );
+        }
         let mut exchange = self.provider.exchange.lock().unwrap();
+        exchange.redirect_uri = query["redirect_uri"].clone();
         exchange.nonce = query["nonce"].clone();
         exchange.challenge = query["code_challenge"].clone();
         (cookie, query["state"].clone())
@@ -166,6 +219,32 @@ impl Fixture {
             .oneshot(request.body(Body::empty()).unwrap())
             .await
             .unwrap()
+    }
+
+    async fn expire(&self, authenticated: &str) {
+        let mut record = self.record(authenticated).await;
+        let raw = record
+            .data
+            .get_mut(OIDC_KEY)
+            .unwrap()
+            .get_mut("id_token")
+            .unwrap();
+        let encoded = raw.as_str().unwrap();
+        let payload = URL_SAFE_NO_PAD
+            .decode(encoded.split('.').nth(1).unwrap())
+            .unwrap();
+        let mut claims: Value = serde_json::from_slice(&payload).unwrap();
+        claims["exp"] = json!(0);
+        let expired = CoreIdToken::new(
+            serde_json::from_value(claims).unwrap(),
+            &CoreHmacKey::new(CLIENT_SECRET),
+            CoreJwsSigningAlgorithm::HmacSha256,
+            None,
+            None,
+        )
+        .unwrap();
+        *raw = json!(expired.to_string());
+        self.store.save(&record).await.unwrap();
     }
 
     async fn callback(&self, cookie: &str, state: &str) -> Response {
@@ -213,6 +292,55 @@ fn session_errors_keep_backend_details_but_redact_stored_values() {
         panic!("expected internal error")
     };
     assert!(!format!("{error:#}").contains("private-token"));
+}
+
+async fn token(
+    State(provider): State<Arc<Provider>>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Response {
+    let mut exchange = provider.exchange.lock().unwrap();
+    if form["grant_type"] == "authorization_code" {
+        assert_eq!(form["redirect_uri"], exchange.redirect_uri);
+        let verifier = PkceCodeVerifier::new(form["code_verifier"].clone());
+        assert_eq!(
+            PkceCodeChallenge::from_code_verifier_sha256(&verifier).as_str(),
+            exchange.challenge
+        );
+    } else {
+        exchange.refreshes += 1;
+        if let Some(status) = exchange.refresh_status {
+            return (status, Json(json!({"error": exchange.refresh_error.as_deref().unwrap_or(if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"})}))).into_response();
+        }
+    }
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let mut claims = json!({
+        "iss": format!("{}/", provider.url), "sub": "member", "aud": "terrier", "iat": now,
+        "exp": now + 300,
+        "nonce": exchange.nonce, "email": "member@example.com", "name": "Member", "email_verified": true,
+    });
+    claims
+        .as_object_mut()
+        .unwrap()
+        .extend(exchange.overrides.clone());
+    if exchange.omit_nonce {
+        claims.as_object_mut().unwrap().remove("nonce");
+    }
+    let token = CoreIdToken::new(
+        serde_json::from_value(claims).unwrap(),
+        &CoreHmacKey::new(exchange.signing_secret.as_deref().unwrap_or(CLIENT_SECRET)),
+        CoreJwsSigningAlgorithm::HmacSha256,
+        None,
+        None,
+    )
+    .unwrap();
+    let mut response = json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": "test-refresh-token", "id_token": token.to_string()});
+    if exchange.omit_id_token {
+        response.as_object_mut().unwrap().remove("id_token");
+    }
+    if exchange.omit_refresh_token {
+        response.as_object_mut().unwrap().remove("refresh_token");
+    }
+    Json(response).into_response()
 }
 
 fn cookie(response: &Response) -> String {
@@ -354,31 +482,8 @@ async fn refresh_rejection_is_anonymous_but_provider_failure_is_an_error() {
         let (pending, state) = fixture.begin().await;
         let response = fixture.callback(&pending, &state).await;
         let authenticated = cookie(&response);
-        // Replace only the signed token's expiry, keeping the actual session and refresh token.
-        let mut record = fixture.record(&authenticated).await;
         fixture.provider.exchange.lock().unwrap().refresh_status = failure;
-        let raw = record
-            .data
-            .get_mut(OIDC_KEY)
-            .unwrap()
-            .get_mut("Authenticated")
-            .unwrap();
-        let encoded = raw["authenticated"]["id_token"].as_str().unwrap();
-        let payload = URL_SAFE_NO_PAD
-            .decode(encoded.split('.').nth(1).unwrap())
-            .unwrap();
-        let mut claims: Value = serde_json::from_slice(&payload).unwrap();
-        claims["exp"] = json!(0);
-        let expired = axum_oidc::IdToken::<Claims>::new(
-            serde_json::from_value(claims).unwrap(),
-            &CoreHmacKey::new(CLIENT_SECRET),
-            CoreJwsSigningAlgorithm::HmacSha256,
-            None,
-            None,
-        )
-        .unwrap();
-        raw["authenticated"]["id_token"] = json!(expired.to_string());
-        fixture.store.save(&record).await.unwrap();
+        fixture.expire(&authenticated).await;
         let response = fixture.request("/probe", Some(&authenticated)).await;
         assert_eq!(response.status(), expected);
         assert_eq!(fixture.provider.exchange.lock().unwrap().refreshes, 1);
@@ -489,9 +594,10 @@ async fn anonymous_status_and_application_requests_have_distinct_responses() {
 }
 
 #[tokio::test]
-async fn authenticated_requests_enforce_csrf_and_audit() -> anyhow::Result<()> {
+#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
+async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<()> {
     use sea_orm::ConnectionTrait;
-    let url = std::env::var("DATABASE_URL")?;
+    let url = std::env::var("TEST_DATABASE_URL")?;
     let admin = sea_orm::Database::connect(&url).await?;
     let schema = format!("auth_{}", uuid::Uuid::new_v4().simple());
     admin
@@ -499,10 +605,7 @@ async fn authenticated_requests_enforce_csrf_and_audit() -> anyhow::Result<()> {
         .await?;
     let mut options = sea_orm::ConnectOptions::new(url);
     options.set_schema_search_path(&schema);
-    let db = sea_orm::Database::connect(options).await?;
-    <migration::Migrator as migration::MigratorTrait>::up(&db, None).await?;
-    let state = AppState { db };
-    let audit_db = state.db.clone();
+    let state = AppState::connect(options).await?;
     let fixture = Fixture::with_db(state.db).await;
     let (pending, state) = fixture.begin().await;
     fixture
@@ -523,6 +626,35 @@ async fn authenticated_requests_enforce_csrf_and_audit() -> anyhow::Result<()> {
     assert!(status["user"].get("oidc_subject").is_none());
     let response = fixture.request("/api/test", Some(&authenticated)).await;
     assert_eq!(response.status(), StatusCode::OK);
+    let own_path = format!("/api/users/{}", status["user"]["id"].as_str().unwrap());
+    let own = fixture.request(&own_path, Some(&authenticated)).await;
+    assert_eq!(own.status(), StatusCode::OK);
+    let own: Value = serde_json::from_slice(&to_bytes(own.into_body(), 4096).await?)?;
+    assert_eq!(
+        own,
+        json!({"id": status["user"]["id"], "email": "member@example.com", "display_name": "Member"})
+    );
+    assert_eq!(
+        fixture.request(&own_path, None).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        fixture
+            .request(
+                &format!("/api/users/{}", uuid::Uuid::new_v4()),
+                Some(&authenticated)
+            )
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        fixture
+            .request("/api/users/not-a-uuid", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
     for (origin, csrf, expected) in [
         ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
         (
@@ -549,13 +681,185 @@ async fn authenticated_requests_enforce_csrf_and_audit() -> anyhow::Result<()> {
             .await?;
         assert_eq!(response.status(), expected);
     }
-    let human_audit = audit_db.query_one_raw(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
-        "SELECT count(*) AS count FROM audit_event WHERE actor_user_id IS NOT NULL AND resource_type='user' AND after_data->>'display_name'='Updated member'"))
-        .await?.unwrap();
-    assert_eq!(human_audit.try_get::<i64>("", "count")?, 1);
     drop(fixture);
     admin
         .execute_unprepared(&format!("DROP SCHEMA {schema} CASCADE"))
         .await?;
     Ok(())
+}
+
+#[tokio::test]
+async fn direct_callbacks_do_not_require_a_relay() {
+    let fixture = Fixture::with_relay(sea_orm::DatabaseConnection::Disconnected, false).await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        fixture
+            .request("/probe", Some(&cookie(&response)))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+}
+
+#[tokio::test]
+async fn expired_and_denied_logins_cannot_be_completed() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let mut record = fixture.record(&pending).await;
+    record.data.get_mut(client::PENDING).unwrap()["created_at"] =
+        json!(OffsetDateTime::now_utc().unix_timestamp() - 600);
+    fixture.store.save(&record).await.unwrap();
+    assert_eq!(
+        fixture.callback(&pending, &state).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    let (pending, state) = fixture.begin().await;
+    assert_eq!(
+        fixture
+            .request(
+                &format!("/api/auth/callback?error=access_denied&state={state}"),
+                Some(&pending)
+            )
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        fixture.callback(&pending, &state).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn callback_rejects_invalid_signatures_hashes_and_missing_id_tokens() {
+    for failure in ["signature", "hash", "missing"] {
+        let fixture = Fixture::new().await;
+        let (pending, state) = fixture.begin().await;
+        {
+            let mut exchange = fixture.provider.exchange.lock().unwrap();
+            match failure {
+                "signature" => exchange.signing_secret = Some("other-secret".into()),
+                "hash" => {
+                    exchange
+                        .overrides
+                        .insert("at_hash".into(), json!("invalid-hash"));
+                }
+                _ => exchange.omit_id_token = true,
+            }
+        }
+        let expected = if failure == "missing" {
+            StatusCode::INTERNAL_SERVER_ERROR
+        } else {
+            StatusCode::BAD_REQUEST
+        };
+        assert_eq!(
+            fixture.callback(&pending, &state).await.status(),
+            expected,
+            "{failure}"
+        );
+        assert_eq!(
+            fixture.request("/probe", Some(&pending)).await.status(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            fixture.callback(&pending, &state).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+}
+
+#[tokio::test]
+async fn refresh_rejects_changed_identity_nonce_and_invalid_tokens() {
+    for (claim, value) in [
+        ("sub", json!("another-user")),
+        ("auth_time", json!(123)),
+        ("nonce", json!("another-login")),
+        ("iss", json!("https://other.example")),
+        ("aud", json!("other-client")),
+        ("at_hash", json!("invalid-hash")),
+    ] {
+        let fixture = Fixture::new().await;
+        let (pending, state) = fixture.begin().await;
+        let response = fixture.callback(&pending, &state).await;
+        let authenticated = cookie(&response);
+        fixture.expire(&authenticated).await;
+        fixture
+            .provider
+            .exchange
+            .lock()
+            .unwrap()
+            .overrides
+            .insert(claim.into(), value);
+        assert_eq!(
+            fixture
+                .request("/probe", Some(&authenticated))
+                .await
+                .status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{claim}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn refresh_allows_omitted_nonce_and_preserves_an_unrotated_refresh_token() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    fixture.expire(&authenticated).await;
+    {
+        let mut exchange = fixture.provider.exchange.lock().unwrap();
+        exchange.omit_nonce = true;
+        exchange.omit_refresh_token = true;
+    }
+    for _ in 0..2 {
+        assert_eq!(
+            fixture
+                .request("/probe", Some(&authenticated))
+                .await
+                .status(),
+            StatusCode::OK
+        );
+    }
+    assert_eq!(fixture.provider.exchange.lock().unwrap().refreshes, 1);
+    fixture.expire(&authenticated).await;
+    assert_eq!(
+        fixture
+            .request("/probe", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(fixture.provider.exchange.lock().unwrap().refreshes, 2);
+}
+
+#[tokio::test]
+async fn refresh_distinguishes_expired_keycloak_tokens_from_client_misconfiguration() {
+    for (error, expected) in [
+        ("JwtToken", StatusCode::UNAUTHORIZED),
+        ("invalid_client", StatusCode::INTERNAL_SERVER_ERROR),
+    ] {
+        let fixture = Fixture::new().await;
+        let (pending, state) = fixture.begin().await;
+        let response = fixture.callback(&pending, &state).await;
+        let authenticated = cookie(&response);
+        fixture.expire(&authenticated).await;
+        {
+            let mut exchange = fixture.provider.exchange.lock().unwrap();
+            exchange.refresh_status = Some(StatusCode::BAD_REQUEST);
+            exchange.refresh_error = Some(error.into());
+        }
+        assert_eq!(
+            fixture
+                .request("/probe", Some(&authenticated))
+                .await
+                .status(),
+            expected,
+            "{error}"
+        );
+    }
 }

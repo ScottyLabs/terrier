@@ -4,13 +4,10 @@ use axum::{
     extract::{FromRequestParts, OptionalFromRequestParts},
     http::request::Parts,
 };
-use axum_oidc::OidcClaims;
+use openidconnect::core::CoreIdTokenClaims;
 use sea_orm::DatabaseConnection;
 
-use super::{
-    session::Claims,
-    user::{OidcIdentity, sync_user},
-};
+use super::user::{OidcIdentity, sync_user};
 use crate::{entities::user, error::ApiError};
 
 /// A local user resolved from validated OIDC claims. Contains no permissions.
@@ -26,7 +23,7 @@ impl CurrentUser {
 
     pub(super) async fn resolve(
         db: &DatabaseConnection,
-        claims: &OidcClaims<Claims>,
+        claims: &CoreIdTokenClaims,
     ) -> Result<Self, ApiError> {
         let email = claims
             .email()
