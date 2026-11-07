@@ -29,7 +29,7 @@ duplicate its response types.
 
 Read `data` for successful responses and handle `error` for rejected requests. Mutations
 require the `x-csrf-token` from `/api/auth/status`. See
-[Authentication](/guides/authentication/) for login, verification, and logout.
+[Authentication](/guides/authentication/) for login and logout.
 
 The [policy reference](/reference/policies/) lists each policy's permissions and errors.
 The [route implementation guide](/guides/api-routes/) covers API schemas, registration,

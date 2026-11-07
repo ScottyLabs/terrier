@@ -21,7 +21,7 @@ The [route guide](/guides/api-routes/) explains how to add one.
 | Output | The caller's `CurrentUser`, available as `auth.data` |
 | Rejections | 400 for a malformed UUID; 403 for another user's ID; 401 if no current user is present |
 | Admin access | No override |
-| Tests | `authenticated_requests_enforce_verification_and_csrf` in `src/auth/oidc/tests.rs` |
+| Tests | `authenticated_requests_enforce_ownership_and_csrf` in `src/auth/oidc/tests.rs` |
 
 The user is already loaded by middleware. This policy makes no database query.
 

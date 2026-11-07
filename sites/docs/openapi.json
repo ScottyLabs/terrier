@@ -187,11 +187,10 @@
       },
       "UserProfile": {
         "type": "object",
-        "required": ["id", "email", "display_name", "email_verified"],
+        "required": ["id", "email", "display_name"],
         "properties": {
           "display_name": { "type": "string" },
           "email": { "type": "string" },
-          "email_verified": { "type": "boolean" },
           "id": { "type": "string" }
         }
       }

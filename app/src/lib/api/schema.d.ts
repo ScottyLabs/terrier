@@ -124,7 +124,6 @@ export interface components {
     UserProfile: {
       display_name: string;
       email: string;
-      email_verified: boolean;
       id: string;
     };
   };

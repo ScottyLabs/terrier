@@ -17,16 +17,11 @@ use crate::{entities::user, error::ApiError};
 #[derive(Clone)]
 pub struct CurrentUser {
     user: user::Model,
-    email_verified: bool,
 }
 
 impl CurrentUser {
     pub fn user(&self) -> &user::Model {
         &self.user
-    }
-
-    pub fn email_verified(&self) -> bool {
-        self.email_verified
     }
 
     pub(super) async fn resolve(
@@ -51,10 +46,7 @@ impl CurrentUser {
         )
         .await
         .map_err(ApiError::Internal)?;
-        Ok(Self {
-            user,
-            email_verified: claims.email_verified() == Some(true),
-        })
+        Ok(Self { user })
     }
 }
 

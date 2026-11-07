@@ -151,7 +151,7 @@ async fn prepare_login(request: Request, next: Next) -> Result<Response, ApiErro
             .insert(RETURN_TO, path)
             .await
             .map_err(session_error)?;
-        // An explicit destination starts a fresh login, including verification rechecks.
+        // An explicit destination starts a fresh login.
         session
             .remove_value(OIDC_KEY)
             .await
@@ -229,7 +229,6 @@ struct UserProfile {
     id: String,
     email: String,
     display_name: String,
-    email_verified: bool,
 }
 
 #[utoipa::path(get, path = "/api/auth/status", tag = "auth",
@@ -251,7 +250,6 @@ async fn status(user: Option<CurrentUser>, session: Session) -> Result<Json<Auth
             id: user.user().id.to_string(),
             email: user.user().email.clone(),
             display_name: user.user().display_name.clone(),
-            email_verified: user.email_verified(),
         }),
         csrf_token: Some(csrf_token),
     }))

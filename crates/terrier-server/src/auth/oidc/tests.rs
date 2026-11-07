@@ -562,7 +562,7 @@ async fn anonymous_status_and_application_requests_have_distinct_responses() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
-async fn authenticated_requests_enforce_verification_and_csrf() -> anyhow::Result<()> {
+async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<()> {
     use sea_orm::ConnectionTrait;
     let url = std::env::var("TEST_DATABASE_URL")?;
     let admin = sea_orm::Database::connect(&url).await?;
@@ -574,101 +574,79 @@ async fn authenticated_requests_enforce_verification_and_csrf() -> anyhow::Resul
     options.set_schema_search_path(&schema);
     let state = AppState::connect(options).await?;
     let fixture = Fixture::with_db(state.db).await;
-    for verified in [false, true] {
-        let (pending, state) = fixture.begin().await;
+    let (pending, state) = fixture.begin().await;
+    fixture
+        .provider
+        .exchange
+        .lock()
+        .unwrap()
+        .overrides
+        .insert("email_verified".into(), json!(false));
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    let status = fixture
+        .request("/api/auth/status", Some(&authenticated))
+        .await;
+    assert_eq!(status.status(), StatusCode::OK);
+    let body = to_bytes(status.into_body(), 4096).await?;
+    let status: Value = serde_json::from_slice(&body)?;
+    assert!(status["user"].get("oidc_subject").is_none());
+    let response = fixture.request("/api/test", Some(&authenticated)).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let own_path = format!("/api/users/{}", status["user"]["id"].as_str().unwrap());
+    let own = fixture.request(&own_path, Some(&authenticated)).await;
+    assert_eq!(own.status(), StatusCode::OK);
+    let own: Value = serde_json::from_slice(&to_bytes(own.into_body(), 4096).await?)?;
+    assert_eq!(
+        own,
+        json!({"id": status["user"]["id"], "email": "member@example.com", "display_name": "Member"})
+    );
+    assert_eq!(
+        fixture.request(&own_path, None).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
         fixture
-            .provider
-            .exchange
-            .lock()
-            .unwrap()
-            .overrides
-            .insert("email_verified".into(), json!(verified));
-        let response = fixture.callback(&pending, &state).await;
-        let authenticated = cookie(&response);
-        let status = fixture
-            .request("/api/auth/status", Some(&authenticated))
-            .await;
-        assert_eq!(status.status(), StatusCode::OK);
-        let body = to_bytes(status.into_body(), 4096).await?;
-        let status: Value = serde_json::from_slice(&body)?;
-        assert_eq!(status["user"]["email_verified"], verified);
-        assert!(status["user"].get("oidc_subject").is_none());
-        let response = fixture.request("/api/test", Some(&authenticated)).await;
-        if !verified {
-            assert_eq!(response.status(), StatusCode::FORBIDDEN);
-            let body = to_bytes(response.into_body(), 4096).await?;
-            assert_eq!(
-                serde_json::from_slice::<Value>(&body)?["code"],
-                "email_verification_required"
-            );
-            assert_eq!(
-                fixture
-                    .request(
-                        &format!("/api/users/{}", status["user"]["id"].as_str().unwrap()),
-                        Some(&authenticated)
-                    )
-                    .await
-                    .status(),
-                StatusCode::FORBIDDEN
-            );
-            continue;
-        }
-        assert_eq!(response.status(), StatusCode::OK);
-        let own_path = format!("/api/users/{}", status["user"]["id"].as_str().unwrap());
-        let own = fixture.request(&own_path, Some(&authenticated)).await;
-        assert_eq!(own.status(), StatusCode::OK);
-        let own: Value = serde_json::from_slice(&to_bytes(own.into_body(), 4096).await?)?;
-        assert_eq!(
-            own,
-            json!({"id": status["user"]["id"], "email": "member@example.com", "display_name": "Member"})
-        );
-        assert_eq!(
-            fixture.request(&own_path, None).await.status(),
-            StatusCode::UNAUTHORIZED
-        );
-        assert_eq!(
-            fixture
-                .request(
-                    &format!("/api/users/{}", uuid::Uuid::new_v4()),
-                    Some(&authenticated)
-                )
-                .await
-                .status(),
-            StatusCode::FORBIDDEN
-        );
-        assert_eq!(
-            fixture
-                .request("/api/users/not-a-uuid", Some(&authenticated))
-                .await
-                .status(),
-            StatusCode::BAD_REQUEST
-        );
-        for (origin, csrf, expected) in [
-            ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
-            (
-                "https://evil.example",
-                status["csrf_token"].as_str().unwrap(),
-                StatusCode::FORBIDDEN,
-            ),
-            (
-                "https://terrier.example",
-                status["csrf_token"].as_str().unwrap(),
-                StatusCode::NO_CONTENT,
-            ),
-        ] {
-            let response = fixture
-                .app
-                .clone()
-                .oneshot(
-                    Request::post("/api/test")
-                        .header(COOKIE, &authenticated)
-                        .header("origin", origin)
-                        .header("x-csrf-token", csrf)
-                        .body(Body::empty())?,
-                )
-                .await?;
-            assert_eq!(response.status(), expected);
-        }
+            .request(
+                &format!("/api/users/{}", uuid::Uuid::new_v4()),
+                Some(&authenticated)
+            )
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        fixture
+            .request("/api/users/not-a-uuid", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    for (origin, csrf, expected) in [
+        ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
+        (
+            "https://evil.example",
+            status["csrf_token"].as_str().unwrap(),
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            "https://terrier.example",
+            status["csrf_token"].as_str().unwrap(),
+            StatusCode::NO_CONTENT,
+        ),
+    ] {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(
+                Request::post("/api/test")
+                    .header(COOKIE, &authenticated)
+                    .header("origin", origin)
+                    .header("x-csrf-token", csrf)
+                    .body(Body::empty())?,
+            )
+            .await?;
+        assert_eq!(response.status(), expected);
     }
     drop(fixture);
     admin

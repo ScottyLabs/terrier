@@ -64,21 +64,22 @@ Successful deletion returns 204; storage failures return 500.
 ## Request authentication
 
 `GET /api/auth/status` returns `user` and `csrf_token`. Both are null when signed
-out. The user contains its Terrier ID, email, display name, and verified-email
-status. Tokens and provider identity details are never returned. Responses use
-`Cache-Control: no-store`.
+out. The user contains its Terrier ID, email, and display name. Tokens and provider
+identity details are never returned. Responses use `Cache-Control: no-store`.
+
+Terrier trusts authentication from its configured Keycloak issuer and does not
+require the `email_verified` claim or send a separate verification email. Identity
+uses the validated issuer and subject; email is profile data, not an identity key.
 
 Register application routes through `auth::middleware::application_routes`, then
 nest them under `/api` within the session layer. Handlers extract `CurrentUser`
-to access the local user and validated email-verification status. The middleware
-rejects anonymous requests with 401, unverified email with 403 and code
-`email_verification_required`, and unsafe requests without a matching CSRF token
-with 403. Database and session failures return 500 and stop handler execution.
-Unknown API paths return JSON 404 responses, including when serving the frontend.
+to access the local user. The middleware rejects anonymous requests with 401 and
+unsafe requests without a matching CSRF token with 403. Database and session
+failures return 500 and stop handler execution. Unknown API paths return JSON 404
+responses, including when serving the frontend.
 
 Health, auth status, login, callback, and logout remain outside the application
-verification gate. To recheck verification, start a new login with an explicit
-`return_to` path. Existing session claims do not immediately reflect changes in Keycloak.
+authentication gate. An explicit `return_to` path starts a fresh login.
 
 See [API routes and policies](/guides/api-routes/) for the own-profile policy,
 route registration, shared errors, and typed client usage.

@@ -28,7 +28,6 @@ Client-visible messages must not contain secrets or database details.
 | `BadRequest(message)` | 400 / `bad_request` | Malformed input or unknown enum value |
 | `Unauthenticated` | 401 / `unauthenticated` | Missing, invalid, or expired authentication |
 | `Forbidden` | 403 / `forbidden` | Caller lacks permission; also CSRF rejection |
-| `EmailVerificationRequired` | 403 / `email_verification_required` | Verified-email gate failed |
 | `NotFound` | 404 / `not_found` | Resource absent within the requested scope |
 | `Conflict(message)` | 409 / `conflict` | Duplicate, stale revision, capacity, or workflow conflict |
 | `Validation(fields)` | 422 / `validation_failed` | Valid input shape with invalid field values |

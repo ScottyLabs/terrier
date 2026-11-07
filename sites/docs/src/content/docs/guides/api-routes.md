@@ -147,7 +147,7 @@ state type for both individual and composed policies:
 pub type Auth<P> = slac::Authorized<P, AppState>;
 ```
 
-Middleware has already checked login, verified email, and CSRF for writes. Axum
+Middleware has already checked login and CSRF for writes. Axum
 then runs `P::check`: failure returns an error before the handler runs, while
 success puts the checked data in `auth.data`.
 In **`crates/terrier-server/src/profile.rs`**, import `Auth` and `OwnProfile` from
@@ -236,15 +236,14 @@ route, the existing test sends requests through the application router and check
 | Signed-in user requests another ID | 403 |
 | Signed-in user supplies a malformed UUID | 400 |
 | No session cookie | 401 |
-| User has unverified email | 403 with `email_verification_required` |
 
 You can read the setup and assertions in
-`authenticated_requests_enforce_verification_and_csrf`, in
+`authenticated_requests_enforce_ownership_and_csrf`, in
 `src/auth/oidc/tests.rs`. It uses a local OIDC provider and an isolated PostgreSQL
 schema, so it needs no real account. Run it from the repository root:
 
 ```sh
-TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server authenticated_requests_enforce_verification_and_csrf -- --ignored
+TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server authenticated_requests_enforce_ownership_and_csrf -- --ignored
 ```
 
 For a new domain, put route tests in `crates/terrier-server/tests/<domain>.rs`,
@@ -314,13 +313,12 @@ const result = await api.GET("/api/users/{user_id}", {
 The client fills `{user_id}` with `userId` and sends the session cookie. A
 successful response is in `result.data`; an API error is in `result.error`, with
 the [shared error format](/reference/api-errors/). For this route, document that
-401 requires sign-in and 403 means either unverified email or a different user's
-ID. The error's `code` distinguishes those cases. Network failures throw rather
-than returning an API error.
+401 requires sign-in and 403 means the requested profile belongs to another user.
+Network failures throw rather than returning an API error.
 
 For a write, also show the `x-csrf-token` header using the token from
 `/api/auth/status`. Link to [Authentication](/guides/authentication/) for the
-login and verification flows, and do not automatically replay writes after login.
+login flow, and do not automatically replay writes after login.
 
 Update an existing frontend caller if the route changes its behavior. Shared
 client conventions belong in [Frontend development](/guides/frontend/), while

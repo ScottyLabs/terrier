@@ -32,7 +32,7 @@ pub(super) async fn resolve_user(
     Ok(next.run(request).await)
 }
 
-/// Applies authentication, verified-email and CSRF checks to application routes.
+/// Applies authentication and CSRF checks to application routes.
 /// Register all routes first, then nest the result under `/api`.
 /// Routes added afterwards bypass these layers.
 pub fn application_routes(
@@ -54,15 +54,12 @@ pub fn application_routes(
 }
 
 async fn require_user(
-    user: CurrentUser,
+    _user: CurrentUser,
     session: Session,
     Extension(config): Extension<Arc<AuthConfig>>,
     request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    if !user.email_verified() {
-        return Err(ApiError::EmailVerificationRequired);
-    }
     if !request.method().is_safe() {
         check_csrf(&session, request.headers(), &config).await?;
     }

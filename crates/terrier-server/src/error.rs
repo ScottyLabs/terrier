@@ -19,8 +19,6 @@ pub enum ApiError {
     Unauthenticated,
     /// 403: Authenticated caller lacks permission or eligibility.
     Forbidden,
-    /// 403: Sign-in is valid, but Keycloak has not established verified email.
-    EmailVerificationRequired,
     /// 404: Resource not found within the requested scope.
     NotFound,
     /// 409: Duplicate resource, capacity limit, stale revision, or workflow conflict.
@@ -59,11 +57,6 @@ impl IntoResponse for ApiError {
                 StatusCode::NOT_FOUND,
                 "not_found",
                 "The requested resource was not found.".into(),
-            ),
-            Self::EmailVerificationRequired => (
-                StatusCode::FORBIDDEN,
-                "email_verification_required",
-                "Verify your email to continue.".into(),
             ),
             Self::Conflict(message) => (StatusCode::CONFLICT, "conflict", message),
             Self::Validation(errors) => {
