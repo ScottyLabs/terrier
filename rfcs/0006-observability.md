@@ -16,7 +16,7 @@ Our stack consists of:
 - **Database:** PostgreSQL (via SeaORM)
 - **Cache / Session Store:** Valkey (Redis-compatible), via `fred` client
 - **Object Storage:** MinIO
-- **Auth:** `axum-oidc` with `tower-sessions` backed by Valkey
+- **Auth:** Terrier-managed `openidconnect` integration with `tower-sessions` backed by Valkey
 
 ## Goals
 
@@ -73,7 +73,7 @@ HTTP-level metrics (request count, latency histograms, status code breakdown) ar
 
 ### 5. Valkey client: `fred`
 
-`axum-oidc` uses `tower-sessions` for session storage, and `tower-sessions-redis-store` (which backs Valkey storage) uses `fred` as its Redis client. We use `fred` directly for any additional Valkey usage (e.g. pub/sub) to share the same client and connection pool rather than introducing a second Redis client crate.
+Terrier uses `tower-sessions` for session storage, and `tower-sessions-redis-store` (which backs Valkey storage) uses `fred` as its Redis client. We use `fred` directly for any additional Valkey usage (e.g. pub/sub) to share the same client and connection pool rather than introducing a second Redis client crate.
 
 The workflow audit history required by [RFC 0010](./0010-user-flow.md) is persistent application data, separate from diagnostic logs and traces. Telemetry must not include application answers, reimbursement evidence, invitation codes, session cookies, or OIDC tokens and callback parameters.
 

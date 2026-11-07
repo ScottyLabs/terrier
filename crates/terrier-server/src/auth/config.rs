@@ -3,10 +3,11 @@ use std::{collections::HashSet, env};
 use anyhow::{Context, ensure};
 use url::Url;
 
+#[derive(Clone)]
 pub struct AuthConfig {
     pub app_url: Url,
     pub issuer: Url,
-    pub relay_url: Url,
+    pub relay_url: Option<Url>,
     pub client_id: String,
     pub client_secret: String,
     pub instance_admin_subjects: HashSet<String>,
@@ -29,7 +30,11 @@ impl AuthConfig {
             &format!("{}/realms/{realm}", keycloak.trim_end_matches('/')),
             "Keycloak issuer",
         )?;
-        let relay_url = endpoint(&required("OAUTH_RELAY_URL")?, "OAUTH_RELAY_URL")?;
+        let relay_url = match env::var("OAUTH_RELAY_URL") {
+            Ok(value) => Some(endpoint(&value, "OAUTH_RELAY_URL")?),
+            Err(env::VarError::NotPresent) => None,
+            Err(error) => return Err(error).context("invalid OAUTH_RELAY_URL"),
+        };
         let instance_admin_subjects: HashSet<String> =
             serde_json::from_str(&required("INSTANCE_ADMIN_SUBJECTS")?)
                 .context("INSTANCE_ADMIN_SUBJECTS must be a JSON string array")?;

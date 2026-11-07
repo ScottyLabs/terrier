@@ -4,48 +4,19 @@ use crate::error::ErrorResponse;
 use anyhow::Context;
 use axum::{
     Json,
-    extract::{FromRequestParts, Request},
-    http::{StatusCode, request::Parts},
+    extract::Request,
+    http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use axum_oidc::{EmptyAdditionalClaims, OidcSession, openidconnect::core::CoreGenderClaim};
 use fred::prelude::{ClientLike, Config, Pool};
 use tower_sessions::{
-    Expiry, Session, SessionManagerLayer,
+    Expiry, SessionManagerLayer,
     cookie::{SameSite, time},
 };
 use tower_sessions_redis_store::RedisStore;
 
-pub type Claims = EmptyAdditionalClaims;
-pub const OIDC_KEY: &str = "oidc";
-
-pub struct OidcSessionStore(pub Session);
-
-impl<S: Send + Sync> FromRequestParts<S> for OidcSessionStore {
-    type Rejection = <Session as FromRequestParts<S>>::Rejection;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(Self(Session::from_request_parts(parts, state).await?))
-    }
-}
-
-impl axum_oidc::Session<Claims> for OidcSessionStore {
-    type Error = tower_sessions::session::Error;
-
-    async fn get(&self) -> Result<OidcSession<Claims, CoreGenderClaim>, Self::Error> {
-        Ok(self.0.get(OIDC_KEY).await?.unwrap_or_default())
-    }
-
-    async fn set(
-        &mut self,
-        value: OidcSession<Claims, CoreGenderClaim>,
-    ) -> Result<(), Self::Error> {
-        self.0.insert(OIDC_KEY, value).await?;
-        // Persist refreshed credentials before an authenticated handler runs.
-        self.0.save().await
-    }
-}
+pub const OIDC_KEY: &str = "oidc_v2";
 
 pub fn layer<S: tower_sessions::SessionStore>(store: S, secure: bool) -> SessionManagerLayer<S> {
     SessionManagerLayer::new(store)
@@ -109,6 +80,7 @@ mod tests {
         routing::get,
     };
     use tower::ServiceExt;
+    use tower_sessions::Session;
 
     #[tokio::test]
     async fn unavailable_valkey_rejects_startup_and_session_writes() {

@@ -9,7 +9,7 @@ cookie.
 
 ## Configuration
 
-The server requires these settings before it opens the listener:
+Configure these settings before the server opens the listener:
 
 | Setting | Purpose |
 | --- | --- |
@@ -20,7 +20,7 @@ The server requires these settings before it opens the listener:
 | `KEYCLOAK_REALM` | Realm name |
 | `OIDC_CLIENT_ID` | Confidential Keycloak client |
 | `OIDC_CLIENT_SECRET` | Client secret |
-| `OAUTH_RELAY_URL` | Registered Ricochet callback URL |
+| `OAUTH_RELAY_URL` | Optional registered Ricochet callback URL; omit for direct callbacks |
 | `INSTANCE_ADMIN_SUBJECTS` | JSON array of subjects under the configured issuer |
 
 Use `[]` for no instance admins. Local development sets this explicitly. Deployed
@@ -34,22 +34,35 @@ inactivity. PostgreSQL, Valkey, and Keycloak discovery failures prevent startup.
 ## Sign-in
 
 Navigate to `/api/auth/login?return_to=/dashboard`. The destination must be a
-local application path. Terrier sends the browser through Keycloak and Ricochet
-to `/api/auth/callback`, validates the response, rotates the session ID, and
-completes local user synchronization before redirecting to the requested page.
+local application path. Terrier sends the browser through Keycloak to
+`/api/auth/callback`, optionally through Ricochet, validates the response, rotates
+the session ID, and completes local user synchronization before redirecting to the requested page.
 Without a destination, sign-in returns to `/`.
 
-Register `OAUTH_RELAY_URL` as the Keycloak client's redirect URI. Ricochet's state
-contains the Terrier callback destination and a random value checked against the
-server session. The flow uses PKCE and validates the ID token's signature,
+For ScottyLabs deployments using Ricochet, register `OAUTH_RELAY_URL` as the
+Keycloak client's redirect URI. Ricochet's state contains the Terrier callback
+destination and a random value checked against the server session. For a direct
+callback, leave `OAUTH_RELAY_URL` unset and register
+`<APP_URL>/api/auth/callback` with Keycloak. Self-hosted installations can use
+their own Keycloak instance without a relay.
+
+Terrier owns the login and session lifecycle and uses `openidconnect` for protocol
+and token validation. Login attempts expire after ten minutes and are consumed
+before the authorization code exchange. Provider denials require a new login.
+Existing sessions from the previous authentication implementation require a new
+sign-in after upgrading.
+
+The flow uses PKCE and validates the ID token's signature,
 issuer, audience, expiry, and nonce. Request the email and profile scopes, with
 nonempty email and name claims mapped in Keycloak.
 
 The frontend and API must share `APP_URL`. The Vite development server proxies
 `/api` to port 3000 so the callback receives the same host cookie.
 
-Rejected refresh tokens require a new sign-in. Provider and storage failures
-return server errors. Login failures do not redirect silently to the home page.
+Rejected refresh tokens require a new sign-in. Refresh responses must include a
+valid ID token for the same subject and authentication time. If the provider
+includes a nonce, it must match the original login. An omitted refresh token
+preserves the previous one. Provider and storage failures return server errors. Login failures do not redirect silently to the home page.
 Provider metadata and signing keys refresh every 15 minutes. Refresh failures
 are logged; token validation continues against the cached keys until the next
 successful refresh. A newly activated signing key may require up to 15 minutes

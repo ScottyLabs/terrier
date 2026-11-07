@@ -95,7 +95,7 @@ pub async fn run() -> anyhow::Result<()> {
     let listener = TcpListener::bind(&addr).await?;
     let metadata_refresh = tokio::spawn(oidc::refresh_metadata(
         metadata_client,
-        axum_oidc::openidconnect::IssuerUrl::new(config.issuer.to_string())?,
+        openidconnect::IssuerUrl::new(config.issuer.to_string())?,
     ));
     let result = axum::serve(listener, app)
         .with_graceful_shutdown(terrier_common::shutdown_signal())
