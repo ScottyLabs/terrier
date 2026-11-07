@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1
 - **Created:** 2026-02-08
-- **Updated:** 2026-11-05
+- **Updated:** 2026-11-07
 
 ## Overview
 
-This RFC establishes the core technology stack for Terrier: Rust + Axum for the backend, Svelte for the frontend, and Tauri for mobile. We'll follow 12-factor app principles to support both self-hosted and cloud deployments with high availability.
+This RFC establishes the core technology stack for Terrier: Rust + Axum for the backend, Svelte for the frontend, and Capacitor for mobile. We'll follow 12-factor app principles to support both self-hosted and cloud deployments with high availability.
 
 ## Motivation
 
@@ -45,13 +45,13 @@ Type safety bridge works like this: Rust backend generates OpenAPI spec, openapi
 
 ### Mobile
 
-Tauri for native mobile. It's Rust-native (reduces context switching), produces small bundles (~5MB vs Capacitor's 10-50MB), and v2 has production-ready plugins for everything we need: deep links, push notifications, QR scanning, geolocation, biometric auth, NFC.
-
-It uses the same Svelte frontend as web and prevents the FFI hell present in Dioxus mobile where you'd write Swift/Kotlin for every platform API.
+Capacitor wraps the shared Svelte frontend for iOS and Android, aligning mobile tooling with other ScottyLabs applications. Native plugins provide device integration, while the Rust backend remains a separate HTTP server. [RFC 0007](./0007-mobile-architecture.md) defines native integrations, packaging, and distribution.
 
 Multi-instance support works like Mastodon/Nextcloud: single "Terrier" app in app stores, users enter their instance URL on first launch, app fetches branding dynamically and applies it at runtime. We'll bundle 10-20 icon color variants using iOS setAlternateIconName and Android activity-alias.
 
 Trade-off: app store listing and home screen show "Terrier" branding, but inside the app it's fully branded per instance.
+
+[RFC 0010](./0010-user-flow.md) defines hackathon-scoped application, attendance, team, reimbursement, and submission workflows. These lifecycle states are separate from primary roles and scoped capabilities. Authentication follows [RFC 0009](./0009-slac.md); admission remains an organizer decision.
 
 ### 12-Factor App Principles
 
@@ -78,7 +78,7 @@ Multiple app instances run behind a load balancer with no shared in-memory state
 
 ### Architecture Overview
 
-The basic architecture is multiple Axum server instances behind a load balancer (nginx, AWS ALB, etc), all connecting to shared Postgres (with replication), Redis/Valkey (for sessions, pub/sub, and cache), and S3-compatible object storage (MinIO, S3, R2, etc). Web frontend is Svelte + Vite, mobile is Tauri wrapping the same Svelte code.
+The basic architecture is multiple Axum server instances behind a load balancer (nginx, AWS ALB, etc), all connecting to shared Postgres (with replication), Redis/Valkey (for sessions, pub/sub, and cache), and S3-compatible object storage (MinIO, S3, R2, etc). Web frontend is Svelte + Vite, mobile is Capacitor wrapping the same Svelte code.
 
 REST API for CRUD operations, WebSockets for real-time updates. We considered Server-Sent Events but need bidirectional communication for judging.
 
@@ -104,13 +104,13 @@ Svelte has the best balance of simplicity, performance, and maturity.
 
 ### Mobile
 
-- **Capacitor** - Production-ready with rich plugins. But JavaScript bridge layer, larger bundles, and we prefer Rust-native.
+- **Tauri** - Supports sharing the web frontend and native integrations. Capacitor is selected to align mobile tooling with other ScottyLabs applications.
 - **Dioxus Mobile** - Rust-native UI with unified language. But no plugin system, requires manual Swift/Kotlin FFI for every native API. Massive engineering effort.
 - **React Native** - Mature ecosystem. But not aligned with Rust backend, larger bundles, bridge performance overhead.
 - **Flutter** - Great performance and widget library. But Dart adds another language and separate codebase from web.
 - **PWA** - No app stores needed, single codebase. But limited native APIs (especially iOS), no push on iOS, worse offline. Not production-ready for hackathon needs.
 
-Tauri v2 is stable, Rust-native, small bundles, and has all the native APIs we need.
+Capacitor preserves the shared Svelte frontend while using the same native integration patterns as other ScottyLabs applications.
 
 ### HTTP Protocol
 
@@ -149,6 +149,6 @@ REST + OpenAPI is the right balance of simplicity, tooling, and team accessibili
 
 **Mobile Proof of Concept**
 
-- Create Tauri mobile project
+- Create Capacitor mobile project
 - Verify it can run the Svelte frontend
 - Test on actual devices

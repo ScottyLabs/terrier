@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1
 - **Created:** 2026-02-18
-- **Updated:** 2026-02-18
+- **Updated:** 2026-11-07
 
 ## Overview
 
@@ -33,6 +33,8 @@ Build shared authentication infrastructure that:
 1. Exposes university authentication to platforms via standard SAML
 
 This allows Terrier and other hackathon platforms to offer "Sign in with your university" without each organization needing InCommon membership.
+
+Terrier offers university authentication alongside Google sign-in brokered by Keycloak. University login is optional for the application workflow in [RFC 0010](./0010-user-flow.md). Authentication and any released affiliation attributes do not by themselves establish current student eligibility; organizers determine admission requirements.
 
 ## Goals
 

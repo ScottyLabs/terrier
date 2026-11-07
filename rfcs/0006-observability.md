@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @ap-1, @kritdass, @sreeram
 - **Created:** 2026-02-21
-- **Updated:** 2026-02-24
+- **Updated:** 2026-11-07
 
 ## Overview
 
@@ -74,6 +74,8 @@ HTTP-level metrics (request count, latency histograms, status code breakdown) ar
 ### 5. Valkey client: `fred`
 
 `axum-oidc` uses `tower-sessions` for session storage, and `tower-sessions-redis-store` (which backs Valkey storage) uses `fred` as its Redis client. We use `fred` directly for any additional Valkey usage (e.g. pub/sub) to share the same client and connection pool rather than introducing a second Redis client crate.
+
+The workflow audit history required by [RFC 0010](./0010-user-flow.md) is persistent application data, separate from diagnostic logs and traces. Telemetry must not include application answers, reimbursement evidence, invitation codes, session cookies, or OIDC tokens and callback parameters.
 
 ## Per-Service Instrumentation
 
