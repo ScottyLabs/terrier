@@ -9,28 +9,6 @@ find the route in `crates/terrier-server/src/profile.rs` and its policy in
 `crates/terrier-server/src/auth/policy.rs`. All `src/` paths below refer to the
 server crate, and commands assume the development shell is ready.
 
-## Deactivating resources and relationships
-
-Use `PATCH` on the existing resource or relationship to set `is_active: false`
-when a user wants to remove it. Do not add domain `DELETE` routes or physically
-delete rows. For pending join requests, set status to `withdrawn` or `rejected`
-instead. For example, `PATCH /api/hackathons/{slug}` with
-`{"is_active": false}` deactivates a hackathon through its existing update route.
-
-Check the permission for that lifecycle transition separately from ordinary field
-editing. Validate parent scope, current state, and dependent constraints; apply
-the flag, related state changes, and append-only audit record in one transaction.
-Organizer changes require the last-read revision and return `409 Conflict` when
-it is stale. Preserve data and references, exclude inactive records from ordinary
-reads and authorization, and expose history only to authorized users.
-
-Restoration must recheck permissions, uniqueness, and workflow constraints and
-append a new audit entry. Setting a flag back to true must not bypass those
-checks. Submitted projects cannot be deleted or withdrawn. Session/token cleanup
-and personal-data erasure need separate lifecycle policies. See
-[RFC 0011 recovery controls](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0011-api-architecture.md#organizer-recovery-controls)
-for the shared contract and unresolved domain policies.
-
 ## 1. Choose the route and response
 
 Start with what the route does and who should be able to use it. For the profile
@@ -136,7 +114,7 @@ Policies live under `src/auth/` and use `AppState.db` for queries. Return the
 checked resource, with query failures reported as `ApiError::Internal`. Keep
 Terrier types out of the generic `slac` crate.
 
-**For hackathon routes**, check the caller's role for the requested hackathon,
+**For hackathon routes**, check the caller's active role in an active hackathon,
 then include that hackathon in the resource query. For example, inside a policy
 in **`src/auth/policy.rs`**, with IDs parsed from the path:
 
@@ -146,6 +124,7 @@ use crate::entities::team;
 
 let team = team::Entity::find_by_id(team_id)
     .filter(team::Column::HackathonId.eq(hackathon_id))
+    .filter(team::Column::IsActive.eq(true))
     .one(&state.db)
     .await
     .map_err(|error| ApiError::Internal(error.into()))?
@@ -195,6 +174,91 @@ For a request body, put `Json<Input>` last in the handler arguments because it
 consumes the body. Map parsing failures to `ApiError::BadRequest`; use
 `ApiError::Validation` for parsed input that fails a field rule. Axum's default
 extractor errors do not automatically use Terrier's JSON error format.
+
+The profile handler only reads, so it needs no audit block. For writes, add
+`audit: Audit` and use `audited!`. Use the block's `db` for every query. Triggers
+record the actor and old/new values in the same transaction. A failed write or
+audit insert rolls back both. The block returns its `Ok(value)` after commit.
+
+This example changes only the caller's display name. Concurrent edits keep the
+last committed name. `OwnProfile` checks ownership; organizer workflows still
+need revision checks.
+
+```rust
+use std::collections::BTreeMap;
+use axum::{Json, extract::rejection::JsonRejection, http::StatusCode};
+use sea_orm::{ActiveModelTrait, Set};
+use crate::{
+    audited, audit::{Audit, Scope},
+    auth::policy::{Auth, OwnProfile}, entities::user, error::ApiError,
+};
+
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+struct Rename { display_name: String }
+
+async fn rename(
+    auth: Auth<OwnProfile>,
+    audit: Audit,
+    input: Result<Json<Rename>, JsonRejection>,
+) -> Result<StatusCode, ApiError> {
+    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let name = input.display_name.trim().to_owned();
+    if name.is_empty() {
+        return Err(ApiError::Validation(BTreeMap::from([
+            ("display_name".into(), "Enter a display name.".into()),
+        ])));
+    }
+    let changes = user::ActiveModel {
+        id: Set(auth.data.user().id), display_name: Set(name), ..Default::default()
+    };
+    audited!(audit, Scope::Global, |db| {
+        Ok(changes.update(db).await?)
+    }).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+```
+
+Register it with `.patch(rename)` and document it in OpenAPI in step 4. Return a
+response type or status, not the database model with its private identity fields.
+
+Add a reason inside the macro call:
+
+```rust
+let saved = audited!(audit, Scope::Global, reason = "Correct misspelled name", |db| {
+    Ok(changes.update(db).await?)
+}).await?;
+```
+
+Use a literal or borrowed string for privileged corrections and restoration.
+Every entry from the block receives that reason. In a background job with
+`state: AppState`, use the pool instead of an authenticated `Audit`:
+
+```rust
+let saved = audited_automatic!(&state.db, Scope::Global, "Sync verified profile", |db| {
+    Ok(changes.update(db).await?)
+}).await?;
+```
+
+Import `audited_automatic` from `crate`. Automatic entries have no human actor
+and require a nonblank reason.
+
+| Scope | Parent lock |
+| --- | --- |
+| `Scope::Global` | None; global records or creating a hackathon. |
+| `Scope::Hackathon(id)` | Shared; ordinary hackathon writes. |
+| `Scope::HackathonExclusive(id)` | Exclusive; settings, grants, invitation redemption, table allocation and restoration. |
+
+Locks do not grant access. Keep the route policy and recheck mutable permissions,
+eligibility and deadlines after locking. Lock application rows, then team rows,
+in UUID order before child writes.
+
+For removal, use `PATCH` with `is_active: false`; do not add domain `DELETE`
+routes. Membership uses `removed`; join requests use `withdrawn` or `rejected`.
+Keep inactive records out of ordinary reads and authorization. Restoration must
+recheck permissions and constraints. Submitted projects cannot be withdrawn.
+Audit reads follow the resource's privacy rules. Keep secrets out of data and
+reasons. See [database lifecycle state](/guides/database/#deactivation-and-history).
 
 ## 4. Register the route and its API description
 

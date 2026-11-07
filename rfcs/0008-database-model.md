@@ -28,7 +28,7 @@ Terrier is a very complex application, requiring several interconnected tables w
 
 ## Detailed Design
 
-The diagram below defines the target schema reconciled with RFCs 0010 and 0011. It retains the eighteen existing tables and adds only AuditEvent. The amendment has not been migrated; schema changes use SeaORM migrations followed by entity generation.
+The diagram below defines the target schema reconciled with RFCs 0010 and 0011. It retains the eighteen existing tables and adds only AuditEvent. Forward migrations implement this schema; generated SeaORM entities reflect it. Domain routes and workflow policies are separate from schema support.
 
 ### Schema Source of Truth
 
@@ -172,6 +172,7 @@ erDiagram
         UUID id
         String name
         String description
+        Int version
     }
 
     PrizeTrack {
@@ -318,26 +319,29 @@ erDiagram
     User ||--o{ EventCheckIn : "checked_in_by"
 ```
 
-### Current Migrated Enum Reference
+### Migrated Enums and Constraints
 
-The existing migration defines the enum types below. The proposed diagram adds states and action/capability types; their migration must preserve or explicitly map legacy values.
+The generated enum reference reflects the migration values:
 
 | Type | Values |
-|---|---|
-| `hackathon_role` | `hacker`, `organizer`, `judge`, `sponsor` |
+| --- | --- |
 | `application_status` | `pending`, `accepted`, `rejected`, `waitlisted` |
-| `reimbursement_status` | `pending`, `approved`, `rejected`, `paid` |
-| `team_member_status` | `active`, `invited`, `removed` |
-| `judging_method` | `scoring`, `expo` |
+| `attendance_status` | `pending`, `confirmed`, `declined`, `expired`, `revoked` |
+| `audit_action` | `created`, `updated`, `deactivated`, `restored`, `automatic`, `accessed` |
+| `audit_resource` | `user`, `hackathon`, `invitation`, `user_hackathon_role`, `application`, `reimbursement_application`, `team`, `team_member`, `project`, `sponsor_org`, `prize_track`, `project_track_sub`, `judge_track_assign`, `event`, `event_check_in`, `evaluation`, `sponsor`, `organizer` |
+| `capability` | `application_management`, `judging_management`, `sponsorship_management`, `hackathon_admin` |
 | `evaluation_status` | `pending`, `complete`, `skipped` |
+| `hackathon_role` | `hacker`, `organizer`, `judge`, `sponsor` |
+| `judge_availability` | `available`, `on_break` |
+| `judging_method` | `scoring`, `expo` |
+| `project_status` | `draft`, `submitted` |
+| `team_member_status` | `active`, `invited`, `removed`, `pending`, `withdrawn`, `rejected` |
 
-`hackathon_role` is shared between `UserHackathonRole.role` and `Invitation.role`. `judging_method` is shared between `PrizeTrack.judging_method` and `Evaluation.judging_method`.
+Legacy `invited`, `rejected` and `paid` values remain available for explicit mappings; new reimbursement denials use `denied`. `Invitation.initial_role` uses `hackathon_role`.
 
-### Implemented Constraints and Required Reconciliation
+The migrations enforce identity/slug uniqueness, one application per user/hackathon, one project per team/hackathon, one reimbursement per application/category and one check-in per event/user. Partial unique indexes enforce one active membership or pending request per user/hackathon and one active leader per team. Composite foreign keys enforce same-hackathon relationships. Deferred triggers check final roster capacity/leadership and typed submission snapshot references at commit.
 
-The identity migration makes `(oidc_issuer, oidc_subject)` unique and removes `is_global_admin`. Global administration comes from deployment configuration, not a user column. Email is not a unique identity key.
-
-The initial migration has primary keys and foreign keys, but does not enforce one application per user/hackathon, one project per team, one active team or pending request per user/hackathon, or one check-in per event/user. It still allows multiple projects/team and reimbursements/application. Independent foreign keys do not establish matching hackathon scope. The proposed diagram must not be mistaken for those currently implemented constraints.
+The reconciliation migration stops on populated legacy domain tables that need explicit workflow mappings. It preserves existing OIDC users and never invents actors, timestamps or decisions. All previous migrations remain unchanged.
 
 ### Fields and Integrity Rules
 
@@ -349,7 +353,33 @@ The initial migration has primary keys and foreign keys, but does not enforce on
 - Existing Evaluation rows represent pending judging work and eventual results. Reassignment ends/skips the old row and creates another, preserving judge/project/track identity. Completion requires valid evaluation/rubric data and the exact project audit snapshot. Manual overrides persist until explicitly released. JudgeTrackAssign keeps independent manual/sponsor grant flags, deriving company from the track; break/selected-track state does not revoke authorization.
 - PrizeTrack holds current winner selection and a separate published_winners snapshot with release/revocation metadata. Only checked publish/correct/revoke actions change publication fields. Winner edits cannot silently change a scheduled/public snapshot; public reads enforce release time and visibility and return only curated winner fields.
 
+### Deactivation and Lifecycle State
+
+Domain APIs use `PATCH` to change flags or lifecycle status. They do not expose `DELETE` or physically remove domain rows. Preserve primary keys, references and audit history; foreign keys must not cascade business deletions.
+
+| Resource | Retained state |
+| --- | --- |
+| Hackathon, team, organizer, sponsor, track, event, application and project-track entry | Set `is_active` to false. Recheck each resource's lifecycle permissions and constraints. |
+| Team membership | The API's `is_active: false` ends active membership by setting `TeamMember.status` to `removed`, clearing `is_leader` and recording `ended_at`. Do not add a second activity flag. |
+| Join request | Use `TeamMember.status` values `pending`, `withdrawn` and `rejected`; acceptance changes `pending` to `active` and sets `joined_at`. Record the end time for withdrawal or rejection. The legacy `invited` value is retained but is not used for new requests. |
+| Invitation | Set `revoked_at` to prevent future redemption; preserve any previously granted rights. |
+| Judge track access | Clear only the applicable `manually_granted` or `sponsor_granted` flag. The other grant can still authorize access. |
+| Check-in | Set `is_valid` to false through an authorized correction. Preserve attendance history. |
+| Evaluation | End or skip work under the judging policy; preserve completed evidence. |
+| Submitted project | No deletion or withdrawal, including when its team becomes inactive. |
+| Communication channel | The future channel model must retain an inactive flag; its schema is still deferred. |
+
+Every deactivation and related change commits with its audit entry and version update. Ordinary reads and authorization exclude inactive resources and ended relationships, including through inactive parents. Authorized history and recovery views may read retained records. Restoration is a checked transition, not permission to reset any flag arbitrarily. Team departure also handles leadership succession and deactivates an empty team atomically.
+
+Retained rows continue to occupy their stable identities and uniqueness keys. Rejoining or requesting the same team again updates the existing team/user row through an allowed transition; audit snapshots retain earlier membership and request episodes. Do not delete old rows to bypass uniqueness constraints. Session/token cleanup and personal-data erasure remain separate lifecycle policies.
+
+The flags, lifecycle states, timestamps, versions and audit table are migrated. Submitted projects still have no removal or withdrawal operation.
+
 ### Audit and Recovery
+
+Application middleware supplies the authenticated actor through `Audit`. Handlers use `audited!` and its transaction connection; automatic jobs use `audited_automatic!` with a required reason. Transaction-local context cannot leak to the next pooled request. Database triggers append snapshots only after an insert/update succeeds, including conflict updates, and reject unaudited writes, physical deletion and truncation. Invitation hashes are omitted from snapshots. Project track changes create a new project snapshot containing the selected tracks.
+
+`MIGRATION_DATABASE_URL` owns schema changes; `DATABASE_URL` is a separate runtime login. Startup rejects superuser/role-creation privileges, migrator-role membership and audit/schema write privileges. Security-definer audit functions use a fixed schema search path with temporary objects last. Audit rows reject update/delete/truncate even for the migration login during normal DML.
 
 AuditEvent records the actor, typed action/resource, stable resource key, time, optional reason/version and before/after snapshots. Structured resource keys support existing composite keys. Authenticated actions record their user; a null actor is reserved for an explicit automatic action. No separate service identity, request-correlation or before-version field is required.
 

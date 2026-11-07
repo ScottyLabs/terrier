@@ -83,3 +83,8 @@ authentication gate. An explicit `return_to` path starts a fresh login.
 
 See [API routes and policies](/guides/api-routes/) for the own-profile policy,
 route registration, shared errors, and typed client usage.
+
+Database startup requires separate `DATABASE_URL` and `MIGRATION_DATABASE_URL`
+logins. See [database setup](/guides/database/#changing-the-schema). OIDC user
+creation and email changes are audited as automatic identity synchronization;
+unchanged claims do not create another write.

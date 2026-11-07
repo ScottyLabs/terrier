@@ -11,7 +11,9 @@ generate-entities
 ```
 
 `generate-entities` uses the pinned SeaORM 1.1 CLI and writes to
-`crates/terrier-server/src/entities`. Regenerate after applying migrations.
+`crates/terrier-server/src/entities`. Regenerate after applying migrations. The
+pinned generator combines enum labels across schemas; use a clean database for
+generation if failed-test schemas contain enums with the same names.
 
 The server requires `DATABASE_URL` and applies pending migrations before opening
 its HTTP listener. A PostgreSQL transaction lock serializes migrations across
@@ -24,6 +26,39 @@ server is stopped:
 nix build .#migrator
 ./result/bin/migration up
 ```
+
+## Runtime and migration logins
+
+`MIGRATION_DATABASE_URL` connects as the schema owner. `DATABASE_URL` connects as a
+separate runtime login without superuser, CREATEROLE, schema ownership or membership
+in the migration role. Both URLs must target the same database and schema. Startup
+runs migrations, grants the runtime role domain read/insert/update and audit read
+access, then checks its privileges. Requests never use the migration pool.
+
+For local PostgreSQL with trusted socket authentication, create a runtime login:
+
+```sql
+CREATE ROLE terrier_runtime LOGIN;
+```
+
+Set `DATABASE_URL` to use that login and `MIGRATION_DATABASE_URL` to use the owner.
+For password authentication, provision credentials through the secret provider.
+Do not grant audit insert/update/delete/truncate, schema CREATE, or migration-role
+membership to runtime.
+
+## RFC 0008 reconciliation
+
+The forward migrations add the reconciled workflow fields, constraints, enums,
+versions and audit table. Existing OIDC users are retained. Populated legacy domain
+tables stop migration with the table name and required mapping details; resolve
+missing deadlines, actors, membership times and submission evidence explicitly.
+The migration never guesses history or deletes conflicting rows. Rollback would
+lose retained history, so these migrations are forward-only.
+
+Audit triggers require transaction context. Application handlers use `audited!`;
+automatic changes use `audited_automatic!` with a reason. Domain deletion and
+truncation are rejected. Migration tests need a login that can create test schemas
+and runtime roles; each successful test removes its fixtures.
 
 ## Identity migration
 

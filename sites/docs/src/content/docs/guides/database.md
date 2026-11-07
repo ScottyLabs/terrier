@@ -21,6 +21,8 @@ through `AppState.db`; they do not open a connection for each request.
 The RFC explains the design; migrations establish the actual schema. For example,
 the identity migration adds `oidc_issuer` and `oidc_subject` to `user` and removes
 the old `is_global_admin` column. Use the current entities when writing queries.
+RFC 0008 fields, lifecycle states, versions and audit storage are migrated.
+Domain routes and their access policies are implemented separately.
 
 ## Tables and relationships
 
@@ -29,13 +31,17 @@ primary key, such as `(user_id, hackathon_id)` in `user_hackathon_role`.
 
 | Area | Tables and relationships |
 | --- | --- |
-| Users and access | `user` stores local profiles and OIDC identities. `user_hackathon_role` assigns a role within a hackathon; `invitation` records invitations to those roles. |
-| Hackathons | `hackathon` stores event settings and application configuration. Roles include hacker, organizer, judge, and sponsor. |
-| Applications | `application` links a user to a hackathon. `reimbursement_application` belongs to an application. |
-| Teams and projects | `team` belongs to a hackathon; `team_member` links users to teams. `project` references a team, hackathon, and event. |
-| Judging | `prize_track` belongs to a hackathon and sponsor organization. `project_track_sub` links projects to tracks; `judge_track_assign` links judges to tracks. `evaluation` records a judge's evaluation of a project for a track. |
-| Sponsors and organizers | `sponsor_org` stores organizations, `sponsor` links users to them, and `organizer` links users to hackathons. |
-| Schedule | `event` belongs to a hackathon. `event_check_in` records a user's attendance and who checked them in. |
+| Users and access | `user` stores OIDC identity and profile defaults. `user_hackathon_role` stores one primary role, scoped profile data and directory consent. Invitations target an existing user and carry scoped grants, hashed tokens and expiry/revocation state. |
+| Hackathons | `hackathon` stores settings, deadlines, form schemas, directory fields, reimbursement categories and scoped sponsor associations. |
+| Applications | `application` separates draft/submitted answers, admission decisions and attendance. Submitted/reviewed snapshots reference `audit_event`. Reimbursements are unique per application/category and store private evidence and decimal amounts. |
+| Teams and projects | `team_member` stores requests, membership and leadership. One active membership or pending request is allowed per user/hackathon. Each team retains one project, with draft/submitted state and an event reference. |
+| Judging | `project_track_sub` links projects and tracks; `judge_track_assign` stores independent manual/sponsor grants. `evaluation` stores assignments and results and references the evaluated project snapshot. Tracks retain separate current and published winners. |
+| Sponsors and organizers | `sponsor` links a user, hackathon and organization. `organizer` stores hackathon-scoped capabilities. Tracks may have no sponsor. |
+| Schedule | `event` belongs to a hackathon. `event_check_in` is unique per event/user and retains its validity and checking actor. |
+| Audit history | `audit_event` stores the actor, scope, action, resource key, version and before/after values. Database triggers append entries alongside domain changes. |
+
+Composite foreign keys enforce matching hackathon scope. Retained records keep
+their uniqueness keys; deactivation does not free them for duplicate resources.
 
 A user's Terrier UUID is independent of their provider identity. The unique
 `(oidc_issuer, oidc_subject)` pair identifies a login; email is not an identity key.
@@ -61,6 +67,7 @@ use crate::{entities::team, error::ApiError};
 
 let team = team::Entity::find_by_id(team_id)
     .filter(team::Column::HackathonId.eq(hackathon_id))
+    .filter(team::Column::IsActive.eq(true))
     .one(&state.db)
     .await
     .map_err(|error| ApiError::Internal(error.into()))?
@@ -72,41 +79,76 @@ at most one row, `.ok_or(...)` handles absence, and `.map_err(...)` handles a
 failed query. Return the checked model from the policy for the handler to use.
 See [API errors](/reference/api-errors/) for error choices.
 
-A foreign key confirms that a referenced row exists; it does not grant access or
-guarantee that separately referenced rows belong to the same hackathon. Policies
-must check the caller's role and the resource's scope. For tables without their
+A simple foreign key confirms that a referenced row exists. The composite keys
+also enforce matching hackathon scope. Neither grants access: policies must check
+the caller's active role, the resource's scope and the active parent hackathon. For tables without their
 own `hackathon_id`, follow the parent relation, such as check-in to event.
 
 ## Writing data
 
 SeaORM uses `ActiveModel` for inserts and updates. `Set(value)` marks a field to
-be written, while an unset field is omitted. For example, after the policy has
-authorized team creation, a handler can insert a team with its assigned hackathon:
+write. On insert, unset fields use database defaults; on update, they are left
+unchanged. After an organizer policy checks access and the handler validates the
+event fields, insert through `audited!`:
 
 ```rust
 use sea_orm::{ActiveModelTrait, Set};
-use crate::{entities::team, error::ApiError};
+use crate::{audited, audit::{Audit, Scope}, entities::event};
 
-let created = team::ActiveModel {
+let new_event = event::ActiveModel {
     id: Set(uuid::Uuid::new_v4()),
     hackathon_id: Set(hackathon_id),
     name: Set(name),
-    table_number: Set(None),
-}
-.insert(&state.db)
-.await
-.map_err(|error| ApiError::Internal(error.into()))?;
+    description: Set(description),
+    start_time: Set(start_time),
+    end_time: Set(end_time),
+    location: Set(location),
+    ..Default::default()
+};
+let created = audited!(audit, Scope::Hackathon(hackathon_id), |db| {
+    Ok(new_event.insert(db).await?)
+}).await?;
 ```
 
-Here, `name` is the validated request value and `hackathon_id` comes from the
-policy's checked scope. Updates and deletes must retain that scope in their query.
-When several writes must succeed together, use a transaction and commit only
-after all succeed. Checks involving capacity or concurrent changes must be enforced
-within that transaction using appropriate locking or database constraints.
+`hackathon_id` comes from the checked resource; the other values come from
+validated input. Updates must retain resource scope and, when required, the
+last-read version in their query. Return `409 Conflict` if a revision-qualified
+update changes no row. Keep related writes in one block and check concurrency
+rules under the required locks. For team creation, insert both the team and its
+leader membership before commit.
 
 Use the generated enums for status and role values rather than strings. Database
 models are not API response types: return a separate response struct so internal
 fields, including OIDC identity details, stay private.
+
+## Deactivation and history
+
+Domain routes retain rows and change lifecycle state through `PATCH`. Do not use
+SeaORM delete methods or cascading deletes for business removal. See the
+[handler guidance](/guides/api-routes/#3-write-the-handler)
+for permissions, revisions and restoration.
+
+The target schema in
+[RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md#deactivation-and-lifecycle-state)
+uses `is_active` for resources such as hackathons, teams and organizer links.
+Membership instead uses `TeamMember.status`: the API's `is_active: false` maps to
+`removed`, clears leadership and records the end time. Join requests use
+`pending`, `withdrawn` and `rejected`; acceptance sets `active`. Do not add a
+second activity flag to membership.
+
+Membership states are `pending`, `active`, `withdrawn`, `rejected` and `removed`.
+The legacy `invited` value is retained for explicit legacy mappings, not new joins.
+
+Commit lifecycle changes, dependent changes and audit records in one transaction.
+Team departure must transfer leadership or deactivate an empty team. Retain
+projects and prior decisions. Exclude inactive parents, resources and relationships
+from ordinary reads and authorization; restrict history access to authorized users.
+Recheck uniqueness, scope and workflow rules before restoration. Retained keys
+must not be freed by deleting rows; later membership episodes reuse the retained
+team/user row and preserve earlier episodes in audit history.
+
+Session/token cleanup and personal-data erasure require separate policies.
+Submitted projects cannot be deleted or withdrawn.
 
 ## Changing the schema
 
@@ -131,16 +173,23 @@ From the repository root in the dev shell, with PostgreSQL running:
 4. Review the migration and generated diff together, then update affected routes,
    tests, and API schemas. Entity files are generated; do not edit them by hand.
 
-The server also applies pending migrations before opening its listener. A
-PostgreSQL transaction lock prevents concurrent instances from migrating at the
-same time, and migration failure stops startup. The initial OIDC identity
-migration requires an empty user table and cannot be rolled back; this restriction
-belongs to that migration, not to future migrations. See
-`crates/terrier-server/migration/README.md` for details and manual commands.
+The server applies migrations through `MIGRATION_DATABASE_URL`, then uses
+`DATABASE_URL` for requests. The migration login owns the schema. The runtime
+login must be separate, non-superuser, unable to create roles or schema objects,
+and unable to inherit the migration login. Startup grants domain read/insert/update
+and audit read permissions, then checks that runtime cannot modify audit storage.
+Migration failures stop startup and roll back under a transaction lock.
+
+The RFC migration accepts empty domain tables and retains existing OIDC users.
+Nonempty legacy domain tables require explicit mappings for missing deadlines,
+actors, membership times and submission evidence. It stops without changing rows
+rather than inventing that history. Existing migrations are unchanged and the
+new migrations are forward-only. See the
+[migration instructions](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/crates/terrier-server/migration/README.md).
 
 ## Tests
 
-Database tests use a development database where the role can create schemas. Each
+Database tests use a development database where the test login can create schemas and temporary runtime roles. Each
 test creates an isolated schema and removes it after a successful run; they do
 not reset the whole database. The existing setup in `tests/database.rs` is private
 to that test file, so extract shared setup when another suite needs it.

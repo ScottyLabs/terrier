@@ -172,7 +172,7 @@ Recovery actions must enforce hackathon scope and data integrity, preserve relev
 
 Persistent domain mutations, including deactivations and automated changes, must append an audit record in the same database transaction as the change. Record the actor or service, hackathon scope where applicable, timestamp, action, affected resource, and sufficient change history for authorized recovery. Privileged corrections and recovery actions also record a reason. Audit history is append-only: application credentials must not permit updating or deleting existing audit records. Secrets must not be copied into audit records.
 
-Business deletion deactivates persistent domain records. Session/token cleanup and personal-data erasure require their own lifecycle policies rather than indefinite retention under this rule. Use `PATCH` on the resource or relationship to set `is_active: false`; join requests instead use an explicit `withdrawn` or `rejected` status. Preserve data and references, and do not use physical or cascading deletes. Ordinary field-edit permissions do not grant deactivation or restoration permission. Validate lifecycle transitions and dependent state in the same transaction as the flag update and audit record. Channel deactivation must stop new delivery work through that channel; handling already accepted work requires the communications policy. Ordinary reads and authorization must exclude inactive resources and relationships as appropriate. Authorized organizers and admins can inspect history and restore eligible records through explicit recovery actions that recheck permissions, uniqueness, and current workflow constraints. Restoration creates a new audit entry and must not overwrite intervening changes silently. Submitted projects have no deletion or withdrawal operation, as established in RFC 0010.
+Business deletion deactivates persistent domain records. Session/token cleanup and personal-data erasure require their own lifecycle policies rather than indefinite retention under this rule. Use `PATCH` on the resource or relationship to set `is_active: false`; join requests instead use an explicit `withdrawn` or `rejected` status. For team membership, the API flag maps to `TeamMember.status = removed`, clears leadership and records `ended_at`; it does not add a redundant database flag. Preserve data and references, and do not use physical or cascading deletes. Ordinary field-edit permissions do not grant deactivation or restoration permission. Validate lifecycle transitions and dependent state in the same transaction as the flag update and audit record. Channel deactivation must stop new delivery work through that channel; handling already accepted work requires the communications policy. Ordinary reads and authorization must exclude inactive resources and relationships as appropriate. Authorized organizers and admins can inspect history and restore eligible records through explicit recovery actions that recheck permissions, uniqueness, and current workflow constraints. Restoration creates a new audit entry and must not overwrite intervening changes silently. Submitted projects have no deletion or withdrawal operation, as established in RFC 0010.
 
 ### Registration and Applications
 
@@ -215,7 +215,7 @@ The membership flow is request-only: a confirmed attendee requests to join an ex
 
 The creator becomes team leader and approves or rejects requests. The leader may edit team details or transfer leadership. When the leader leaves or declines attendance, the remaining member with the earliest membership start time becomes leader, with user ID as a stable tie-breaker. Members may leave voluntarily; only organizers can involuntarily remove a member. Members contact a hackathon admin to recover an unresponsive leader using existing management controls; no dedicated request or verification workflow is required. The last member leaving deactivates the team and preserves its history.
 
-Declining attendance removes active membership and pending requests atomically. Pending requests do not reserve capacity, and approval rechecks eligibility, capacity, and the one-team constraint. Store requests separately from active membership; the representation must be reconciled with RFC 0008. Creating a team also requires no pending join request; the caller must withdraw it first.
+Declining attendance removes active membership and pending requests atomically. Pending requests do not reserve capacity, and approval rechecks eligibility, capacity, and the one-team constraint. Expose requests separately from active membership in the API. RFC 0008 stores both in TeamMember, distinguished by status, with audit snapshots preserving earlier episodes; its schema amendment still requires migration. Creating a team also requires no pending join request; the caller must withdraw it first.
 
 Initial discovery supports browsing and searching teams. Automated matching and suggested teammates are deferred, as established in RFC 0010. Confirmed attendees can inspect team name, description, member display names, and remaining capacity before requesting membership. This discovery view excludes private application and contact details; broader profile visibility remains open.
 
@@ -284,22 +284,11 @@ Store deployment secrets in environment configuration according to [RFC 0001](ht
 
 ### Data Model Integration
 
-[RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md) remains the database reference and must be updated as approved decisions in this RFC change its model. Reconcile its entity diagram, enum reference, relationships, and constraints with the required workflows before implementing dependent features. Keep those updates aligned with SeaORM migrations and regenerated entities; unresolved choices in this draft do not establish a final schema.
+[RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md) is reconciled and migrated. Generated entities include lifecycle flags, resource versions, scoped capabilities, application and project states, winner publication metadata and audit snapshots. Composite foreign keys and uniqueness constraints enforce resource scope and retained identities. Team requests and membership share TeamMember, distinguished by status.
 
-| Feature | Required schema decision |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Deactivation and audit history | Preserve resources and relationships with inactive/deleted state; add append-only mutation history and checked restoration |
-| Identity mapping and admin access | Issuer/subject identity and environment admin configuration are implemented; update RFC 0008 to reflect them and define the remaining admin policies |
-| Team requests and leadership | Define request persistence and the leader relationship using RFC 0010 lifecycle rules; automated matching is deferred |
-| Application revisions and reimbursements | Preserve submitted application revisions and category-specific reimbursement requests under RFC 0010; reconcile with issue #29 |
-| Scoped capabilities | Keep one primary role per user per hackathon; define separate capability grants and their resource scope |
-| One active team per hackathon | Define a database-enforced constraint or transactional enforcement strategy |
-| Submission lifecycle | Define project draft/submitted state, submission schema, and deadline enforcement; submitted projects cannot be withdrawn |
-| Submission uniqueness | Enforce one submission per team per hackathon |
-| Judge-to-project assignment | Decide whether pending evaluations represent assignments or need a separate entity |
-| Results publication | No dedicated results snapshot or release gate |
-| Communications | No announcement, channel, schedule, or delivery record entities |
-| Hackathon sponsor association | Current sponsor organization and track relationships do not define a separate hackathon sponsor resource |
+Application middleware and the `audited!` macro bind writes to the authenticated actor. Database triggers append audit entries in the same transaction and reject unaudited writes. Startup uses separate migration and runtime logins and validates audit storage permissions. See the [handler guide](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/sites/docs/src/content/docs/guides/api-routes.md) for the member workflow.
+
+Schema support does not implement the domain routes or settle their remaining payload, scoring, recovery and access-policy questions. Communications storage remains deferred. New schema changes still require forward migrations and regenerated entities.
 
 ### Offline Connectivity
 
