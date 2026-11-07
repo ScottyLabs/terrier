@@ -36,6 +36,8 @@ Run component commands through `collar dev run -- <command>` from the indicated 
 
 Cover behavior changes with appropriate unit/integration tests, including failure paths. Run affected tests and required component checks/hooks. For documentation-only edits, check formatting and links. Report results and blockers accurately. Hook configuration is generated; edit its Nix source, not `.pre-commit-config.yaml`.
 
+After changing migrations or compile-time resources, run `nix build .#terrier .#migrator --no-link` to verify the filtered build source.
+
 For API contract changes, update Utoipa definitions, start the local API on port 3000, and run `deno task generate-api` in `app` and `sites/docs` as applicable. Validate the outputs and review diffs; do not hand-edit `app/src/lib/api/schema.d.ts` or `sites/docs/openapi.json`.
 
 The `generate-entities` helper uses the SeaORM CLI pinned in `devenv.nix` and writes to `crates/terrier-server/src/entities`. Apply migrations before regenerating entities. See the [migrator instructions](crates/terrier-server/migration/README.md).
