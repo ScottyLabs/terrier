@@ -51,7 +51,7 @@ Multi-instance support works like Mastodon/Nextcloud: single "Terrier" app in ap
 
 Trade-off: app store listing and home screen show "Terrier" branding, but inside the app it's fully branded per instance.
 
-[RFC 0010](./0010-user-flow.md) defines hackathon-scoped application, attendance, team, reimbursement, and submission workflows. These lifecycle states are separate from primary roles and scoped capabilities. Authentication follows [RFC 0009](./0009-slac.md); admission remains an organizer decision.
+[RFC 0010](./0010-user-flow.md) defines hackathon-scoped application, attendance, team, reimbursement, and submission workflows. These lifecycle states are separate from primary roles and scoped capabilities. Authentication follows [RFC 0009](./0009-leash.md); admission remains an organizer decision.
 
 ### 12-Factor App Principles
 

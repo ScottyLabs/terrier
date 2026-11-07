@@ -26,7 +26,7 @@ pub trait Policy<S>: Sized + Send + Sync + 'static {
 /// Constructible only via the [`FromRequestParts`] impl, which calls
 /// `P::check`. The `S = ()` default keeps stateless examples short; stateful
 /// consumers should declare a project-local alias next to their `AppState`
-/// (e.g. `pub type Auth<P> = slac::Authorized<P, AppState>;`) so handler
+/// (e.g. `pub type Auth<P> = leash::Authorized<P, AppState>;`) so handler
 /// signatures stay readable.
 pub struct Authorized<P, S = ()>
 where

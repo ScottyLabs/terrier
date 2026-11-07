@@ -4,8 +4,8 @@ use axum::{
     http::{StatusCode, request::Parts},
     routing::get,
 };
+use leash::{Authorized, Policy};
 use serde::Serialize;
-use slac::{Authorized, Policy};
 
 // `Clone` lets Axum copy this demo user into requests; `Serialize` enables JSON output.
 #[derive(Clone, Serialize)]

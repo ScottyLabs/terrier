@@ -32,7 +32,7 @@ Terrier Mobile will exist as a component within the monorepo, sharing the Svelte
 
 Native capabilities use [Capacitor plugins](https://capacitorjs.com/docs/plugins), with custom Swift and Java/Kotlin integration where needed. Deep links use the [App plugin](https://capacitorjs.com/docs/apis/app); push notifications and geolocation use the corresponding [Push Notifications](https://capacitorjs.com/docs/apis/push-notifications) and [Geolocation](https://capacitorjs.com/docs/apis/geolocation) plugins. QR scanning also requires a Capacitor-compatible integration; select and validate it during mobile implementation.
 
-The mobile client follows the same application, attendance, team, and submission access rules as the web client under [RFC 0010](./0010-user-flow.md). Native device capabilities do not grant additional server permissions; authentication follows [RFC 0009](./0009-slac.md). Before native authentication is implemented, define how instance selection, login callbacks, cookies, and CSRF checks work with the native client's origin.
+The mobile client follows the same application, attendance, team, and submission access rules as the web client under [RFC 0010](./0010-user-flow.md). Native device capabilities do not grant additional server permissions; authentication follows [RFC 0009](./0009-leash.md). Before native authentication is implemented, define how instance selection, login callbacks, cookies, and CSRF checks work with the native client's origin.
 
 ### App Distribution and Updates
 

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/slac/",
+  "crates/leash/",
   "crates/terrier-common/",
   "crates/terrier-server/",
   "crates/terrier-server/migration",
@@ -19,7 +19,6 @@ axum = { version = "0.8.8", features = ["ws"] }
 dotenvy = "0.15.7"
 serde = { version = "1.0.228", features = ["derive"] }
 # serde_json = "1.0.149"
-# slac = { path = "crates/slac" }
 terrier-common = { path = "crates/terrier-common" }
 # thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }

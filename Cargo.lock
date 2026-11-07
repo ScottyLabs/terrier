@@ -1736,6 +1736,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "leash"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3292,15 +3301,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
-name = "slac"
-version = "0.1.0"
-dependencies = [
- "axum",
- "tokio",
- "tower",
-]
-
-[[package]]
 name = "smallvec"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3672,11 +3672,11 @@ dependencies = [
  "base64 0.22.1",
  "dotenvy",
  "fred",
+ "leash",
  "migration",
  "sea-orm",
  "serde",
  "serde_json",
- "slac",
  "terrier-common",
  "tokio",
  "tower",

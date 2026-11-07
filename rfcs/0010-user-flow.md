@@ -8,7 +8,7 @@
 ## Overview
 
 This proposal lays out the full path through the app taken by all users, and what should be accessible to them at a given stage.
-The approved access requirements will be enforced through SLAC, as described in [RFC 0009](./0009-slac.md). Lifecycle labels describe user states and capabilities; they do not prescribe database roles.
+The approved access requirements will be enforced through Leash, as described in [RFC 0009](./0009-leash.md). Lifecycle labels describe user states and capabilities; they do not prescribe database roles.
 
 ## Motivation
 
@@ -53,7 +53,7 @@ Any role below without an explicit explanation of how it is obtained should be a
 or some equivalent method by which organizers manually distribute proper permissions.
 
 As an implementation note, users may not exist in the database upon clicking a link,
-so account creation follows the first-authentication flow in [RFC 0009](./0009-slac.md).
+so account creation follows the first-authentication flow in [RFC 0009](./0009-leash.md).
 
 ### "Roles"
 
@@ -431,7 +431,7 @@ The initial rollout provides authorized exports of applicant contact lists filte
 
 ### Verification status roles
 
-Separate verification roles are unnecessary under [RFC 0009](./0009-slac.md). Terrier trusts its configured Keycloak issuer without requiring an `email_verified` claim or a separate verification step. University sign-in is optional, and authentication alone does not establish student eligibility.
+Separate verification roles are unnecessary under [RFC 0009](./0009-leash.md). Terrier trusts its configured Keycloak issuer without requiring an `email_verified` claim or a separate verification step. University sign-in is optional, and authentication alone does not establish student eligibility.
 
 ### `sponsor-manager` role
 

@@ -44,8 +44,8 @@ the [database guide](/guides/database/).
 Start with the [policy reference](/reference/policies/). Reuse a policy if it
 already checks the required permissions, or combine existing policies:
 
-- `slac::any!(A, B, C)` accepts the first policy that passes.
-- `slac::all!(A, B, C)` requires every policy to pass.
+- `leash::any!(A, B, C)` accepts the first policy that passes.
+- `leash::all!(A, B, C)` requires every policy to pass.
 
 A, B, and C stand for existing policy types. Give complex or repeated combinations
 a type alias. When the handler needs to know which alternative passed, `policy!`
@@ -53,7 +53,7 @@ gives those branches names. For example, this pattern belongs beside the policie
 in **`src/auth/policy.rs`**:
 
 ```rust
-slac::policy! {
+leash::policy! {
     pub enum Access for AppState {
         First = A,
         Second = B,
@@ -76,7 +76,7 @@ defines `OwnProfile` for that check:
 
 ```rust
 use axum::{extract::{FromRequestParts, Path}, http::request::Parts};
-use slac::Policy;
+use leash::Policy;
 use uuid::Uuid;
 
 use super::current_user::CurrentUser;
@@ -112,7 +112,7 @@ UUID. `.await?` waits for a result and returns early on failure, while
 
 Policies live under `src/auth/` and use `AppState.db` for queries. Return the
 checked resource, with query failures reported as `ApiError::Internal`. Keep
-Terrier types out of the generic `slac` crate.
+Terrier types out of the generic `leash` crate.
 
 **For hackathon routes**, check the caller's active role in an active hackathon,
 then include that hackathon in the resource query. For example, inside a policy
@@ -145,7 +145,7 @@ The alias in **`crates/terrier-server/src/auth/policy.rs`** supplies Terrier's
 state type for both individual and composed policies:
 
 ```rust
-pub type Auth<P> = slac::Authorized<P, AppState>;
+pub type Auth<P> = leash::Authorized<P, AppState>;
 ```
 
 Middleware has already checked login and CSRF for writes. Axum

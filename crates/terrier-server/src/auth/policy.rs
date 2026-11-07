@@ -2,13 +2,13 @@ use axum::{
     extract::{FromRequestParts, Path},
     http::request::Parts,
 };
-use slac::Policy;
+use leash::Policy;
 use uuid::Uuid;
 
 use super::current_user::CurrentUser;
 use crate::{error::ApiError, state::AppState};
 
-pub type Auth<P> = slac::Authorized<P, AppState>;
+pub type Auth<P> = leash::Authorized<P, AppState>;
 
 pub struct OwnProfile;
 

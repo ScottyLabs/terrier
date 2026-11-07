@@ -99,7 +99,7 @@ The filename should match the branch name, e.g. `0002-dev-environment-ci.md`.
 | 0006 | [Observability](./0006-observability.md) | Accepted |
 | 0007 | [Mobile Architecture](./0007-mobile-architecture.md) | Accepted |
 | 0008 | [Database Model](./0008-database-model.md) | Accepted |
-| 0009 | [SLAC](./0009-slac.md) | Accepted |
+| 0009 | [Leash](./0009-leash.md) | Accepted |
 | 0010 | [User Flow](./0010-user-flow.md) | Accepted |
 | 0011 | [API Architecture](./0011-api-architecture.md) | Accepted |
 

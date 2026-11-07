@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, request::Parts};
 use axum::response::IntoResponse;
 use axum::routing::get;
-use slac::{Authorized, Either, Policy, all, any, policy};
+use leash::{Authorized, Either, Policy, all, any, policy};
 use tower::ServiceExt;
 
 #[derive(Clone, Default)]
@@ -284,7 +284,7 @@ async fn all_short_circuits_on_first_failure() {
 
 #[tokio::test]
 async fn any_macro_preserves_order_and_short_circuiting() {
-    type Access = slac::any!(IsAdmin, IsAdmin, IsMember,);
+    type Access = leash::any!(IsAdmin, IsAdmin, IsMember,);
     async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
         match data {
             Either::Left(proof) => proof.label.into(),
@@ -310,7 +310,7 @@ async fn any_macro_preserves_order_and_short_circuiting() {
 
 #[tokio::test]
 async fn all_macro_preserves_outputs_and_stops_on_failure() {
-    type Access = slac::all!(IsMember, IsAdmin, IsMember,);
+    type Access = leash::all!(IsMember, IsAdmin, IsMember,);
     async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
         let (member, (admin, second_member)) = data;
         format!("{}:{}:{}", member.label, admin.label, second_member.label)
@@ -338,7 +338,7 @@ async fn all_macro_preserves_outputs_and_stops_on_failure() {
 
 #[tokio::test]
 async fn macros_accept_nested_types_and_single_policies() {
-    type Access = slac::all!(slac::any!(IsAdmin,), any!(IsAdmin, IsMember));
+    type Access = leash::all!(leash::any!(IsAdmin,), any!(IsAdmin, IsMember));
     async fn handler(Authorized { data, .. }: Authorized<Access, AppState>) -> String {
         let (admin, _) = data;
         admin.label.into()

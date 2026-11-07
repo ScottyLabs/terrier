@@ -1,4 +1,4 @@
-# SLAC: ScottyLabs Access Control
+# Leash
 
 A small, domain-free Rust crate that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
 
@@ -6,7 +6,7 @@ A small, domain-free Rust crate that lifts authorization out of axum handler bod
 
 ```rust
 use axum::http::{request::Parts, StatusCode};
-use slac::{policy, Authorized, Policy};
+use leash::{policy, Authorized, Policy};
 
 pub struct IsHackathonAdmin;
 
@@ -56,8 +56,8 @@ There is no application-domain code in this crate (no `User`, `Hackathon`, or `E
 Use `any!` when one policy may pass, or `all!` when every policy must pass:
 
 ```rust
-type Access = slac::any!(IsAdmin, IsMember, IsJudge);
-type Required = slac::all!(IsMember, HasAcceptedTerms, IsEligible);
+type Access = leash::any!(IsAdmin, IsMember, IsJudge);
+type Required = leash::all!(IsMember, HasAcceptedTerms, IsEligible);
 ```
 
 These are type macros for handler signatures such as `Authorized<Access, AppState>`.
@@ -92,7 +92,7 @@ side effects that a later branch could observe.
 `Authorized<P, S>` defaults `S` to `()` so stateless examples read nicely. Stateful consumers should define a one-line alias next to their `AppState`:
 
 ```rust
-pub type Auth<P> = slac::Authorized<P, AppState>;
+pub type Auth<P> = leash::Authorized<P, AppState>;
 ```
 
 Handler signatures then read `Auth<SettingsAccess>` instead of `Authorized<SettingsAccess, AppState>`.
@@ -100,7 +100,7 @@ Handler signatures then read `Auth<SettingsAccess>` instead of `Authorized<Setti
 ## Tests
 
 ```bash
-cargo test --package slac
+cargo test --package leash
 ```
 
 The tests under [`tests/integration.rs`](tests/integration.rs) double as a worked example: each one mounts a tiny axum router with stub policies and dispatches a request through `tower::ServiceExt::oneshot`.

@@ -46,7 +46,7 @@ Combinators run existing policies in order. The policies must share an error typ
 A, B, and C represent existing policy types. They can be nested and given a name:
 
 ```rust
-type Access = slac::any!(A, slac::all!(B, C));
+type Access = leash::any!(A, leash::all!(B, C));
 ```
 
 This accepts A on its own, or both B and C. Use a type alias for a repeated
@@ -54,7 +54,7 @@ combination. If the handler needs to distinguish alternatives, `policy!` gives
 them names:
 
 ```rust
-slac::policy! {
+leash::policy! {
     pub enum Access for AppState {
         First = A,
         Second = B,
@@ -69,5 +69,5 @@ the own-profile route only needs `Auth<OwnProfile>`.
 `any!` and `policy!` continue on every error, including `Internal`. When a database
 failure must stop the request, write an explicit check that propagates it.
 Branches share request parts and do not undo changes, so checks should avoid
-side effects. The macros live in `crates/slac/src/macros.rs`, with examples in
-`crates/slac/tests/integration.rs`.
+side effects. The macros live in `crates/leash/src/macros.rs`, with examples in
+`crates/leash/tests/integration.rs`.

@@ -16,6 +16,7 @@ axum-oidc = { git = "https://codeberg.org/pfzetto/axum-oidc", rev = "007135e2c26
 base64 = "0.22"
 dotenvy.workspace = true
 fred = { version = "10", features = ["unix-sockets"] }
+leash = { version = "0.1.0", path = "../leash" }
 migration = { version = "0.1.0", path = "migration" }
 sea-orm = { version = "1.1.20", default-features = false, features = [
   "macros",
@@ -29,7 +30,6 @@ sea-orm = { version = "1.1.20", default-features = false, features = [
 ] }
 serde.workspace = true
 serde_json = "1.0.151"
-slac = { version = "0.1.0", path = "../slac" }
 terrier-common.workspace = true
 tokio.workspace = true
 tower = { workspace = true, features = ["util"] }

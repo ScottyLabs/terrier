@@ -1,4 +1,4 @@
-# RFC 0009: ScottyLabs Access Control (SLAC)
+# RFC 0009: Leash
 
 - **Status:** Accepted
 - **Author(s):** @kritdass
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This RFC establishes a small, domain-free Rust crate, `crates/slac`, that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
+This RFC establishes a small, domain-free Rust crate, `crates/leash`, that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
 
 ## Motivation
 
@@ -112,7 +112,7 @@ The type macros `any!(A, B, C)` and `all!(A, B, C)` compose one or more policies
 
 ### Integration with the OIDC Stack
 
-SLAC does not replace anything beneath it. The flow is:
+Leash does not replace anything beneath it. The flow is:
 
 1. **Keycloak** authenticates users through Google or university SSO, with `saml-proxy` brokering university IdPs upstream per RFC 0005.
 1. **`axum-oidc`** handles backend login and callback through the Ricochet OAuth relay. OIDC tokens remain in a server-side session backed by Valkey; the browser receives an opaque session cookie. On subsequent requests, the session and OIDC layers establish validated claims, refreshing tokens when necessary.
@@ -126,12 +126,12 @@ Global admins are configured through deployment environment variables using stab
 
 ### Workspace Placement
 
-The crate is added to the workspace as `crates/slac`, alongside the existing `crates/saml-proxy`, `crates/terrier-common`, and `crates/terrier-server`. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping SLAC itself free of any Terrier types.
+The crate is added to the workspace as `crates/leash`, alongside the existing `crates/saml-proxy`, `crates/terrier-common`, and `crates/terrier-server`. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping Leash itself free of any Terrier types.
 
 `Authorized<P, S>` defaults `S` to `()` so stateless examples read nicely. Stateful consumers pin the state once via a project-local alias next to `AppState`:
 
 ```rust
-pub type Auth<P> = slac::Authorized<P, AppState>;
+pub type Auth<P> = leash::Authorized<P, AppState>;
 ```
 
 Handler signatures then read `Auth<SettingsAccess>` rather than `Authorized<SettingsAccess, AppState>`.
@@ -161,9 +161,9 @@ If three or four ScottyLabs services each invent their own auth helpers, we end 
 
 ## Implementation Phases
 
-1. **Crate scaffolding.** *(Shipped.)* Adds `crates/slac/` to the workspace members and implements `Policy`, `Authorized<P, S>`, the `any!` / `all!` combinators, and the `policy!` sum-type macro. Covered by integration tests in `crates/slac/tests/integration.rs` that route real `Request`s through stub policies via `tower::ServiceExt::oneshot`.
-1. **Auth foundation in `terrier-server`.** Add `crates/terrier-server/src/auth/` with OIDC wiring, Valkey sessions, user synchronization, and the `CurrentUser` extractor. Establish shared application state, API errors, routing boundaries, and test-only identity and database fixtures. Test the authentication middleware independently of the SLAC policies.
-1. **Terrier SLAC integration.** Add `Auth<P>` and shared atomic policies on the auth foundation, including scoped resource loading and authorization tests. Keep Terrier domain types out of the SLAC crate.
+1. **Crate scaffolding.** *(Shipped.)* Adds `crates/leash/` to the workspace members and implements `Policy`, `Authorized<P, S>`, the `any!` / `all!` combinators, and the `policy!` sum-type macro. Covered by integration tests in `crates/leash/tests/integration.rs` that route real `Request`s through stub policies via `tower::ServiceExt::oneshot`.
+1. **Auth foundation in `terrier-server`.** Add `crates/terrier-server/src/auth/` with OIDC wiring, Valkey sessions, user synchronization, and the `CurrentUser` extractor. Establish shared application state, API errors, routing boundaries, and test-only identity and database fixtures. Test the authentication middleware independently of the Leash policies.
+1. **Terrier Leash integration.** Add `Auth<P>` and shared atomic policies on the auth foundation, including scoped resource loading and authorization tests. Keep Terrier domain types out of the Leash crate.
 1. **First worked example.** Implement a protected route with its tests using `Auth<P>` so that future handlers have a concrete template.
 1. **Per-domain rollout.** Add routes and tests domain-by-domain (registration, judging, teams, schedule, results), using the established pattern.
-1. **External adoption.** Promote SLAC to its own repository or to crates.io once a second ScottyLabs service is ready to depend on it.
+1. **External adoption.** Promote Leash to its own repository or to crates.io once a second ScottyLabs service is ready to depend on it.
