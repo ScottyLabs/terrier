@@ -14,7 +14,7 @@ anyhow.workspace = true
 axum.workspace = true
 base64 = "0.22"
 dotenvy.workspace = true
-fred = { version = "10", features = ["unix-sockets"] }
+fred = { version = "10", features = ["i-scripts", "unix-sockets"] }
 leash = { git = "https://git.cmu.dev/ScottyLabs/leash", branch = "main", version = "0.1.0" }
 migration = { version = "0.1.0", path = "migration" }
 openidconnect = { version = "4.1.0", default-features = false, features = [

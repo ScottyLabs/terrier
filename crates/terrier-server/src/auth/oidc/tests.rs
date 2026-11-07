@@ -24,13 +24,17 @@ const CLIENT_SECRET: &str = "oidc-test-client-secret";
 #[derive(Default)]
 struct Exchange {
     nonce: String,
+    refresh_delay: std::time::Duration,
     challenge: String,
     overrides: serde_json::Map<String, Value>,
     refresh_status: Option<StatusCode>,
     refresh_error: Option<String>,
     redirect_uri: String,
     refreshes: usize,
+    refresh_requests: Vec<String>,
+    next_refresh_token: Option<String>,
     signing_secret: Option<String>,
+    require_issuer: bool,
     omit_nonce: bool,
     omit_id_token: bool,
     omit_refresh_token: bool,
@@ -91,6 +95,7 @@ impl Fixture {
                     metadata.discovered.notify_one();
                     Json(json!({
                         "issuer": format!("{}/", metadata.url),
+                        "authorization_response_iss_parameter_supported": metadata.exchange.lock().unwrap().require_issuer,
                         "authorization_endpoint": format!("{}/authorize", metadata.url),
                         "token_endpoint": format!("{}/token", metadata.url),
                         "userinfo_endpoint": format!("{}/userinfo", metadata.url),
@@ -147,6 +152,10 @@ impl Fixture {
             .nest("/api", application)
             .merge(probe)
             .layer(super::super::session::layer(store.clone(), true))
+            .layer(middleware::from_fn_with_state(
+                crate::auth::session::lock::MemoryLocks::default(),
+                crate::auth::session::lock::serialize::<crate::auth::session::lock::MemoryLocks>,
+            ))
             .layer(middleware::from_fn(super::super::session::error_response))
             .with_state(AppState { db });
         Self {
@@ -261,10 +270,7 @@ async fn provider_metadata_is_refreshed_after_the_cache_interval() {
     let fixture = Fixture::new().await;
     fixture.provider.discovered.notified().await;
     tokio::time::pause();
-    let refresh = tokio::spawn(refresh_metadata(
-        fixture.client.clone(),
-        IssuerUrl::new(format!("{}/", fixture.provider.url)).unwrap(),
-    ));
+    let refresh = tokio::spawn(refresh_metadata(fixture.client.clone()));
     tokio::time::sleep(std::time::Duration::from_millis(1)).await;
     tokio::time::advance(std::time::Duration::from_secs(15 * 60)).await;
     tokio::time::resume();
@@ -298,6 +304,10 @@ async fn token(
     State(provider): State<Arc<Provider>>,
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
+    if form["grant_type"] == "refresh_token" {
+        let delay = provider.exchange.lock().unwrap().refresh_delay;
+        tokio::time::sleep(delay).await;
+    }
     let mut exchange = provider.exchange.lock().unwrap();
     if form["grant_type"] == "authorization_code" {
         assert_eq!(form["redirect_uri"], exchange.redirect_uri);
@@ -308,6 +318,9 @@ async fn token(
         );
     } else {
         exchange.refreshes += 1;
+        exchange
+            .refresh_requests
+            .push(form["refresh_token"].clone());
         if let Some(status) = exchange.refresh_status {
             return (status, Json(json!({"error": exchange.refresh_error.as_deref().unwrap_or(if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"})}))).into_response();
         }
@@ -333,7 +346,7 @@ async fn token(
         None,
     )
     .unwrap();
-    let mut response = json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": "test-refresh-token", "id_token": token.to_string()});
+    let mut response = json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": exchange.next_refresh_token.as_deref().unwrap_or("test-refresh-token"), "id_token": token.to_string()});
     if exchange.omit_id_token {
         response.as_object_mut().unwrap().remove("id_token");
     }
@@ -448,6 +461,7 @@ async fn rejects_state_nonce_issuer_audience_and_expired_tokens() {
         ("nonce", json!("wrong")),
         ("iss", json!("https://other.example")),
         ("aud", json!("other-client")),
+        ("azp", json!("other-client")),
         ("exp", json!(0)),
     ] {
         let fixture = Fixture::new().await;
@@ -779,6 +793,7 @@ async fn refresh_rejects_changed_identity_nonce_and_invalid_tokens() {
         ("nonce", json!("another-login")),
         ("iss", json!("https://other.example")),
         ("aud", json!("other-client")),
+        ("azp", json!("other-client")),
         ("at_hash", json!("invalid-hash")),
     ] {
         let fixture = Fixture::new().await;
@@ -862,4 +877,124 @@ async fn refresh_distinguishes_expired_keycloak_tokens_from_client_misconfigurat
             "{error}"
         );
     }
+}
+
+#[tokio::test]
+async fn concurrent_requests_share_one_token_refresh() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    fixture.expire(&authenticated).await;
+    fixture.provider.exchange.lock().unwrap().refresh_delay = std::time::Duration::from_millis(50);
+    let (first, second) = tokio::join!(
+        fixture.request("/probe", Some(&authenticated)),
+        fixture.request("/probe", Some(&authenticated)),
+    );
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    assert_eq!(fixture.provider.exchange.lock().unwrap().refreshes, 1);
+}
+
+#[tokio::test]
+async fn callbacks_validate_the_response_issuer_and_discovery_requirement() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    assert_eq!(fixture.request(
+        &format!("/api/auth/callback?code=test-code&state={state}&iss=https%3A%2F%2Fother.example"),
+        Some(&pending),
+    ).await.status(), StatusCode::BAD_REQUEST);
+    fixture.provider.exchange.lock().unwrap().require_issuer = true;
+    fixture.client.rediscover().await.unwrap();
+    assert_eq!(
+        fixture.callback(&pending, &state).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+    let issuer: String =
+        url::form_urlencoded::byte_serialize(format!("{}/", fixture.provider.url).as_bytes())
+            .collect();
+    let response = fixture
+        .request(
+            &format!("/api/auth/callback?code=test-code&state={state}&iss={issuer}"),
+            Some(&pending),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+}
+
+#[tokio::test]
+async fn rotated_refresh_tokens_are_persisted_and_used_by_the_next_refresh() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    fixture.provider.exchange.lock().unwrap().next_refresh_token = Some("rotated-token".into());
+    for _ in 0..2 {
+        fixture.expire(&authenticated).await;
+        assert_eq!(
+            fixture
+                .request("/probe", Some(&authenticated))
+                .await
+                .status(),
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        fixture.provider.exchange.lock().unwrap().refresh_requests,
+        ["test-refresh-token", "rotated-token"]
+    );
+}
+
+#[tokio::test]
+async fn concurrent_requests_with_encoded_cookie_names_share_the_session_lock() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    let encoded = authenticated.replace("terrier_session=", "terrier%5Fsession=");
+    fixture.expire(&authenticated).await;
+    fixture.provider.exchange.lock().unwrap().refresh_delay = std::time::Duration::from_millis(50);
+    let (first, second) = tokio::join!(
+        fixture.request("/probe", Some(&authenticated)),
+        fixture.request("/probe", Some(&encoded)),
+    );
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    assert_eq!(fixture.provider.exchange.lock().unwrap().refreshes, 1);
+}
+
+#[tokio::test]
+async fn logout_during_a_refresh_cannot_restore_the_authenticated_session() {
+    let fixture = Fixture::new().await;
+    let (pending, state) = fixture.begin().await;
+    let response = fixture.callback(&pending, &state).await;
+    let authenticated = cookie(&response);
+    let record = fixture.record(&authenticated).await;
+    let csrf = record.data[CSRF].as_str().unwrap();
+    fixture.expire(&authenticated).await;
+    fixture.provider.exchange.lock().unwrap().refresh_delay = std::time::Duration::from_millis(50);
+    let logout = fixture.app.clone().oneshot(
+        Request::post("/api/auth/logout")
+            .header(COOKIE, &authenticated)
+            .header("x-csrf-token", csrf)
+            .body(Body::empty())
+            .unwrap(),
+    );
+    let (_, logged_out) = tokio::join!(fixture.request("/probe", Some(&authenticated)), logout);
+    assert_eq!(logged_out.unwrap().status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        fixture
+            .request("/probe", Some(&authenticated))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert!(
+        fixture
+            .store
+            .load(&session_id(&authenticated))
+            .await
+            .unwrap()
+            .is_none()
+    );
 }

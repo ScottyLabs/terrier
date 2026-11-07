@@ -53,7 +53,8 @@ Existing sessions from the previous authentication implementation require a new
 sign-in after upgrading.
 
 The flow uses PKCE and validates the ID token's signature,
-issuer, audience, expiry, and nonce. Request the email and profile scopes, with
+issuer, audience, expiry, nonce, and authorized party. Callback issuer parameters
+must match the configured issuer and are required when discovery advertises them. Request the email and profile scopes, with
 nonempty email and name claims mapped in Keycloak.
 
 The frontend and API must share `APP_URL`. The Vite development server proxies
@@ -88,7 +89,14 @@ Register application routes through `auth::middleware::application_routes`, then
 nest them under `/api` within the session layer. Handlers extract `CurrentUser`
 to access the local user. The middleware rejects anonymous requests with 401 and
 unsafe requests without a matching CSRF token with 403. Database and session
-failures return 500 and stop handler execution. Unknown API paths return JSON 404
+failures return 500 and stop handler execution.
+
+Requests with a session cookie acquire a session-specific Valkey lock before
+loading the session and release it after the response-time save. This serializes
+refresh, callback, and logout across server replicas. Lock acquisition waits at
+most five seconds. Requests holding a lock have a 30-second deadline, shorter
+than the 60-second lock lease. Contention, timeout, and lock-store failures return
+500; a crashed server's lock expires automatically. Unknown API paths return JSON 404
 responses, including when serving the frontend.
 
 Health, auth status, login, callback, and logout remain outside the application

@@ -8,7 +8,6 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
-use openidconnect::IssuerUrl;
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
 
@@ -45,13 +44,13 @@ pub(super) async fn authenticate(
     Ok(next.run(request).await)
 }
 
-pub async fn refresh_metadata(client: OidcClient, issuer: IssuerUrl) {
+pub async fn refresh_metadata(client: OidcClient) {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     interval.tick().await;
     loop {
         interval.tick().await;
-        if let Err(error) = client.rediscover(issuer.clone()).await {
+        if let Err(error) = client.rediscover().await {
             tracing::error!(%error, "failed to refresh OIDC provider metadata");
         }
     }
@@ -134,10 +133,12 @@ struct CallbackQuery {
     state: String,
     code: Option<String>,
     error: Option<String>,
+    iss: Option<String>,
 }
 
 #[utoipa::path(get, path = "/api/auth/callback", tag = "auth",
-    params(("code" = String, Query), ("state" = String, Query)),
+    params(("code" = Option<String>, Query), ("state" = String, Query),
+        ("error" = Option<String>, Query), ("iss" = Option<String>, Query)),
     responses((status = 303, description = "Complete sign-in"),
         (status = 400, body = crate::error::ErrorResponse),
         (status = 500, body = crate::error::ErrorResponse)))]
@@ -149,7 +150,7 @@ async fn callback(
     let Query(query) = Query::<CallbackQuery>::try_from_uri(&uri)
         .map_err(|_| ApiError::BadRequest("Invalid OIDC callback.".into()))?;
     client
-        .complete(&session, query.state, query.code, query.error)
+        .complete(&session, query.state, query.code, query.error, query.iss)
         .await?;
     Ok(Redirect::to("/api/auth/login").into_response())
 }
