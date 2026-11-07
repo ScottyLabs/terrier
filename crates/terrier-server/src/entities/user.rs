@@ -14,18 +14,25 @@ pub struct Model {
     pub oidc_issuer: String,
     #[sea_orm(column_type = "Text")]
     pub oidc_subject: String,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub profile_data: Json,
+    pub version: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::application::Entity")]
-    Application,
+    #[sea_orm(has_many = "super::audit_event::Entity")]
+    AuditEvent,
     #[sea_orm(has_many = "super::evaluation::Entity")]
     Evaluation,
     #[sea_orm(has_many = "super::judge_track_assign::Entity")]
     JudgeTrackAssign,
     #[sea_orm(has_many = "super::organizer::Entity")]
     Organizer,
+    #[sea_orm(has_many = "super::prize_track::Entity")]
+    PrizeTrack,
+    #[sea_orm(has_many = "super::reimbursement_application::Entity")]
+    ReimbursementApplication,
     #[sea_orm(has_many = "super::sponsor::Entity")]
     Sponsor,
     #[sea_orm(has_many = "super::team_member::Entity")]
@@ -34,9 +41,9 @@ pub enum Relation {
     UserHackathonRole,
 }
 
-impl Related<super::application::Entity> for Entity {
+impl Related<super::audit_event::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Application.def()
+        Relation::AuditEvent.def()
     }
 }
 
@@ -58,6 +65,18 @@ impl Related<super::organizer::Entity> for Entity {
     }
 }
 
+impl Related<super::prize_track::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PrizeTrack.def()
+    }
+}
+
+impl Related<super::reimbursement_application::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ReimbursementApplication.def()
+    }
+}
+
 impl Related<super::sponsor::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Sponsor.def()
@@ -73,33 +92,6 @@ impl Related<super::team_member::Entity> for Entity {
 impl Related<super::user_hackathon_role::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserHackathonRole.def()
-    }
-}
-
-impl Related<super::prize_track::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::judge_track_assign::Relation::PrizeTrack.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::judge_track_assign::Relation::User.def().rev())
-    }
-}
-
-impl Related<super::sponsor_org::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::sponsor::Relation::SponsorOrg.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::sponsor::Relation::User.def().rev())
-    }
-}
-
-impl Related<super::team::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::team_member::Relation::Team.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::team_member::Relation::User.def().rev())
     }
 }
 

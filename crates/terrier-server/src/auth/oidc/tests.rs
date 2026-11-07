@@ -128,8 +128,24 @@ impl Fixture {
         let application = super::super::middleware::application_routes(
             crate::routes::routes().0.route(
                 "/test",
-                get(|user: CurrentUser| async move { user.user().id.to_string() })
-                    .post(|| async { StatusCode::NO_CONTENT }),
+                get(|user: CurrentUser| async move { user.user().id.to_string() }).post(
+                    |audit: crate::audit::Audit, user: CurrentUser| async move {
+                        use sea_orm::{ActiveModelTrait, Set};
+                        let id = user.user().id;
+                        crate::audited!(audit, crate::audit::Scope::Global, |db| {
+                            crate::entities::user::ActiveModel {
+                                id: Set(id),
+                                display_name: Set("Updated member".into()),
+                                ..Default::default()
+                            }
+                            .update(db)
+                            .await?;
+                            Ok(())
+                        })
+                        .await?;
+                        Ok::<_, ApiError>(StatusCode::NO_CONTENT)
+                    },
+                ),
             ),
             AppState { db: db.clone() },
             config.clone(),
@@ -572,7 +588,10 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
         .await?;
     let mut options = sea_orm::ConnectOptions::new(url);
     options.set_schema_search_path(&schema);
-    let state = AppState::connect(options).await?;
+    let db = sea_orm::Database::connect(options).await?;
+    <migration::Migrator as migration::MigratorTrait>::up(&db, None).await?;
+    let state = AppState { db };
+    let audit_db = state.db.clone();
     let fixture = Fixture::with_db(state.db).await;
     let (pending, state) = fixture.begin().await;
     fixture
@@ -648,6 +667,10 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
             .await?;
         assert_eq!(response.status(), expected);
     }
+    let human_audit = audit_db.query_one(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
+        "SELECT count(*) AS count FROM audit_event WHERE actor_user_id IS NOT NULL AND resource_type='user' AND after_data->>'display_name'='Updated member'"))
+        .await?.unwrap();
+    assert_eq!(human_audit.try_get::<i64>("", "count")?, 1);
     drop(fixture);
     admin
         .execute_unprepared(&format!("DROP SCHEMA {schema} CASCADE"))

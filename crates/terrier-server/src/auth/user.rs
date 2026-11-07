@@ -1,5 +1,7 @@
-use anyhow::{Context, ensure};
-use sea_orm::{DatabaseConnection, EntityTrait, Set, sea_query::OnConflict};
+use anyhow::ensure;
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, sea_query::OnConflict,
+};
 use uuid::Uuid;
 
 use crate::entities::user;
@@ -26,19 +28,46 @@ pub async fn sync_user(
         ensure!(!value.trim().is_empty(), "OIDC {name} is missing");
     }
 
-    user::Entity::insert(user::ActiveModel {
-        id: Set(Uuid::new_v4()),
-        oidc_issuer: Set(identity.issuer.into()),
-        oidc_subject: Set(identity.subject.into()),
-        email: Set(identity.email.into()),
-        display_name: Set(identity.display_name.into()),
-    })
-    .on_conflict(
-        OnConflict::columns([user::Column::OidcIssuer, user::Column::OidcSubject])
-            .update_column(user::Column::Email)
-            .to_owned(),
+    if let Some(existing) = user::Entity::find()
+        .filter(user::Column::OidcIssuer.eq(identity.issuer))
+        .filter(user::Column::OidcSubject.eq(identity.subject))
+        .one(db)
+        .await
+        .map_err(|error| anyhow::anyhow!(error).context("read synchronized OIDC identity"))?
+        && existing.email == identity.email
+    {
+        return Ok(existing);
+    }
+    let issuer = identity.issuer.to_owned();
+    let subject = identity.subject.to_owned();
+    let email = identity.email.to_owned();
+    let display_name = identity.display_name.to_owned();
+    crate::audited_automatic!(
+        db,
+        crate::audit::Scope::Global,
+        "Synchronize validated OIDC identity",
+        |db| {
+            let saved = user::Entity::insert(user::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                oidc_issuer: Set(issuer),
+                oidc_subject: Set(subject),
+                email: Set(email),
+                display_name: Set(display_name),
+                ..Default::default()
+            })
+            .on_conflict(
+                OnConflict::columns([user::Column::OidcIssuer, user::Column::OidcSubject])
+                    .update_column(user::Column::Email)
+                    .to_owned(),
+            )
+            .exec_with_returning(db)
+            .await?;
+            Ok(saved)
+        }
     )
-    .exec_with_returning(db)
     .await
-    .context("failed to synchronize OIDC user")
+    .map_err(|error| match error {
+        crate::error::ApiError::Internal(error) => error.context("failed to synchronize OIDC user"),
+        error => anyhow::anyhow!("failed to synchronize OIDC user: {error:?}"),
+    })
 }

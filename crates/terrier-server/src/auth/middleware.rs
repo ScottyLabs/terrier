@@ -42,6 +42,10 @@ pub fn application_routes(
     client: OidcClient<Claims>,
 ) -> Router<AppState> {
     routes
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::audit::context,
+        ))
         .layer(middleware::from_fn(require_user))
         .layer(middleware::from_fn_with_state(state, resolve_user))
         .layer(

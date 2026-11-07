@@ -74,7 +74,9 @@ pub async fn run() -> anyhow::Result<()> {
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
     let config = Arc::new(AuthConfig::from_env()?);
     let valkey_url = std::env::var("VALKEY_URL").context("VALKEY_URL must be set")?;
-    let state = AppState::connect(database_url).await?;
+    let migration_url = std::env::var("MIGRATION_DATABASE_URL")
+        .context("MIGRATION_DATABASE_URL must be set to a separate schema-owner login")?;
+    let state = AppState::connect(database_url, migration_url).await?;
     let sessions = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
     let metadata_client = client.clone();

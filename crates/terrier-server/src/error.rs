@@ -29,6 +29,12 @@ pub enum ApiError {
     Internal(anyhow::Error),
 }
 
+impl From<sea_orm::DbErr> for ApiError {
+    fn from(error: sea_orm::DbErr) -> Self {
+        Self::Internal(error.into())
+    }
+}
+
 /// Error response body. Omits empty field errors.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ErrorResponse {
