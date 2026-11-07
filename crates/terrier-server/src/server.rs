@@ -1,4 +1,8 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use axum::Router;
@@ -47,7 +51,22 @@ fn router(
     app
 }
 
+fn static_assets(configured: Option<OsString>) -> anyhow::Result<Option<PathBuf>> {
+    let explicit = configured.is_some();
+    let path = PathBuf::from(configured.unwrap_or_else(|| "assets".into()));
+    if !explicit && !path.exists() {
+        return Ok(None);
+    }
+    anyhow::ensure!(
+        !path.as_os_str().is_empty() && path.join("index.html").is_file(),
+        "Static assets directory {} must contain index.html",
+        path.display()
+    );
+    Ok(Some(path))
+}
+
 pub async fn run() -> anyhow::Result<()> {
+    let assets = static_assets(std::env::var_os("STATIC_DIR"))?;
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".into());
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     let addr = format!("{host}:{port}");
@@ -66,8 +85,7 @@ pub async fn run() -> anyhow::Result<()> {
         .layer(session::layer(sessions, config.secure_cookies()))
         .layer(axum::middleware::from_fn(session::error_response));
 
-    let assets = Path::new("assets");
-    let app = router(assets.exists().then_some(assets), auth, application_api)
+    let app = router(assets.as_deref(), auth, application_api)
         .with_state(state)
         .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
             tracing::info_span!("request", method = %request.method(), path = request.uri().path())
@@ -99,6 +117,23 @@ mod tests {
     use tower::ServiceExt;
 
     use super::AppState;
+
+    #[test]
+    fn configured_static_assets_require_index() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let assets = fixtures.join("assets");
+        assert_eq!(
+            super::static_assets(Some(assets.clone().into_os_string())).unwrap(),
+            Some(assets)
+        );
+        for invalid in [
+            fixtures.clone(),
+            fixtures.join("missing"),
+            Path::new("").into(),
+        ] {
+            assert!(super::static_assets(Some(invalid.into_os_string())).is_err());
+        }
+    }
 
     fn router(assets: Option<&Path>) -> axum::Router {
         super::router(

@@ -20,6 +20,14 @@ static files by the existing deployment. Runtime data comes from the Rust API. S
 routes and form actions that require a running SvelteKit server are not supported by
 this deployment.
 
+The packaged Rust server serves the built frontend using `STATIC_DIR`, which the Nix
+package sets to the frontend output. An explicit override must point to a directory
+containing `index.html`; otherwise startup fails. For local runs without `STATIC_DIR`,
+the server uses `assets` when present and can run as an API alone when it is absent.
+The production frontend hostname must route `/api` to the same backend origin used
+by `APP_URL`; serving static files on a separate hostname alone does not provide
+the required session routing.
+
 ## API integration
 
 Use `src/lib/api/client.ts` for typed, same-origin API requests. Its types come from the

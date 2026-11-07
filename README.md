@@ -19,7 +19,7 @@ Open-source hackathon management platform for universities and organizations.
 
 ## Canonical Deployment Domains
 
-Terrier uses the following production custom domains:
+Terrier uses the following canonical production domains:
 
 | Component | Kennel key | Domain |
 | --- | --- | --- |
@@ -28,6 +28,8 @@ Terrier uses the following production custom domains:
 | Documentation site | `scottylabs.kennel.sites.docs` | `docs.terrier.build` |
 
 The API and documentation values are declared in `devenv.nix` and should be treated as the source of truth for deployment routing.
+
+The frontend domain also requires infrastructure routing to the backend for `/api`, with `APP_URL` matching the frontend origin. This route is not declared by the current Kennel targets. The backend's `APP_URL`, forwarded HTTPS origin and registered sign-in callback must agree with this frontend route.
 
 ## Maintainers
 

@@ -38,15 +38,19 @@
             inherit ((builtins.fromJSON (builtins.readFile ./app/package.json))) version;
           };
 
-          docs = lib.buildMdbook {
+          docs = lib.buildDenoTask {
             src = ./sites/docs;
-            name = "terrier-docs";
+            pname = "terrier-docs";
+            inherit ((builtins.fromJSON (builtins.readFile ./sites/docs/package.json))) version;
           };
 
           terrier = lib.buildRustService {
             src = ./.;
             pname = "terrier-server";
-            nativeBuildInputs = [ pkgs.pkg-config ];
+            nativeBuildInputs = [
+              pkgs.pkg-config
+              pkgs.makeWrapper
+            ];
             buildInputs = with pkgs; [
               xmlsec
               libxml2
@@ -56,9 +60,8 @@
             ];
             buildArgs = {
               cargoExtraArgs = "-p terrier-server";
-              preBuild = ''
-                mkdir -p assets
-                cp -r ${app}/* assets/
+              postInstall = ''
+                wrapProgram "$out/bin/terrier" --set-default STATIC_DIR ${app}
               '';
             };
           };
