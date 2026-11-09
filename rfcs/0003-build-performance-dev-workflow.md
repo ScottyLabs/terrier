@@ -1,7 +1,7 @@
 # RFC 0003: Build Performance & Developer Workflow
 
 - **Status:** Accepted
-- **Author(s):** @ap-1
+- **Author(s):** @anish
 - **Created:** 2026-02-09
 - **Updated:** 2026-06-23
 

@@ -3,7 +3,7 @@ title: Frontend development
 description: Run and build the Terrier SvelteKit app.
 ---
 
-Enter `devenv shell` from the repository root, then run these commands in `app`:
+Enter `nix develop` from the repository root, then run these commands in `app`:
 
 - `deno task dev` starts the development server.
 - `deno task check` generates SvelteKit types and checks the app.

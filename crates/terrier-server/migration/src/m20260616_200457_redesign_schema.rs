@@ -301,12 +301,8 @@ impl MigrationTrait for Migration {
                     .table(Sponsor::Table)
                     .if_not_exists()
                     .col(ColumnDef::new(Sponsor::UserId).uuid().not_null())
-                    .col(ColumnDef::new(Sponsor::SponsorOrgId).uuid().not_null())
-                    .primary_key(
-                        Index::create()
-                            .col(Sponsor::UserId)
-                            .col(Sponsor::SponsorOrgId),
-                    )
+                    .col(ColumnDef::new(Sponsor::OrgId).uuid().not_null())
+                    .primary_key(Index::create().col(Sponsor::UserId).col(Sponsor::OrgId))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-sponsor-user")
@@ -316,7 +312,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-sponsor-org")
-                            .from(Sponsor::Table, Sponsor::SponsorOrgId)
+                            .from(Sponsor::Table, Sponsor::OrgId)
                             .to(SponsorOrg::Table, SponsorOrg::Id),
                     )
                     .to_owned(),
@@ -628,11 +624,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Evaluation::TrackId).uuid().not_null())
                     .col(ColumnDef::new(Evaluation::ProjectId).uuid().not_null())
                     .col(ColumnDef::new(Evaluation::JudgeId).uuid().not_null())
-                    .col(
-                        ColumnDef::new(Evaluation::EvaluationData)
-                            .json_binary()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Evaluation::Result).json_binary().not_null())
                     .col(
                         ColumnDef::new(Evaluation::JudgingMethod)
                             .custom(Alias::new("judging_method"))
@@ -939,8 +931,7 @@ enum Evaluation {
     TrackId,
     ProjectId,
     JudgeId,
-    #[sea_orm(iden = "evaluation")]
-    EvaluationData,
+    Result,
     JudgingMethod,
     Status,
     CreatedAt,
@@ -950,7 +941,7 @@ enum Evaluation {
 enum Sponsor {
     Table,
     UserId,
-    SponsorOrgId,
+    OrgId,
 }
 
 #[derive(DeriveIden)]

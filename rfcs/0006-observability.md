@@ -1,7 +1,7 @@
 # RFC 0006: Observability
 
 - **Status:** Accepted
-- **Author(s):** @ap-1, @kritdass, @sreeram
+- **Author(s):** @anish, @kritdass, @sreeram
 - **Created:** 2026-02-21
 - **Updated:** 2026-11-07
 

@@ -8,23 +8,14 @@ Thank you for your interest in contributing to Terrier!
 1. Clone your fork: `git clone ssh://forgejo@git.cmu.dev/ScottyLabs/terrier.git`
 1. Create a branch: `git checkout -b feature/your-feature-name`
 1. Make your changes
-1. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/)
+1. Write a commit using the [conventional commit format](https://www.conventionalcommits.org/), which kennel's [git hooks](https://docs.kennel.scottylabs.org/guides/local-development/#git-hooks) check
 1. Push and open a pull request
 
 ## Dev Shell
 
-Run `devenv shell` from the repository root to enter the development environment. To activate it automatically when entering the directory, run `devenv allow` once.
+Install Lix by following kennel's [local development guide](https://docs.kennel.scottylabs.org/guides/local-development/#installing-nix), then run `nix develop` from the repository root to enter the development environment.
 
-The first time you enter the dev shell, you should confirm these prompts to ensure that you use the ScottyLabs cache:
-
-```
-do you want to allow configuration setting 'extra-substituters' to be set to 'https://scottylabs.cachix.org' (y/N)? y
-do you want to permanently mark this value as trusted (y/N)? y
-do you want to allow configuration setting 'extra-trusted-public-keys' to be set to 'scottylabs.cachix.org-1:hajjEX5SLi/Y7yYloiXTt2IOr3towcTGRhMh1vu6Tjg=' (y/N)? y
-do you want to permanently mark this value as trusted (y/N)? y
-```
-
-The dev shell includes [Collar](https://git.cmu.dev/ScottyLabs/collar) for forge, checks, development workflows, and RFC search. See the [Collar documentation](https://git.cmu.dev/ScottyLabs/collar/src/branch/main/docs/index.md) for usage and setup.
+The dev shell includes [Collar](https://git.cmu.dev/ScottyLabs/collar) for forge, checks, development workflows, and RFC search. See the [Collar documentation](https://docs.collar.scottylabs.org) for usage and setup.
 
 ## Standards
 

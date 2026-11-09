@@ -1,9 +1,9 @@
 # RFC 0008: Database Model
 
 - **Status:** Accepted
-- **Author(s):** @kritdass
+- **Author(s):** @kritdass, @anish
 - **Created:** 2026-03-28
-- **Updated:** 2026-11-07
+- **Updated:** 2026-11-09
 
 ## Overview
 
@@ -245,7 +245,7 @@ erDiagram
         JSONB rubric
         Boolean manual_override
         NullableDateTime ended_at
-        NullableJSONB evaluation
+        NullableJSONB result
         Enum judging_method
         Enum status
         DateTime created_at
@@ -255,7 +255,7 @@ erDiagram
     Sponsor {
         UUID user_id
         UUID hackathon_id
-        UUID sponsor_org_id
+        UUID org_id
         Boolean is_active
         Int version
     }

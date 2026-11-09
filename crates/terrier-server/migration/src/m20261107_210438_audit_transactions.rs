@@ -260,7 +260,7 @@ BEGIN
             WHEN 'team_member' THEN '''team_id'',''user_id'''
             WHEN 'project_track_sub' THEN '''project_id'',''track_id'''
             WHEN 'judge_track_assign' THEN '''user_id'',''track_id'''
-            WHEN 'sponsor' THEN '''user_id'',''hackathon_id'',''sponsor_org_id'''
+            WHEN 'sponsor' THEN '''user_id'',''hackathon_id'',''org_id'''
             WHEN 'organizer' THEN '''user_id'',''hackathon_id''' ELSE '''id''' END;
         EXECUTE format('CREATE TRIGGER preserve_domain BEFORE TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION reject_domain_truncate()',target);
         EXECUTE format('CREATE TRIGGER prepare_change BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION prepare_domain_change()',target);

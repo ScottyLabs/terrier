@@ -10,7 +10,7 @@ Open-source hackathon management platform for universities and organizations.
 
 - **Registration and team management.** Customizable application forms, team formation, and attendee management.
 - **Live judging.** Real-time expo-style judging with support for multiple scoring systems.
-- **Multiple distribution methods.** Docker(-compose), Nix flakes, and standalone binaries are supported.
+- **Multiple distribution methods.** Nix flakes and standalone binaries are supported.
 - **Enterprise SSO.** OIDC and SAML support for institutional authentication, [available to everyone](https://ssotax.org/).
 - **Mobile app.** Native iOS and Android app for attendees, organizers, and judges.
 - **Documentation.** Comprehensive documentation site with deployment guides and usage instructions.
@@ -24,10 +24,10 @@ Terrier uses the following canonical production domains:
 | Component | Kennel key | Domain |
 | --- | --- | --- |
 | Frontend site | N/A | `terrier.scottylabs.org` |
-| API service | `scottylabs.kennel.services.terrier` | `api.terrier.scottylabs.org` |
-| Documentation site | `scottylabs.kennel.sites.docs` | `docs.terrier.build` |
+| API service | `services.terrier` | `api.terrier.scottylabs.org` |
+| Documentation site | `sites.docs` | `docs.terrier.build` |
 
-The API and documentation values are declared in `devenv.nix` and should be treated as the source of truth for deployment routing.
+The API and documentation values are declared in `flake.nix` and should be treated as the source of truth for deployment routing.
 
 The frontend domain also requires infrastructure routing to the backend for `/api`, with `APP_URL` matching the frontend origin. This route is not declared by the current Kennel targets. The backend's `APP_URL`, forwarded HTTPS origin and registered sign-in callback must agree with this frontend route.
 

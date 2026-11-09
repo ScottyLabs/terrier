@@ -14,7 +14,7 @@ pub struct Model {
     pub project_id: Uuid,
     pub judge_id: Uuid,
     #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub evaluation: Option<Json>,
+    pub result: Option<Json>,
     pub judging_method: JudgingMethod,
     pub status: EvaluationStatus,
     pub created_at: DateTime,

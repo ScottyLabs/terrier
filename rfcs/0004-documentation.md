@@ -1,7 +1,7 @@
 # RFC 0004: Documentation
 
 - **Status:** Accepted
-- **Author(s):** @kritdass, @ap-1
+- **Author(s):** @kritdass, @anish
 - **Created:** 2026-02-14
 - **Updated:** 2026-06-23
 

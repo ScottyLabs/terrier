@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub sponsor_org_id: Uuid,
+    pub org_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
     pub hackathon_id: Uuid,
     pub is_active: bool,
@@ -28,7 +28,7 @@ pub enum Relation {
     Hackathon,
     #[sea_orm(
         belongs_to = "super::sponsor_org::Entity",
-        from = "Column::SponsorOrgId",
+        from = "Column::OrgId",
         to = "super::sponsor_org::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"

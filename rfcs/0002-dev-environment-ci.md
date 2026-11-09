@@ -1,9 +1,9 @@
 # RFC 0002: Development Environment & CI
 
 - **Status:** Accepted
-- **Author(s):** @ap-1
+- **Author(s):** @anish
 - **Created:** 2026-02-09
-- **Updated:** 2026-09-25
+- **Updated:** 2026-11-09
 
 ## Overview
 
@@ -270,10 +270,6 @@ We could support multiple dev environment setups (Docker, Nix, manual). We chose
 **Garnix:**
 
 Garnix offers fast Nix CI with a global cache, but its free tier (1,500 minutes/month) proved insufficient for a Rust project with many crate dependencies. It also only supports GitHub, which would require making GitHub the primary repository.
-
-**GitHub Actions + Magic Nix Cache:**
-
-GitHub Actions with the Magic Nix Cache action provides free CI with Nix caching, but it requires GitHub as the primary platform. The Magic Nix Cache uses GitHub's Actions Cache API, which is not compatible with Forgejo Actions.
 
 **Forgejo Actions only, without shared cache:**
 

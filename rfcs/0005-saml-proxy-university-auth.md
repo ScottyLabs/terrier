@@ -1,7 +1,7 @@
 # RFC 0005: SAML Proxy for University Authentication
 
 - **Status:** Accepted
-- **Author(s):** @ap-1
+- **Author(s):** @anish
 - **Created:** 2026-02-18
 - **Updated:** 2026-11-07
 

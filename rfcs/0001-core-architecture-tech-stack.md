@@ -1,7 +1,7 @@
 # RFC 0001: Core Architecture & Tech Stack
 
 - **Status:** Accepted
-- **Author(s):** @ap-1
+- **Author(s):** @anish
 - **Created:** 2026-02-08
 - **Updated:** 2026-11-07
 

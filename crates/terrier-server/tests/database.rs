@@ -568,7 +568,7 @@ async fn submission_snapshots_validate_identity_content_and_selected_tracks() ->
     ensure!(content["track_ids"] == serde_json::json!([track]));
     ensure!(content.get("form_schema").is_some());
     let valid = format!(
-        "INSERT INTO evaluation(id,track_id,project_id,judge_id,hackathon_id,project_audit_id,judging_method,status,evaluation,created_at) VALUES('{}','{track}','{project}','{}','{}','{snapshot}','scoring','complete','{{\"score\":1}}',now())",
+        "INSERT INTO evaluation(id,track_id,project_id,judge_id,hackathon_id,project_audit_id,judging_method,status,result,created_at) VALUES('{}','{track}','{project}','{}','{}','{snapshot}','scoring','complete','{{\"score\":1}}',now())",
         Uuid::new_v4(),
         f.users[1],
         f.hackathon
