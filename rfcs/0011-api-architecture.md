@@ -44,7 +44,7 @@ This builds on [RFC 0001](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main
 
 User lifecycle requirements follow [RFC 0010](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0010-user-flow.md). The mobile client uses Capacitor to align with other ScottyLabs mobile applications. RFC 0007 defines the Capacitor wrapper, native integrations, and packaging requirements.
 
-The API exposes `/api/health` for health checks, `/swagger-ui/` for interactive reference, and `/openapi.json` for client and documentation generation. These describe implemented endpoints; the domain routes below are proposed contracts, not a claim that those features have shipped.
+The API exposes `/api/health` for health checks, `/scalar` for interactive reference, and `/openapi.json` for client and documentation generation. These describe implemented endpoints; the domain routes below are proposed contracts, not a claim that those features have shipped.
 
 ### Route Conventions
 

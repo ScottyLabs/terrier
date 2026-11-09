@@ -5,14 +5,14 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::Router;
+use axum::{Json, Router, routing::get};
 use terrier_server::auth::{config::AuthConfig, middleware::application_routes, oidc, session};
 use terrier_server::state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa_scalar::{Scalar, Servable};
 
 #[derive(OpenApi)]
 #[openapi(info(
@@ -38,9 +38,17 @@ fn router(
     api.merge(oidc::AuthApiDoc::openapi());
     api.merge(application_api);
 
+    let spec = api.clone();
     let mut app = router
         .merge(api_routes)
-        .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", api));
+        .route(
+            "/openapi.json",
+            get(move || {
+                let spec = spec.clone();
+                async move { Json(spec) }
+            }),
+        )
+        .merge(Scalar::with_url("/scalar", api));
 
     if let Some(assets) = assets {
         app = app.fallback_service(tower_http::services::ServeDir::new(assets).fallback(
@@ -190,14 +198,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn swagger_ui_is_available() {
+    async fn scalar_is_available() {
         let response = router(None)
-            .oneshot(Request::get("/swagger-ui/").body(Body::empty()).unwrap())
+            .oneshot(Request::get("/scalar").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers()[CONTENT_TYPE], "text/html");
+        assert!(
+            response.headers()[CONTENT_TYPE]
+                .to_str()
+                .unwrap()
+                .starts_with("text/html")
+        );
     }
 
     #[tokio::test]

@@ -424,7 +424,7 @@ Without a cookie, the same route should return 401:
 curl -i http://localhost:3000/api/users/bdb2cef5-a417-4652-bb15-7c735463ee68
 ```
 
-You can also inspect the operation at `http://localhost:3000/swagger-ui/` to check
+You can also inspect the operation at `http://localhost:3000/scalar` to check
 that its parameters, response type, and errors match the implementation.
 
 Run database tests explicitly, then check the staged files:
