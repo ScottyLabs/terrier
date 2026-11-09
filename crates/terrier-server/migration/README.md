@@ -1,6 +1,6 @@
 # Database migrations
 
-Run commands from the repository root inside `collar dev shell`, or through `collar dev run -- <command>`. Start PostgreSQL with `collar dev up -d` first.
+Run commands from the repository root inside the dev shell (`nix develop`). Start PostgreSQL with `pitchfork start --local` first.
 
 ```sh
 cargo run -p migration -- up
@@ -46,8 +46,8 @@ This migration is forward-only: rollback would discard identity mappings.
 
 ## Integration tests
 
-Tests create isolated PostgreSQL schemas and remove them after successful runs. Set `TEST_DATABASE_URL` to a development database where the role can create schemas. These tests are ignored in ordinary runs and must be run explicitly:
+Tests create isolated PostgreSQL schemas and remove them after successful runs. They connect through `DATABASE_URL` and run with the rest of the suite, so start PostgreSQL first with `pitchfork start --local`:
 
 ```sh
-TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server --test database -- --ignored
+cargo test -p terrier-server --test database
 ```

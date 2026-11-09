@@ -577,10 +577,9 @@ async fn anonymous_status_and_application_requests_have_distinct_responses() {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<()> {
     use sea_orm::ConnectionTrait;
-    let url = std::env::var("TEST_DATABASE_URL")?;
+    let url = std::env::var("DATABASE_URL")?;
     let admin = sea_orm::Database::connect(&url).await?;
     let schema = format!("auth_{}", uuid::Uuid::new_v4().simple());
     admin

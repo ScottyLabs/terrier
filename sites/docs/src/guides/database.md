@@ -126,12 +126,12 @@ The RFC migration accepts empty domain tables and retains existing OIDC users. N
 
 ## Tests
 
-Database tests use a development database where the test login can create schemas and temporary runtime roles. Each test creates an isolated schema and removes it after a successful run; they do not reset the whole database. The existing setup in `tests/database.rs` is private to that test file, so extract shared setup when another suite needs it.
+Database tests connect through `DATABASE_URL`, where the login can create schemas and temporary runtime roles. Each test creates an isolated schema and removes it after a successful run; they do not reset the whole database. The existing setup in `tests/database.rs` is private to that test file, so extract shared setup when another suite needs it.
 
-Run the existing migration and identity tests from the repository root:
+Start PostgreSQL with `pitchfork start --local`, then run the existing migration and identity tests from the repository root:
 
 ```sh
-TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server --test database -- --ignored
+cargo test -p terrier-server --test database
 ```
 
-Database-dependent tests are ignored in ordinary runs and must be included explicitly. Route tests belong in `crates/terrier-server/tests/<domain>.rs`, as shown in the [route workflow](api-routes.md).
+Database tests run with the rest of the suite, and kennel's `test` and `mutants` checks give them an empty database of their own in CI. Route tests belong in `crates/terrier-server/tests/<domain>.rs`, as shown in the [route workflow](api-routes.md).

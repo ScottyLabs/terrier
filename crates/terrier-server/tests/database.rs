@@ -23,7 +23,7 @@ struct TestDatabase {
 
 impl TestDatabase {
     async fn new() -> anyhow::Result<Self> {
-        let url = std::env::var("TEST_DATABASE_URL").context("TEST_DATABASE_URL must be set")?;
+        let url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
         let admin = Database::connect(url.clone()).await?;
         let schema = format!("terrier_test_{}", Uuid::new_v4().simple());
         admin
@@ -41,7 +41,7 @@ impl TestDatabase {
                 "CREATE ROLE {runtime_role} LOGIN PASSWORD '{password}'"
             ))
             .await?;
-        let mut runtime_url = url::Url::parse(&std::env::var("TEST_DATABASE_URL")?)?;
+        let mut runtime_url = url::Url::parse(&std::env::var("DATABASE_URL")?)?;
         runtime_url
             .query_pairs_mut()
             .append_pair("user", &runtime_role)
@@ -72,10 +72,9 @@ impl TestDatabase {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn concurrent_startups_apply_migrations_once() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
-    let url = std::env::var("TEST_DATABASE_URL")?;
+    let url = std::env::var("DATABASE_URL")?;
     let mut options = ConnectOptions::new(url);
     options.set_schema_search_path(&database.schema);
     let (first, second) = tokio::join!(
@@ -100,7 +99,6 @@ async fn concurrent_startups_apply_migrations_once() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn failed_startup_rolls_back_pending_migrations() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
     database
@@ -108,7 +106,7 @@ async fn failed_startup_rolls_back_pending_migrations() -> anyhow::Result<()> {
         .db
         .execute_unprepared("CREATE TYPE application_status AS ENUM ('pending')")
         .await?;
-    let mut options = ConnectOptions::new(std::env::var("TEST_DATABASE_URL")?);
+    let mut options = ConnectOptions::new(std::env::var("DATABASE_URL")?);
     options.set_schema_search_path(&database.schema);
     let error = AppState::connect(database.runtime_options.clone(), options)
         .await
@@ -129,7 +127,6 @@ async fn failed_startup_rolls_back_pending_migrations() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn concurrent_logins_preserve_identity_and_local_profile() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
     let db = &database.state.db;
@@ -200,7 +197,6 @@ async fn concurrent_logins_preserve_identity_and_local_profile() -> anyhow::Resu
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
     let db = &database.state.db;
@@ -214,7 +210,7 @@ async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Res
     ))
     .await?;
 
-    let mut options = ConnectOptions::new(std::env::var("TEST_DATABASE_URL")?);
+    let mut options = ConnectOptions::new(std::env::var("DATABASE_URL")?);
     options.set_schema_search_path(&database.schema);
     let error = AppState::connect(database.runtime_options.clone(), options)
         .await
@@ -236,7 +232,6 @@ async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Res
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn missing_claims_do_not_create_users() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
     let db = &database.state.db;
@@ -320,7 +315,6 @@ impl DomainFixture {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn rfc_schema_enforces_uniqueness_scope_and_atomic_audit() -> anyhow::Result<()> {
     use terrier_server::audit::Scope;
     let database = TestDatabase::new().await?;
@@ -381,7 +375,6 @@ async fn rfc_schema_enforces_uniqueness_scope_and_atomic_audit() -> anyhow::Resu
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn concurrent_membership_changes_preserve_capacity_and_leadership() -> anyhow::Result<()> {
     use terrier_server::audit::Scope;
     let database = TestDatabase::new().await?;
@@ -438,10 +431,9 @@ async fn concurrent_membership_changes_preserve_capacity_and_leadership() -> any
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn runtime_role_cannot_modify_audit_storage_or_become_its_owner() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
-    let mut owner = ConnectOptions::new(std::env::var("TEST_DATABASE_URL")?);
+    let mut owner = ConnectOptions::new(std::env::var("DATABASE_URL")?);
     owner.set_schema_search_path(&database.schema);
     let state = AppState::connect(database.runtime_options.clone(), owner.clone()).await?;
     for sql in [
@@ -526,7 +518,6 @@ async fn runtime_role_cannot_modify_audit_storage_or_become_its_owner() -> anyho
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn migration_rejects_unmapped_legacy_domain_data() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
     let db = &database.state.db;
@@ -549,7 +540,6 @@ async fn migration_rejects_unmapped_legacy_domain_data() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn submission_snapshots_validate_identity_content_and_selected_tracks() -> anyhow::Result<()>
 {
     use terrier_server::audit::Scope;
@@ -610,7 +600,6 @@ async fn submission_snapshots_validate_identity_content_and_selected_tracks() ->
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
 async fn failed_audit_insert_rolls_back_the_domain_change() -> anyhow::Result<()> {
     use terrier_server::audit::Scope;
     let database = TestDatabase::new().await?;

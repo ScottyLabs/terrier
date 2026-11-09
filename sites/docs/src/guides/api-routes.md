@@ -246,10 +246,10 @@ Route tests should exercise the handler and policy together. For the profile rou
 | Signed-in user supplies a malformed UUID | 400 |
 | No session cookie | 401 |
 
-You can read the setup and assertions in `authenticated_requests_enforce_ownership_and_csrf`, in `src/auth/oidc/tests.rs`. It uses a local OIDC provider and an isolated PostgreSQL schema, so it needs no real account. Run it from the repository root:
+You can read the setup and assertions in `authenticated_requests_enforce_ownership_and_csrf`, in `src/auth/oidc/tests.rs`. It uses a local OIDC provider and an isolated PostgreSQL schema, so it needs no real account. Start PostgreSQL (see kennel's [local services](https://docs.kennel.scottylabs.org/guides/local-development/#local-services)), then run it from the repository root:
 
 ```sh
-TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server authenticated_requests_enforce_ownership_and_csrf -- --ignored
+cargo test -p terrier-server authenticated_requests_enforce_ownership_and_csrf
 ```
 
 For a new domain, put route tests in `crates/terrier-server/tests/<domain>.rs`, using the module name for `<domain>`. These files import public code through `use terrier_server::...`. Small helper tests can stay beside their implementation in a `#[cfg(test)] mod tests` block.
@@ -261,10 +261,10 @@ For each route, check the success response, permission failures, invalid input, 
 Run a domain suite with the following command, replacing `<domain>` with its test file name without `.rs`:
 
 ```sh
-TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server --test '<domain>' -- --include-ignored
+cargo test -p terrier-server --test '<domain>'
 ```
 
-Mark database-dependent tests `#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]` so ordinary test runs can skip them. Use a development database for these tests.
+Database-dependent tests connect through `DATABASE_URL`. Locally that is the dev shell's PostgreSQL, and in CI kennel's `test` and `mutants` checks give them an empty database of their own. Tests run in parallel, so create an isolated schema per test as `tests/database.rs` does.
 
 ## 6. Generate API types
 
