@@ -1,4 +1,5 @@
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,10 +7,157 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .get_connection()
-            .execute_unprepared(r#"
-CREATE FUNCTION prepare_domain_change() RETURNS trigger LANGUAGE plpgsql AS $$
+        let db = manager.get_connection();
+
+        for function in FUNCTIONS {
+            db.execute_unprepared(&function.create()).await?;
+        }
+
+        db.execute_unprepared(
+            "CREATE TRIGGER audit_event_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON audit_event
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_changes()",
+        )
+        .await?;
+        db.execute_unprepared("REVOKE ALL ON audit_event FROM PUBLIC")
+            .await?;
+
+        for (name, table, function) in [
+            (
+                "application_snapshot",
+                "application",
+                "validate_audit_snapshot",
+            ),
+            (
+                "evaluation_snapshot",
+                "evaluation",
+                "validate_audit_snapshot",
+            ),
+            ("team_roster", "team_member", "validate_team_roster"),
+            ("team_roster", "team", "validate_team_roster"),
+        ] {
+            db.execute_unprepared(&format!(
+                "CREATE CONSTRAINT TRIGGER {name} AFTER INSERT OR UPDATE ON \"{table}\"
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION {function}()"
+            ))
+            .await?;
+        }
+
+        for table in [
+            "hackathon",
+            "invitation",
+            "reimbursement_application",
+            "prize_track",
+        ] {
+            db.execute_unprepared(&format!(
+                "CREATE TRIGGER validate_scoped_json BEFORE INSERT OR UPDATE ON \"{table}\" FOR EACH ROW EXECUTE FUNCTION validate_scoped_json()"
+            ))
+            .await?;
+        }
+
+        db.execute_unprepared(
+            "CREATE TRIGGER snapshot_project_tracks AFTER INSERT OR UPDATE ON project_track_sub
+    FOR EACH ROW EXECUTE FUNCTION snapshot_project_tracks()",
+        )
+        .await?;
+
+        for (table, keys) in AUDITED {
+            let keys = keys
+                .iter()
+                .map(|key| format!("'{key}'"))
+                .collect::<Vec<_>>()
+                .join(",");
+            db.execute_unprepared(&format!(
+                "CREATE TRIGGER preserve_domain BEFORE TRUNCATE ON \"{table}\" FOR EACH STATEMENT EXECUTE FUNCTION reject_domain_truncate()"
+            ))
+            .await?;
+            db.execute_unprepared(&format!(
+                "CREATE TRIGGER prepare_change BEFORE INSERT OR UPDATE OR DELETE ON \"{table}\" FOR EACH ROW EXECUTE FUNCTION prepare_domain_change()"
+            ))
+            .await?;
+            db.execute_unprepared(&format!(
+                "CREATE TRIGGER audit_change AFTER INSERT OR UPDATE ON \"{table}\" FOR EACH ROW EXECUTE FUNCTION audit_domain_change({keys})"
+            ))
+            .await?;
+        }
+
+        // the functions run with a fixed search path, so callers can't shadow the tables they use
+        let query = Query::select()
+            .expr_as(
+                Func::cust(Alias::new("quote_ident")).arg(Func::cust(Alias::new("current_schema"))),
+                Alias::new("schema"),
+            )
+            .to_owned();
+        let schema: String = db
+            .query_one(db.get_database_backend().build(&query))
+            .await?
+            .ok_or_else(|| DbErr::Custom("current_schema() returned no row".into()))?
+            .try_get("", "schema")?;
+        for function in FUNCTIONS {
+            db.execute_unprepared(&format!(
+                "ALTER FUNCTION {}() SET search_path TO pg_catalog, {schema}, pg_temp",
+                function.name
+            ))
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Audit history is retained; this migration is forward-only".into(),
+        ))
+    }
+}
+
+/// Domain tables and the columns that identify a row in its audit history
+const AUDITED: [(&str, &[&str]); 18] = [
+    ("user", &["id"]),
+    ("hackathon", &["id"]),
+    ("invitation", &["id"]),
+    ("user_hackathon_role", &["user_id", "hackathon_id"]),
+    ("application", &["id"]),
+    ("reimbursement_application", &["id"]),
+    ("team", &["id"]),
+    ("team_member", &["team_id", "user_id"]),
+    ("project", &["id"]),
+    ("sponsor_org", &["id"]),
+    ("prize_track", &["id"]),
+    ("project_track_sub", &["project_id", "track_id"]),
+    ("judge_track_assign", &["user_id", "track_id"]),
+    ("event", &["id"]),
+    ("event_check_in", &["id"]),
+    ("evaluation", &["id"]),
+    ("sponsor", &["user_id", "hackathon_id", "org_id"]),
+    ("organizer", &["user_id", "hackathon_id"]),
+];
+
+/// A PL/pgSQL trigger function
+struct Function {
+    name: &'static str,
+    security_definer: bool,
+    body: &'static str,
+}
+
+impl Function {
+    fn create(&self) -> String {
+        let security = if self.security_definer {
+            " SECURITY DEFINER"
+        } else {
+            ""
+        };
+        format!(
+            "CREATE FUNCTION {}() RETURNS trigger LANGUAGE plpgsql{security} AS $${}$$",
+            self.name, self.body
+        )
+    }
+}
+
+const FUNCTIONS: [Function; 8] = [
+    Function {
+        name: "prepare_domain_change",
+        security_definer: false,
+        body: r#"
 DECLARE event_id uuid := gen_random_uuid();
 BEGIN
     IF TG_OP='DELETE' THEN
@@ -30,22 +178,28 @@ BEGIN
       END IF;
     END IF;
     RETURN NEW;
-END $$;
-
-CREATE FUNCTION reject_domain_truncate() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "reject_domain_truncate",
+        security_definer: false,
+        body: r#"
 BEGIN
     RAISE EXCEPTION 'Domain rows cannot be truncated; deactivate records instead' USING ERRCODE='42501';
-END $$;
-
-CREATE FUNCTION reject_audit_changes() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "reject_audit_changes",
+        security_definer: false,
+        body: r#"
 BEGIN
     RAISE EXCEPTION 'Audit history is append-only' USING ERRCODE='42501';
-END $$;
-CREATE TRIGGER audit_event_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON audit_event
-    FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_changes();
-REVOKE ALL ON audit_event FROM PUBLIC;
-
-CREATE FUNCTION audit_domain_change() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+END "#,
+    },
+    Function {
+        name: "audit_domain_change",
+        security_definer: true,
+        body: r#"
 DECLARE
     actor uuid;
     explanation text;
@@ -131,9 +285,12 @@ BEGIN
     INSERT INTO audit_event(id,hackathon_id,actor_user_id,action,resource_type,resource_key,reason,version,before_data,after_data)
         VALUES(event_id,scope,actor,operation,TG_TABLE_NAME::audit_resource,resource_identity,explanation,NEW.version,previous,current_data);
     RETURN NEW;
-END $$;
-
-CREATE FUNCTION validate_audit_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "validate_audit_snapshot",
+        security_definer: false,
+        body: r#"
 DECLARE snapshot audit_event; reference_id uuid;
 BEGIN
     IF TG_TABLE_NAME='application' THEN
@@ -163,13 +320,12 @@ BEGIN
         END IF;
     END IF;
     RETURN NEW;
-END $$;
-CREATE CONSTRAINT TRIGGER application_snapshot AFTER INSERT OR UPDATE ON application
-    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_audit_snapshot();
-CREATE CONSTRAINT TRIGGER evaluation_snapshot AFTER INSERT OR UPDATE ON evaluation
-    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_audit_snapshot();
-
-CREATE FUNCTION validate_team_roster() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "validate_team_roster",
+        security_definer: false,
+        body: r#"
 DECLARE team_id_value uuid; roster integer; leaders integer; maximum integer; active_team boolean;
 BEGIN
     team_id_value := CASE WHEN TG_TABLE_NAME='team' THEN (to_jsonb(NEW)->>'id')::uuid ELSE (to_jsonb(NEW)->>'team_id')::uuid END;
@@ -185,13 +341,12 @@ BEGIN
         RAISE EXCEPTION 'Table allocation exceeds configured capacity' USING ERRCODE='23514';
     END IF;
     RETURN NEW;
-END $$;
-CREATE CONSTRAINT TRIGGER team_roster AFTER INSERT OR UPDATE ON team_member
-    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_team_roster();
-CREATE CONSTRAINT TRIGGER team_roster AFTER INSERT OR UPDATE ON team
-    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_team_roster();
-
-CREATE FUNCTION validate_scoped_json() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "validate_scoped_json",
+        security_definer: false,
+        body: r#"
 DECLARE reference_id uuid; winner jsonb; parent hackathon;
 BEGIN
     IF TG_TABLE_NAME='invitation' THEN
@@ -235,48 +390,15 @@ BEGIN
         END LOOP;
     END IF;
     RETURN NEW;
-END $$;
-CREATE TRIGGER validate_scoped_json BEFORE INSERT OR UPDATE ON hackathon FOR EACH ROW EXECUTE FUNCTION validate_scoped_json();
-CREATE TRIGGER validate_scoped_json BEFORE INSERT OR UPDATE ON invitation FOR EACH ROW EXECUTE FUNCTION validate_scoped_json();
-CREATE TRIGGER validate_scoped_json BEFORE INSERT OR UPDATE ON reimbursement_application FOR EACH ROW EXECUTE FUNCTION validate_scoped_json();
-CREATE TRIGGER validate_scoped_json BEFORE INSERT OR UPDATE ON prize_track FOR EACH ROW EXECUTE FUNCTION validate_scoped_json();
-
-CREATE FUNCTION snapshot_project_tracks() RETURNS trigger LANGUAGE plpgsql AS $$
+END "#,
+    },
+    Function {
+        name: "snapshot_project_tracks",
+        security_definer: false,
+        body: r#"
 BEGIN
     UPDATE project SET version=version+1 WHERE id=NEW.project_id;
     RETURN NEW;
-END $$;
-CREATE TRIGGER snapshot_project_tracks AFTER INSERT OR UPDATE ON project_track_sub
-    FOR EACH ROW EXECUTE FUNCTION snapshot_project_tracks();
-
-DO $$
-DECLARE target text; keys text; function_name text;
-BEGIN
-    FOREACH target IN ARRAY ARRAY['user','hackathon','invitation','user_hackathon_role','application',
-        'reimbursement_application','team','team_member','project','sponsor_org','prize_track',
-        'project_track_sub','judge_track_assign','event','event_check_in','evaluation','sponsor','organizer']
-    LOOP
-        keys := CASE target WHEN 'user_hackathon_role' THEN '''user_id'',''hackathon_id'''
-            WHEN 'team_member' THEN '''team_id'',''user_id'''
-            WHEN 'project_track_sub' THEN '''project_id'',''track_id'''
-            WHEN 'judge_track_assign' THEN '''user_id'',''track_id'''
-            WHEN 'sponsor' THEN '''user_id'',''hackathon_id'',''org_id'''
-            WHEN 'organizer' THEN '''user_id'',''hackathon_id''' ELSE '''id''' END;
-        EXECUTE format('CREATE TRIGGER preserve_domain BEFORE TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION reject_domain_truncate()',target);
-        EXECUTE format('CREATE TRIGGER prepare_change BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION prepare_domain_change()',target);
-        EXECUTE format('CREATE TRIGGER audit_change AFTER INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION audit_domain_change(%s)',target,keys);
-    END LOOP;
-    FOREACH function_name IN ARRAY ARRAY['reject_domain_truncate','prepare_domain_change','audit_domain_change','validate_audit_snapshot','validate_team_roster','validate_scoped_json','snapshot_project_tracks','reject_audit_changes'] LOOP
-        EXECUTE format('ALTER FUNCTION %I() SET search_path TO pg_catalog, %I, pg_temp',function_name,current_schema());
-    END LOOP;
-END $$;
-"#)
-            .await?;
-        Ok(())
-    }
-    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
-        Err(DbErr::Custom(
-            "Audit history is retained; this migration is forward-only".into(),
-        ))
-    }
-}
+END "#,
+    },
+];
