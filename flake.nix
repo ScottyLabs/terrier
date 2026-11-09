@@ -106,7 +106,10 @@
               extraSources = [ "crates/terrier-server/tests/fixtures" ];
               nativeBuildInputs = [ pkgs.pkg-config ];
               buildInputs = [ pkgs.openssl ];
-              buildArgs.cargoExtraArgs = "--locked -p terrier-server";
+              buildArgs = {
+                cargoExtraArgs = "--locked -p terrier-server";
+                meta.mainProgram = "terrier";
+              };
             };
             customDomain = "api.terrier.scottylabs.org";
             env.STATIC_DIR = "${app}";
