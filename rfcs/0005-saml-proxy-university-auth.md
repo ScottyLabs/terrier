@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Author(s):** @anish
 - **Created:** 2026-02-18
-- **Updated:** 2026-11-07
+- **Updated:** 2026-11-09
 
 ## Overview
 
-This RFC proposes building a SAML-to-SAML proxy service (`crates/saml-proxy`) that enables university student authentication for Terrier and other hackathon platforms via InCommon/eduGAIN federation. The proxy sits between any SAML Service Provider (e.g., Keycloak) and university Identity Providers, dynamically fetching metadata via the MDQ protocol and providing a discovery interface for university selection.
+This RFC describes [symbolon](https://codeberg.org/anish/symbolon), the SAML-to-SAML proxy Terrier uses to enable university student authentication via InCommon/eduGAIN federation. It also works for other hackathon platforms. The proxy sits between any SAML Service Provider (e.g., Keycloak) and university Identity Providers, dynamically fetching metadata via the MDQ protocol and providing a discovery interface for university selection.
 
 ## Motivation
 
@@ -64,7 +64,7 @@ Service Provider (Keycloak, etc.)
 
 ↕ SAML
 
-saml-proxy (auth.terrier.build)
+symbolon (auth.terrier.build)
   - IdP interface (receives from SPs)
   - SP interface (sends to universities)
   - Discovery UI
@@ -79,40 +79,40 @@ University IdPs         InCommon MDQ
 
 ### Authentication Flow
 
-This list describes the authentication flow between the Service Provider, saml-proxy, and the University IdP, using Terrier + ScottyLabs + our Keycloak IdP as an example:
+This list describes the authentication flow between the Service Provider, symbolon, and the University IdP, using Terrier + ScottyLabs + our Keycloak IdP as an example:
 
-1. Service Provider -> saml-proxy: User initiates auth via SAML
+1. Service Provider -> symbolon: User initiates auth via SAML
 
    - User clicks "Sign in" on Terrier
    - Keycloak redirects to `https://auth.terrier.build/saml/sso?SAMLRequest=...`
    - Proxy parses AuthnRequest, creates session, stores SP's ACS URL and request ID
 
-1. saml-proxy -> User: Discovery UI for university selection
+1. symbolon -> User: Discovery UI for university selection
 
    - Proxy redirects user to `https://auth.terrier.build/discovery?session={id}`
    - User sees HTML form with search box
    - User types "carnegie" -> JavaScript filters/searches entities
    - User selects their university and submits
 
-1. saml-proxy -> InCommon MDQ: Fetch selected university metadata
+1. symbolon -> InCommon MDQ: Fetch selected university metadata
 
    - Proxy uses `saml-mdq` crate to fetch university IdP metadata
    - Request: `GET https://mdq.incommon.org/entities/{percent-encoded entityID}`
    - Response: SAML EntityDescriptor with SSO endpoints
    - Metadata cached in-memory via `saml-mdq`'s built-in LRU cache (1,000 entries, 1 hour TTL)
 
-1. saml-proxy -> University IdP: Forward auth request via SAML
+1. symbolon -> University IdP: Forward auth request via SAML
 
    - Proxy builds new AuthnRequest for selected university
    - Redirects user to university's SSO endpoint: `https://idp.mit.edu/sso?SAMLRequest=...`
    - RelayState contains proxy session ID
 
-1. University IdP -> saml-proxy: Return auth response via SAML
+1. University IdP -> symbolon: Return auth response via SAML
 
    - Student authenticates with university credentials
    - University IdP posts SAML Response to `https://auth.terrier.build/sp/acs`
 
-1. saml-proxy -> Service Provider: Transform and return response via SAML
+1. symbolon -> Service Provider: Transform and return response via SAML
 
    - Proxy validates SAML Response signature
    - Extracts assertions (eduPersonPrincipalName, email, displayName, etc.)
@@ -133,14 +133,14 @@ The upstream samael crate has a bug deserializing `<ContactPerson>` elements fro
 
 Our fork ([ap-1/samael](https://github.com/ap-1/samael/tree/fix/contact-person-deserialization)) implements a custom deserializer that handles duplicate keys by keeping the first value. This prevents crashes when fetching real-world InCommon metadata.
 
-Since crates.io doesn't allow git dependencies, `saml-proxy` will remain git-only until either: (1) the fix is merged upstream, or (2) we fork samael permanently as a published crate.
+Since crates.io doesn't allow git dependencies, symbolon will remain git-only until either: (1) the fix is merged upstream, or (2) we fork samael permanently as a published crate.
 
 **Why saml-mdq separation:**
 
 The MDQ client is a separate crate because:
 
 - MDQ protocol is not SAML-specific (can serve any metadata format)
-- MDQ = fetching, samael = parsing/signing, saml-proxy = routing
+- MDQ = fetching, samael = parsing/signing, symbolon = routing
 - Reusable for other projects needing InCommon/eduGAIN integration
 - Follows Rust ecosystem pattern of small, composable crates
 
@@ -167,7 +167,7 @@ The proxy is configured via environment variables:
 - InCommon MDQ signing certificate: embedded at compile time from `certs/inc-md-cert-mdq.pem`
 - Federation index refresh interval: 6 hours
 
-The InCommon MDQ signing certificate is embedded into the binary at compile time from `crates/saml-proxy/certs/inc-md-cert-mdq.pem`. It can be obtained from [InCommon](https://md.incommon.org/certs/inc-md-cert-mdq.pem).
+The InCommon MDQ signing certificate is embedded into the binary at compile time from symbolon's `certs/inc-md-cert-mdq.pem`. It can be obtained from [InCommon](https://md.incommon.org/certs/inc-md-cert-mdq.pem).
 
 ### Session Management
 
@@ -256,7 +256,7 @@ These are passed through to the Service Provider in the proxy's SAML Response. T
 
 **Build output:**
 
-The proxy builds to a standalone binary: `saml-proxy`. This binary is deployed via NixOS module on ScottyLabs infrastructure.
+symbolon builds to a standalone binary, `saml-proxy`. This binary is deployed via NixOS module on ScottyLabs infrastructure.
 
 **systemd service:**
 
@@ -435,7 +435,7 @@ Building the proxy now unblocks development and provides value to the broader ha
 
 ### Phase 1: Implementation
 
-- Set up crates/saml-proxy/ structure and dependencies
+- Set up symbolon's crate structure and dependencies
 - Session management, IdP metadata generation, SSO endpoint
 - Discovery UI with client-side search and entity list endpoint
 - SP initiation (MDQ integration, AuthnRequest building)

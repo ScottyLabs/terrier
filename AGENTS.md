@@ -10,7 +10,7 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | Database | [entities](crates/terrier-server/src/entities) and [migrations](crates/terrier-server/migration); PostgreSQL/SeaORM design in [RFC 0008](rfcs/0008-database-model.md). |
 | Shared Rust | [terrier-common](crates/terrier-common/src/lib.rs): shared runtime helpers. |
 | Authorization | [Leash](crates/leash/README.md): typed policy extractors; keep this crate independent of Terrier domain types. |
-| SSO | [SAML proxy](crates/saml-proxy/README.md); currently absent from root workspace members, so workspace checks do not cover it. |
+| SSO | [symbolon](https://codeberg.org/anish/symbolon): the SAML proxy for university sign-in, maintained outside this repository. Design in [RFC 0005](rfcs/0005-saml-proxy-university-auth.md). |
 | Frontend | [app](app/package.json): SvelteKit, Svelte 5, TypeScript, Vite, Deno; routes in `app/src/routes/`, static output in `app/dist/`, API client and generated types in `app/src/lib/api/`. |
 | Documentation | [sites/docs](sites/docs/zensical.toml): Zensical site with pages in `sites/docs/src/`. The server publishes the API reference at `/scalar`. |
 | Development/deployment | [flake.nix](flake.nix). The ScottyLabs module supplies shared tooling and services, and the flake declares deployment routing. |

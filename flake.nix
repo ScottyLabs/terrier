@@ -46,14 +46,6 @@
             }
           );
 
-          samlLibraries = with pkgs; [
-            xmlsec
-            libxml2
-            libtool
-            openssl
-            libxslt
-          ];
-
           app = helpers.buildDenoTask {
             src = ./app;
             pname = "terrier-app";
@@ -81,40 +73,30 @@
             };
 
             shell = {
-              packages =
-                with pkgs;
-                [
-                  # Focused source search and structured output
-                  ripgrep
-                  fd
-                  jq
+              packages = with pkgs; [
+                # Focused source search and structured output
+                ripgrep
+                fd
+                jq
 
-                  # Native libraries for samael (SAML)
-                  pkg-config
+                # OpenSSL for sqlx's native-tls
+                pkg-config
+                openssl
 
-                  # Database tooling
-                  seaOrmCli
+                # Database tooling
+                seaOrmCli
 
-                  # Documentation
-                  zensical
+                # Documentation
+                zensical
 
-                  # General tooling
-                  git
-                ]
-                ++ samlLibraries;
+                # General tooling
+                git
+              ];
 
               env = {
                 HOST = "127.0.0.1";
                 PORT = "3000";
                 INSTANCE_ADMIN_SUBJECTS = "[]";
-
-                # saml-proxy configuration
-                SAML_PROXY_BASE_URL = "http://localhost:8443";
-                SAML_PROXY_ENTITY_ID = "https://saml-proxy.example.com";
-                SAML_PROXY_IDP_CERT_PATH = "crates/saml-proxy/certs/idp-cert.pem";
-                SAML_PROXY_IDP_KEY_PATH = "crates/saml-proxy/certs/idp-key.pem";
-
-                LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
                 NIX_ENFORCE_PURITY = "0";
               };
@@ -136,7 +118,7 @@
               src = ./.;
               pname = "terrier-server";
               nativeBuildInputs = [ pkgs.pkg-config ];
-              buildInputs = samlLibraries;
+              buildInputs = [ pkgs.openssl ];
               buildArgs.cargoExtraArgs = "--locked -p terrier-server";
             };
             customDomain = "api.terrier.scottylabs.org";

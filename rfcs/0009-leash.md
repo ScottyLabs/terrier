@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @kritdass
 - **Created:** 2026-04-18
-- **Updated:** 2026-11-07
+- **Updated:** 2026-11-09
 
 ## Overview
 
@@ -11,7 +11,7 @@ This RFC establishes a small, domain-free Rust crate, `crates/leash`, that lifts
 
 ## Motivation
 
-Terrier is built on Axum and authenticates users through Keycloak (with `saml-proxy` from RFC 0005 sitting in front for university SSO). Per RFC 0008, per-hackathon roles live in `user_hackathon_roles`. Access control (given an authenticated user, deciding whether they may do a particular thing) is the missing layer between the OIDC stack and each handler.
+Terrier is built on Axum and authenticates users through Keycloak (with [symbolon](https://codeberg.org/anish/symbolon) from RFC 0005 sitting in front for university SSO). Per RFC 0008, per-hackathon roles live in `user_hackathon_roles`. Access control (given an authenticated user, deciding whether they may do a particular thing) is the missing layer between the OIDC stack and each handler.
 
 Without a shared mechanism, every handler ends up performing the same load-resource-then-check pattern in its body. The auth contract becomes **invisible from the handler signature**, **easy to forget** with no compile-time signal, and **repeated across dozens of routes**. Every ScottyLabs Rust service will hit the same problem, so we should solve it once.
 
@@ -114,7 +114,7 @@ The type macros `any!(A, B, C)` and `all!(A, B, C)` compose one or more policies
 
 Leash does not replace anything beneath it. The flow is:
 
-1. **Keycloak** authenticates users through Google or university SSO, with `saml-proxy` brokering university IdPs upstream per RFC 0005.
+1. **Keycloak** authenticates users through Google or university SSO, with symbolon brokering university IdPs upstream per RFC 0005.
 1. **`axum-oidc`** handles backend login and callback through the Ricochet OAuth relay. OIDC tokens remain in a server-side session backed by Valkey; the browser receives an opaque session cookie. On subsequent requests, the session and OIDC layers establish validated claims, refreshing tokens when necessary.
 1. A small middleware in `terrier-server` resolves the validated issuer and subject to an independent Terrier user UUID, creates the user on first authentication, and inserts `CurrentUser` into request extensions. Email stays synchronized with Keycloak; display name is initialized on creation and subsequent Terrier edits are preserved. Database failures return explicit server errors rather than appearing as anonymous requests.
 1. Application routes require authentication before running a policy. Terrier trusts its configured Keycloak issuer and does not require an `email_verified` claim or a separate email-verification step. Identity uses the validated issuer and subject; email is profile data rather than an identity key.
@@ -126,7 +126,7 @@ Global admins are configured through deployment environment variables using stab
 
 ### Workspace Placement
 
-The crate is added to the workspace as `crates/leash`, alongside the existing `crates/saml-proxy`, `crates/terrier-common`, and `crates/terrier-server`. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping Leash itself free of any Terrier types.
+The crate is added to the workspace as `crates/leash`, alongside the existing `crates/terrier-common` and `crates/terrier-server`. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping Leash itself free of any Terrier types.
 
 `Authorized<P, S>` defaults `S` to `()` so stateless examples read nicely. Stateful consumers pin the state once via a project-local alias next to `AppState`:
 
