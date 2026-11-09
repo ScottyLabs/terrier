@@ -48,4 +48,4 @@ Health, auth status, login, callback, and logout remain outside the application 
 
 See [API routes and policies](api-routes.md) for the own-profile policy, route registration, shared errors, and typed client usage.
 
-Database startup requires separate `DATABASE_URL` and `MIGRATION_DATABASE_URL` logins. See [database setup](database.md#changing-the-schema). OIDC user creation and email changes are audited as automatic identity synchronization; unchanged claims do not create another write.
+OIDC user creation and email changes are audited as automatic identity synchronization; unchanged claims do not create another write.

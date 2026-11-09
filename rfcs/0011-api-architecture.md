@@ -286,7 +286,7 @@ Store deployment secrets in environment configuration according to [RFC 0001](ht
 
 [RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md) is reconciled and migrated. Generated entities include lifecycle flags, resource versions, scoped capabilities, application and project states, winner publication metadata and audit snapshots. Composite foreign keys and uniqueness constraints enforce resource scope and retained identities. Team requests and membership share TeamMember, distinguished by status.
 
-Application middleware and the `audited!` macro bind writes to the authenticated actor. Database triggers append audit entries in the same transaction and reject unaudited writes. Startup uses separate migration and runtime logins and validates audit storage permissions. See the [handler guide](https://docs.terrier.build/guides/api-routes/) for the member workflow.
+Application middleware and the `audited!` macro bind writes to the authenticated actor. Database triggers append audit entries in the same transaction and reject unaudited writes. See the [handler guide](https://docs.terrier.build/guides/api-routes/) for the member workflow.
 
 Schema support does not implement the domain routes or settle their remaining payload, scoring, recovery and access-policy questions. Communications storage remains deferred. New schema changes still require forward migrations and regenerated entities.
 

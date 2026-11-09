@@ -120,13 +120,13 @@ From the repository root in the dev shell, with PostgreSQL running:
 
 1. Review the migration and generated diff together, then update affected routes, tests, and API schemas. Entity files are generated; do not edit them by hand.
 
-The server applies migrations through `MIGRATION_DATABASE_URL`, then uses `DATABASE_URL` for requests. The migration login owns the schema. The runtime login must be separate, non-superuser, unable to create roles or schema objects, and unable to inherit the migration login. Startup grants domain read/insert/update and audit read permissions, then checks that runtime cannot modify audit storage. Migration failures stop startup and roll back under a transaction lock.
+On startup the server applies migrations through `DATABASE_URL` under a transaction lock, then serves requests on the same connection pool. A migration failure stops startup and rolls back.
 
 The RFC migration accepts empty domain tables and retains existing OIDC users. Nonempty legacy domain tables require explicit mappings for missing deadlines, actors, membership times and submission evidence. It stops without changing rows rather than inventing that history. Existing migrations are unchanged and the new migrations are forward-only. See the [migration instructions](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/crates/terrier-server/migration/README.md).
 
 ## Tests
 
-Database tests connect through `DATABASE_URL`, where the login can create schemas and temporary runtime roles. Each test creates an isolated schema and removes it after a successful run; they do not reset the whole database. The existing setup in `tests/database.rs` is private to that test file, so extract shared setup when another suite needs it.
+Database tests connect through `DATABASE_URL`, where the login can create schemas. Each test creates an isolated schema and removes it after a successful run; they do not reset the whole database. The existing setup in `tests/database.rs` is private to that test file, so extract shared setup when another suite needs it.
 
 Start PostgreSQL with `pitchfork start --local`, then run the existing migration and identity tests from the repository root:
 

@@ -17,8 +17,7 @@ struct TestDatabase {
     admin: DatabaseConnection,
     state: AppState,
     schema: String,
-    runtime_options: ConnectOptions,
-    runtime_role: String,
+    options: ConnectOptions,
 }
 
 impl TestDatabase {
@@ -32,29 +31,15 @@ impl TestDatabase {
         let mut options = ConnectOptions::new(url);
         options.set_schema_search_path(&schema);
         let state = AppState {
-            db: Database::connect(options).await?,
+            db: Database::connect(options.clone()).await?,
         };
-        let runtime_role = format!("runtime_{}", Uuid::new_v4().simple());
-        let password = Uuid::new_v4().simple().to_string();
-        admin
-            .execute_unprepared(&format!(
-                "CREATE ROLE {runtime_role} LOGIN PASSWORD '{password}'"
-            ))
-            .await?;
-        let mut runtime_url = url::Url::parse(&std::env::var("DATABASE_URL")?)?;
-        runtime_url
-            .query_pairs_mut()
-            .append_pair("user", &runtime_role)
-            .append_pair("password", &password);
-        let mut runtime_options = ConnectOptions::new(runtime_url.to_string());
-        runtime_options.set_schema_search_path(&schema);
-        runtime_options.max_connections(1);
+        // temp tables are per connection
+        options.max_connections(1);
         Ok(Self {
-            runtime_options,
-            runtime_role,
             admin,
             state,
             schema,
+            options,
         })
     }
 
@@ -62,9 +47,6 @@ impl TestDatabase {
         self.state.db.close().await?;
         self.admin
             .execute_unprepared(&format!("DROP SCHEMA {} CASCADE", self.schema))
-            .await?;
-        self.admin
-            .execute_unprepared(&format!("DROP ROLE {}", self.runtime_role))
             .await?;
         self.admin.close().await?;
         Ok(())
@@ -74,12 +56,9 @@ impl TestDatabase {
 #[tokio::test]
 async fn concurrent_startups_apply_migrations_once() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
-    let url = std::env::var("DATABASE_URL")?;
-    let mut options = ConnectOptions::new(url);
-    options.set_schema_search_path(&database.schema);
     let (first, second) = tokio::join!(
-        AppState::connect(database.runtime_options.clone(), options.clone()),
-        AppState::connect(database.runtime_options.clone(), options.clone())
+        AppState::connect(database.options.clone()),
+        AppState::connect(database.options.clone())
     );
     first?.db.close().await?;
     second?.db.close().await?;
@@ -90,7 +69,7 @@ async fn concurrent_startups_apply_migrations_once() -> anyhow::Result<()> {
             .len()
             == 4
     );
-    AppState::connect(database.runtime_options.clone(), options)
+    AppState::connect(database.options.clone())
         .await?
         .db
         .close()
@@ -106,9 +85,7 @@ async fn failed_startup_rolls_back_pending_migrations() -> anyhow::Result<()> {
         .db
         .execute_unprepared("CREATE TYPE application_status AS ENUM ('pending')")
         .await?;
-    let mut options = ConnectOptions::new(std::env::var("DATABASE_URL")?);
-    options.set_schema_search_path(&database.schema);
-    let error = AppState::connect(database.runtime_options.clone(), options)
+    let error = AppState::connect(database.options.clone())
         .await
         .err()
         .context("startup accepted a conflicting schema")?;
@@ -210,9 +187,7 @@ async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Res
     ))
     .await?;
 
-    let mut options = ConnectOptions::new(std::env::var("DATABASE_URL")?);
-    options.set_schema_search_path(&database.schema);
-    let error = AppState::connect(database.runtime_options.clone(), options)
+    let error = AppState::connect(database.options.clone())
         .await
         .err()
         .context("startup accepted an unmapped user")?;
@@ -431,22 +406,18 @@ async fn concurrent_membership_changes_preserve_capacity_and_leadership() -> any
 }
 
 #[tokio::test]
-async fn runtime_role_cannot_modify_audit_storage_or_become_its_owner() -> anyhow::Result<()> {
+async fn audit_storage_rejects_changes_and_shadowing() -> anyhow::Result<()> {
     let database = TestDatabase::new().await?;
-    let mut owner = ConnectOptions::new(std::env::var("DATABASE_URL")?);
-    owner.set_schema_search_path(&database.schema);
-    let state = AppState::connect(database.runtime_options.clone(), owner.clone()).await?;
+    let state = AppState::connect(database.options.clone()).await?;
     for sql in [
         "UPDATE audit_event SET reason='changed'",
         "DELETE FROM audit_event",
         "TRUNCATE audit_event",
         "TRUNCATE \"user\" CASCADE",
-        "ALTER TABLE audit_event DROP COLUMN reason",
-        "CREATE TABLE bypass(id int)",
     ] {
         ensure!(
             state.db.execute_unprepared(sql).await.is_err(),
-            "runtime role accepted {sql}"
+            "audit storage accepted {sql}"
         );
     }
     let user = sync_user(
@@ -510,10 +481,6 @@ async fn runtime_role_cannot_modify_audit_storage_or_become_its_owner() -> anyho
         "audit context leaked across transactions"
     );
     state.db.close().await?;
-    ensure!(
-        AppState::connect(owner.clone(), owner).await.is_err(),
-        "server accepted schema-owner runtime credentials"
-    );
     database.close().await
 }
 
