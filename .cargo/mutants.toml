@@ -1,0 +1,6 @@
+# process entry points, only exercised by running the binaries
+exclude_re = [
+  "replace (main|shutdown_signal)\\b",
+  "in main$",
+  "replace run -> anyhow",
+]
