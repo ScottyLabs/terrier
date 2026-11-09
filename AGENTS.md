@@ -5,7 +5,7 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 ## Where to look
 
 | Area | Entry point and context |
-| --- | --- |
+| -- | -- |
 | API | [terrier-server](crates/terrier-server/src/main.rs): Rust, Axum, Tokio, Utoipa OpenAPI; currently a health endpoint and optional static assets. |
 | Database | [entities](crates/terrier-server/src/entities) and [migrations](crates/terrier-server/migration); PostgreSQL/SeaORM design in [RFC 0008](rfcs/0008-database-model.md). |
 | Shared Rust | [terrier-common](crates/terrier-common/src/lib.rs): shared runtime helpers. |
@@ -23,7 +23,7 @@ Use `collar dev shell` from the root, or `collar dev run -- <command>` for nonin
 Run component commands through `collar dev run -- <command>` from the indicated directory, or inside `collar dev shell`. Collar wrappers manage their own development shell:
 
 | Purpose | Directory | Command |
-| --- | --- | --- |
+| -- | -- | -- |
 | API server | root | `cargo run -p terrier-server` |
 | Focused Rust tests | root | `cargo test -p <package> [test_filter]` |
 | Workspace tests/lints | root | `cargo test --workspace`; `cargo clippy --workspace --all-targets` |

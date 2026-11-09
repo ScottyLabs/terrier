@@ -24,8 +24,7 @@ impl Policy<()> for IsProfileOwner {
     type Error = StatusCode;
 
     async fn check(parts: &mut Parts, state: &()) -> Result<User, StatusCode> {
-        // Extensions hold request context, looked up by Rust type. Retrieve the
-        // `User` attached below; `let Extension(user)` unwraps it into `user`.
+        // Extensions hold request context, looked up by Rust type. Retrieve the `User` attached below; `let Extension(user)` unwraps it into `user`.
         let Extension(user) = Extension::<User>::from_request_parts(parts, state)
             .await
             // `map_err` turns a missing extension into 401; `?` returns that error early.
@@ -52,8 +51,7 @@ fn app() -> Router {
     Router::new()
         // Connect GET requests at this path to the `profile` handler.
         .route("/users/{user_id}", get(profile))
-        // A layer adds request processing around these routes. This one attaches
-        // a fixed `User` to each request; it does not authenticate anyone.
+        // A layer adds request processing around these routes. This one attaches a fixed `User` to each request; it does not authenticate anyone.
         // Real authentication middleware would attach the verified caller instead.
         .layer(Extension(User {
             id: 1,

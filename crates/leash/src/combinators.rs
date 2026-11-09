@@ -4,8 +4,7 @@ use axum::http::request::Parts;
 
 use crate::Policy;
 
-/// Try `A` first; on rejection, try `B`. Both branches must share the same
-/// `Error` type.
+/// Try `A` first; on rejection, try `B`. Both branches must share the same `Error` type.
 pub struct Any<A, B>(PhantomData<fn() -> (A, B)>);
 
 /// Require both `A` and `B` to pass; the proof is the pair of their outputs.

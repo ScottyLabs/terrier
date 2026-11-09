@@ -117,6 +117,7 @@
             package = helpers.buildRustService {
               src = ./.;
               pname = "terrier-server";
+              extraSources = [ "crates/terrier-server/tests/fixtures" ];
               nativeBuildInputs = [ pkgs.pkg-config ];
               buildInputs = [ pkgs.openssl ];
               buildArgs.cargoExtraArgs = "--locked -p terrier-server";

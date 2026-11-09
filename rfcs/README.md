@@ -90,7 +90,7 @@ The filename should match the branch name, e.g. `0002-dev-environment-ci.md`.
 ## Current RFCs
 
 | Number | Title | Status |
-|--------|-------|--------|
+| -- | -- | -- |
 | 0001 | [Core Architecture & Tech Stack](./0001-core-architecture-tech-stack.md) | Accepted |
 | 0002 | [Development Environment & CI](./0002-dev-environment-ci.md) | Accepted |
 | 0003 | [Build Performance & Developer Workflow](./0003-build-performance-dev-workflow.md) | Accepted |

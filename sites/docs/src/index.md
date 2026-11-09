@@ -9,7 +9,4 @@ Terrier is a hackathon management platform. These docs cover development and the
 - [Authorization policies](reference/policies.md): find permission rules and policy outputs.
 - [API errors](reference/api-errors.md): choose an error and handle its response.
 
-See the [repository](https://git.cmu.dev/ScottyLabs/terrier) for source code,
-contributor instructions, and RFCs. Each endpoint's parameters, schemas, and
-responses are in the [API reference](https://api.terrier.scottylabs.org/scalar),
-which the server generates from its OpenAPI specification.
+See the [repository](https://git.cmu.dev/ScottyLabs/terrier) for source code, contributor instructions, and RFCs. Each endpoint's parameters, schemas, and responses are in the [API reference](https://api.terrier.scottylabs.org/scalar), which the server generates from its OpenAPI specification.

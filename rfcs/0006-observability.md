@@ -174,7 +174,7 @@ Note: if at some point we want frontend traces flowing into Tempo as well, the O
 These are instrumented (or ready to be) but require infrastructure to be set up before data flows anywhere:
 
 | Signal | Source | Requires |
-|---|---|---|
+| -- | -- | -- |
 | Metrics (HTTP) | `axum-prometheus` `/metrics` endpoint | Prometheus scrape config |
 | Metrics (Postgres) | OTel Collector `postgresql` receiver | OTel Collector deployment |
 | Metrics (Valkey) | `redis_exporter` | Prometheus scrape config |

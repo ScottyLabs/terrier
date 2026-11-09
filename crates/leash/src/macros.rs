@@ -1,8 +1,6 @@
 /// Builds a sum-type [`Policy`](crate::Policy) from several existing policies.
 ///
-/// Variants are tried in source order and the first to succeed is taken; if
-/// all reject, the last error is returned. All variants must share the same
-/// `Error` associated type.
+/// Variants are tried in source order and the first to succeed is taken; if all reject, the last error is returned. All variants must share the same `Error` associated type.
 ///
 /// # Syntax
 ///

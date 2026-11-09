@@ -89,7 +89,7 @@ Use typed request and response structs rather than returning database models dir
 The API uses these shared response conventions:
 
 | Status | Meaning |
-| --------------------------- | ------------------------------------------------------------ |
+| -- | -- |
 | `200 OK` | Read or update succeeded and returns a representation |
 | `201 Created` | Resource created; return its ID and representation |
 | `202 Accepted` | Durable asynchronous work accepted, not delivered yet |
@@ -134,7 +134,7 @@ Bulk application decisions, judging assignments, and application-data export/dec
 The route tables cover the shared architecture and selected domain operations. Management access means the capability for that action under RFC 0010, not every organizer. The following RFC 0010 workflows also require contracts before their respective features are implemented; exact routes and payloads belong to that work.
 
 | Workflow | Required behavior and access |
-| --- | --- |
+| -- | -- |
 | Application drafts, revisions, and corrections | Applicants save drafts separately from submitted revisions; application managers/admins inspect drafts in a separate view and make recorded corrections |
 | Attendance | Applicants confirm, decline, or reconfirm before the deadline; application managers/admins reopen expired offers; preserve check-in and decline history without restoring former team membership |
 | Events and check-in | Organizers record event check-in for confirmed attendees; repeated scans must not duplicate attendance |
@@ -147,7 +147,7 @@ The route tables cover the shared architecture and selected domain operations. M
 ### Hackathon Administration
 
 | Method and path | Request or behavior | Access |
-| -------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------ |
+| -- | -- | -- |
 | `POST /api/hackathons` | Create a hackathon with its settings | Global-admin access |
 | `GET /api/hackathons/{slug}` | Read hackathon configuration visible to the caller | Public fields or management view |
 | `PATCH /api/hackathons/{slug}` | Update hackathon settings or set `is_active: false` to deactivate it | Hackathon management |
@@ -177,7 +177,7 @@ Business deletion deactivates persistent domain records. Session/token cleanup a
 ### Registration and Applications
 
 | Method and path | Request or behavior | Access |
-| ------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------- |
+| -- | -- | -- |
 | `GET /api/users/{user_id}` | Read the requested user's profile fields visible to the caller | Profile owner; other visibility unresolved |
 | `PATCH /api/users/{user_id}` | Update editable profile fields | Profile owner |
 | `GET /api/hackathons/{slug}/users` | List approved public participant profiles | Visibility policy unresolved |
@@ -197,7 +197,7 @@ Application statuses are `pending`, `accepted`, `rejected`, and `waitlisted`. Re
 ### Teams
 
 | Method and path | Request or behavior | Access |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------- |
+| -- | -- | -- |
 | `POST /api/hackathons/{slug}/teams` | Create a team from a name; add the caller | Confirmed attendee without an active team in this hackathon |
 | `GET /api/hackathons/{slug}/teams` | List visible teams; optionally filter teams seeking members | Eligible authenticated users |
 | `GET /api/hackathons/{slug}/teams/{team_id}` | Read team details, permitted member fields, and submission information | Confirmed attendees see discovery fields; members, permitted judges, and management see their authorized detail views |
@@ -222,7 +222,7 @@ Initial discovery supports browsing and searching teams. Automated matching and 
 ### Project Submissions
 
 | Method and path | Request or behavior | Access |
-| ----------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+| -- | -- | -- |
 | `POST /api/hackathons/{slug}/projects` | Create a submission with `event_id`, `data`, and `track_ids` | Confirmed, checked-in member of an active team |
 | `GET /api/hackathons/{slug}/projects/{project_id}` | Read the project, team, and submitted tracks | Owning team or organizers for drafts; permitted assigned judges and authorized track sponsors for submitted projects |
 | `GET /api/hackathons/{slug}/teams/{team_id}/projects` | List a team's submission, returning at most one project | Same resource access policy |
@@ -242,7 +242,7 @@ The server enforces the submission deadline for creation, edits, and track chang
 Judge-to-track access (`JudgeTrackAssign`), judge-to-project assignment, and a submitted evaluation are separate concepts. [RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md) can represent a pending evaluation, but whether that also represents an assignment is unresolved.
 
 | Method and path | Request or behavior | Access |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------- |
+| -- | -- | -- |
 | `GET /api/hackathons/{slug}/tracks/{track_id}/judges/{judge_id}/assignments` | Read the specified judge's current project assignments | Authenticated judge matching `judge_id` and assigned to this track |
 | `POST /api/hackathons/{slug}/tracks/{track_id}/assignments` | Manually assign a judge to a project using `judge_id` and `project_id` | Hackathon management |
 | `POST /api/hackathons/{slug}/tracks/{track_id}/projects/{project_id}/evaluations` | Submit the caller's evaluation payload | Judge assigned to the track and project |
@@ -268,7 +268,7 @@ Organizers need one place to manage hackathon communications. Integration priori
 TODO: Define how external integrations work end to end, including provider adapters, account connection and authorization, credential storage, recipient or channel mapping, workflow triggers, outgoing delivery, incoming webhooks or status updates, and organizer recovery controls. The routes below describe the proposed domain interface; they do not settle provider-specific setup or integration behavior.
 
 | Method and path | Request or behavior | Access |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------- |
+| -- | -- | -- |
 | `POST /api/hackathons/{slug}/announcements` | Create an announcement with title, body, audience, and optional scheduled time | Management or sponsor within its authorized track |
 | `GET /api/hackathons/{slug}/announcements` | List announcements relevant to the caller; management can inspect its scope | Authenticated recipient or management |
 | `GET /api/hackathons/{slug}/announcements/{announcement_id}` | Read one announcement permitted for the caller | Same audience policy |

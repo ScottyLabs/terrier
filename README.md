@@ -22,7 +22,7 @@ Open-source hackathon management platform for universities and organizations.
 Terrier uses the following canonical production domains:
 
 | Component | Kennel key | Domain |
-| --- | --- | --- |
+| -- | -- | -- |
 | Frontend site | N/A | `terrier.scottylabs.org` |
 | API service | `services.terrier` | `api.terrier.scottylabs.org` |
 | Documentation site | `sites.docs` | `docs.terrier.build` |

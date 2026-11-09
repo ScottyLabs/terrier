@@ -42,7 +42,7 @@ The handler signature is the entire authorization spec.
 ## Contents
 
 | Item | Purpose |
-|---|---|
+| -- | -- |
 | \[`Policy`\] | Trait you implement once per atomic check. |
 | \[`Authorized<P, S>`\] | Witness extractor; constructible only via the trait impl. |
 | `any!` / `all!` | Compose one or more policy types with OR / AND. |
@@ -60,32 +60,22 @@ type Access = leash::any!(IsAdmin, IsMember, IsJudge);
 type Required = leash::all!(IsMember, HasAcceptedTerms, IsEligible);
 ```
 
-These are type macros for handler signatures such as `Authorized<Access, AppState>`.
-They accept at least one policy, optional trailing commas, and nested combinations.
-A single policy stays unchanged. Policies must share an error type.
+These are type macros for handler signatures such as `Authorized<Access, AppState>`. They accept at least one policy, optional trailing commas, and nested combinations. A single policy stays unchanged. Policies must share an error type.
 
-`any!(A, B, C)` returns `Either<A::Output, Either<B::Output, C::Output>>`, while
-`all!(A, B, C)` returns `(A::Output, (B::Output, C::Output))`.
-The binary types used by macro expansion are hidden implementation details.
+`any!(A, B, C)` returns `Either<A::Output, Either<B::Output, C::Output>>`, while `all!(A, B, C)` returns `(A::Output, (B::Output, C::Output))`. The binary types used by macro expansion are hidden implementation details.
 
 ### `any!` or `policy!`?
 
-Both try policies in order and stop at the first success. They differ in what
-the handler receives:
+Both try policies in order and stop at the first success. They differ in what the handler receives:
 
 | Declaration | Successful output |
-| --- | --- |
+| -- | -- |
 | `type Access = any!(IsAdmin, IsOwner);` | `Either::Left(admin)` or `Either::Right(owner)` |
 | `policy!` with `Admin = IsAdmin, Owner = IsOwner` | `Access::Admin(admin)` or `Access::Owner(owner)` |
 
-Use `any!` for simple alternatives. Use `policy!` when the handler matches on the
-successful branch and names would be clearer than nested `Left` and `Right`.
+Use `any!` for simple alternatives. Use `policy!` when the handler matches on the successful branch and names would be clearer than nested `Left` and `Right`.
 
-Checks run left to right. `any!` stops at the first success and returns the last
-error if all fail; `all!` stops at the first error. `any!` tries the
-next policy after every error, including infrastructure failures. Use an explicit
-check if those failures must stop evaluation. Checks share request parts, so avoid
-side effects that a later branch could observe.
+Checks run left to right. `any!` stops at the first success and returns the last error if all fail; `all!` stops at the first error. `any!` tries the next policy after every error, including infrastructure failures. Use an explicit check if those failures must stop evaluation. Checks share request parts, so avoid side effects that a later branch could observe.
 
 ## Project-local alias
 

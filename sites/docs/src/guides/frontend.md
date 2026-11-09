@@ -8,34 +8,16 @@ Enter `nix develop` from the repository root, then run these commands in `app`:
 - `deno task build` builds the site into `dist`.
 - `deno task preview` serves the production build locally.
 
-Pages live in `src/routes`; the home page is `src/routes/+page.svelte`. Shared
-components and the API client live in `src/lib`.
+Pages live in `src/routes`; the home page is `src/routes/+page.svelte`. Shared components and the API client live in `src/lib`.
 
-The app uses SvelteKit's [static adapter](https://svelte.dev/docs/kit/adapter-static).
-The root layout enables prerendering, so pages are rendered at build time and served as
-static files by the existing deployment. Runtime data comes from the Rust API. Server
-routes and form actions that require a running SvelteKit server are not supported by
-this deployment.
+The app uses SvelteKit's [static adapter](https://svelte.dev/docs/kit/adapter-static). The root layout enables prerendering, so pages are rendered at build time and served as static files by the existing deployment. Runtime data comes from the Rust API. Server routes and form actions that require a running SvelteKit server are not supported by this deployment.
 
-The packaged Rust server serves the built frontend using `STATIC_DIR`, which the Nix
-package sets to the frontend output. An explicit override must point to a directory
-containing `index.html`; otherwise startup fails. For local runs without `STATIC_DIR`,
-the server uses `assets` when present and can run as an API alone when it is absent.
-The production frontend hostname must route `/api` to the same backend origin used
-by `APP_URL`; serving static files on a separate hostname alone does not provide
-the required session routing.
+The packaged Rust server serves the built frontend using `STATIC_DIR`, which the Nix package sets to the frontend output. An explicit override must point to a directory containing `index.html`; otherwise startup fails. For local runs without `STATIC_DIR`, the server uses `assets` when present and can run as an API alone when it is absent. The production frontend hostname must route `/api` to the same backend origin used by `APP_URL`; serving static files on a separate hostname alone does not provide the required session routing.
 
 ## API integration
 
-Use `src/lib/api/client.ts` for typed, same-origin API requests. Its types come from the
-Rust API through `src/lib/api/schema.d.ts`; regenerate them with `deno task generate-api` while the local API runs on port 3000. Do not edit the generated file or
-duplicate its response types.
+Use `src/lib/api/client.ts` for typed, same-origin API requests. Its types come from the Rust API through `src/lib/api/schema.d.ts`; regenerate them with `deno task generate-api` while the local API runs on port 3000. Do not edit the generated file or duplicate its response types.
 
-Read `data` for successful responses and handle `error` for rejected requests. Mutations
-require the `x-csrf-token` from `/api/auth/status`. See
-[Authentication](authentication.md) for login and logout.
+Read `data` for successful responses and handle `error` for rejected requests. Mutations require the `x-csrf-token` from `/api/auth/status`. See [Authentication](authentication.md) for login and logout.
 
-The [policy reference](../reference/policies.md) lists each policy's permissions and errors.
-The [route implementation guide](api-routes.md) covers API schemas, registration,
-and tests. Add domain-specific request examples and UI error behavior to
-`guides/<domain>.md`; keep shared client conventions on this page.
+The [policy reference](../reference/policies.md) lists each policy's permissions and errors. The [route implementation guide](api-routes.md) covers API schemas, registration, and tests. Add domain-specific request examples and UI error behavior to `guides/<domain>.md`; keep shared client conventions on this page.

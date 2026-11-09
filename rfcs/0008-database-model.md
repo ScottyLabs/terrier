@@ -324,7 +324,7 @@ erDiagram
 The generated enum reference reflects the migration values:
 
 | Type | Values |
-| --- | --- |
+| -- | -- |
 | `application_status` | `pending`, `accepted`, `rejected`, `waitlisted` |
 | `attendance_status` | `pending`, `confirmed`, `declined`, `expired`, `revoked` |
 | `audit_action` | `created`, `updated`, `deactivated`, `restored`, `automatic`, `accessed` |
@@ -358,7 +358,7 @@ The reconciliation migration stops on populated legacy domain tables that need e
 Domain APIs use `PATCH` to change flags or lifecycle status. They do not expose `DELETE` or physically remove domain rows. Preserve primary keys, references and audit history; foreign keys must not cascade business deletions.
 
 | Resource | Retained state |
-| --- | --- |
+| -- | -- |
 | Hackathon, team, organizer, sponsor, track, event, application and project-track entry | Set `is_active` to false. Recheck each resource's lifecycle permissions and constraints. |
 | Team membership | The API's `is_active: false` ends active membership by setting `TeamMember.status` to `removed`, clearing `is_leader` and recording `ended_at`. Do not add a second activity flag. |
 | Join request | Use `TeamMember.status` values `pending`, `withdrawn` and `rejected`; acceptance changes `pending` to `active` and sets `joined_at`. Record the end time for withdrawal or rejection. The legacy `invited` value is retained but is not used for new requests. |

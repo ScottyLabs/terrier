@@ -7,13 +7,11 @@
 
 ## Overview
 
-This proposal lays out the full path through the app taken by all users, and what should be accessible to them at a given stage.
-The approved access requirements will be enforced through Leash, as described in [RFC 0009](./0009-leash.md). Lifecycle labels describe user states and capabilities; they do not prescribe database roles.
+This proposal lays out the full path through the app taken by all users, and what should be accessible to them at a given stage. The approved access requirements will be enforced through Leash, as described in [RFC 0009](./0009-leash.md). Lifecycle labels describe user states and capabilities; they do not prescribe database roles.
 
 ## Motivation
 
-The design and scoping of what is available to users at different stages is incredibly important.
-It serves as a fundamental basis for both the functionality of the app and the clear and proper disclosure of the apps functionality as relevant.
+The design and scoping of what is available to users at different stages is incredibly important. It serves as a fundamental basis for both the functionality of the app and the clear and proper disclosure of the apps functionality as relevant.
 
 ## Goals
 
@@ -24,12 +22,8 @@ It serves as a fundamental basis for both the functionality of the app and the c
 
 ## Non-Goals
 
-- This RFC does not intend to prescribe a specific permissioning structure.
-  It does use a conceptual model reminiscent of role-based access control (RBAC),
-  but could be implemented into the authentication system in another way.
-- This RFC will not provide any code more in depth than, potentially, pseudo-code.
-  Many implementations are possible that would conform to the specification set forth here,
-  so it will be the job of a future RFC to set forth the actual plan for a concrete implementation.
+- This RFC does not intend to prescribe a specific permissioning structure. It does use a conceptual model reminiscent of role-based access control (RBAC), but could be implemented into the authentication system in another way.
+- This RFC will not provide any code more in depth than, potentially, pseudo-code. Many implementations are possible that would conform to the specification set forth here, so it will be the job of a future RFC to set forth the actual plan for a concrete implementation.
 - This RFC does not cover the in-app messaging/notification system. That will be addressed in a separate RFC.
 - This RFC does not cover the detailed mechanics of the judging system (pairwise comparison, deliberation, etc.). That will be addressed in a separate judging RFC.
 - This RFC does not cover the `sponsor-manager` role, which is deferred to a future RFC.
@@ -38,8 +32,7 @@ It serves as a fundamental basis for both the functionality of the app and the c
 
 ### Custom links
 
-To simplify the distribution of permissions to non-hackers (organizers, judges, sponsors),
-this RFC proposes custom invitation links as the method for doing this.
+To simplify the distribution of permissions to non-hackers (organizers, judges, sponsors), this RFC proposes custom invitation links as the method for doing this.
 
 Invitations may be emailed or shared directly. Recipients sign in through Keycloak before redeeming an invitation; opening a link does not authenticate a user or grant permissions. Grants must stay within the issuer's hackathon and authorized company/track scope.
 
@@ -49,30 +42,21 @@ Whatever the medium, these should be able to be created by:
 - `judge-organizer`s
 - `sponsor-organizer`s
 
-Any role below without an explicit explanation of how it is obtained should be assumed to be added through this method,
-or some equivalent method by which organizers manually distribute proper permissions.
+Any role below without an explicit explanation of how it is obtained should be assumed to be added through this method, or some equivalent method by which organizers manually distribute proper permissions.
 
-As an implementation note, users may not exist in the database upon clicking a link,
-so account creation follows the first-authentication flow in [RFC 0009](./0009-leash.md).
+As an implementation note, users may not exist in the database upon clicking a link, so account creation follows the first-authentication flow in [RFC 0009](./0009-leash.md).
 
 ### "Roles"
 
 The following labels describe a non-exclusive set of lifecycle states and capabilities that define what a user can do or see at a given point in time. An implementation may use the four main roles (`hacker`, `organizer`, `judge`, and `sponsor`) together with application, attendance, and reimbursement statuses and scoped permissions. Specialized organizer labels describe responsibilities whose permissions must be preserved in that mapping. A user may have overlapping responsibilities; no single primary role should discard the access required for another responsibility.
 
-In general, roles with different prefixes should be thought of as additive permissions,
-so an `applicant-submitted` who becomes a `participant` should continue to have the `applicant-submitted`-related permissions,
-such as viewing their application and editing fields while permitted by its status and deadlines.
-Application decisions and attendance states are mutually exclusive within their respective lifecycle. A submitted application remains available after a decision; its allowed actions depend on that decision. Reimbursement states apply per request, so one person can have requests in different states.
-This is done partially for not having to re-list every permission,
-but would also be useful (if these roles become a concept in the final system) for statistics on participation counts.
+In general, roles with different prefixes should be thought of as additive permissions, so an `applicant-submitted` who becomes a `participant` should continue to have the `applicant-submitted`-related permissions, such as viewing their application and editing fields while permitted by its status and deadlines. Application decisions and attendance states are mutually exclusive within their respective lifecycle. A submitted application remains available after a decision; its allowed actions depend on that decision. Reimbursement states apply per request, so one person can have requests in different states. This is done partially for not having to re-list every permission, but would also be useful (if these roles become a concept in the final system) for statistics on participation counts.
 
 ______________________________________________________________________
 
 #### `applicant-draft`
 
-This represents a user who is submitting an application. This role should be given to anyone registering through the main website.
-Once submitted, they should lose the `applicant-draft` role and move to `applicant-submitted`, since they no longer can "submit" an application
-(their only option is to edit).
+This represents a user who is submitting an application. This role should be given to anyone registering through the main website. Once submitted, they should lose the `applicant-draft` role and move to `applicant-submitted`, since they no longer can "submit" an application (their only option is to edit).
 
 **Features:**
 
@@ -85,9 +69,7 @@ ______________________________________________________________________
 
 #### `applicant-submitted`
 
-This represents a potential participant who has submitted an application.
-This role is given once an `applicant-draft` submits their application.
-If their application is accepted, they will get the additional role `attendee-potential`.
+This represents a potential participant who has submitted an application. This role is given once an `applicant-draft` submits their application. If their application is accepted, they will get the additional role `attendee-potential`.
 
 **Features:**
 
@@ -96,12 +78,9 @@ If their application is accepted, they will get the additional role `attendee-po
 - View application status (submitted, accepted, rejected, waitlisted)
 - View reimbursement request status, if applicable (see `reimbursement-applied`)
 
-> **Note:** The application form system should support a per-field flag indicating whether a field is editable after submission.
-> For changes to non-editable fields, applicants must contact the organizing team directly,
-> and an `application-manager` can make the edit on their behalf.
+> **Note:** The application form system should support a per-field flag indicating whether a field is editable after submission. For changes to non-editable fields, applicants must contact the organizing team directly, and an `application-manager` can make the edit on their behalf.
 
-\[^1\]: When an application is updated, it should be made clear to `application-manager`s,
-perhaps through a separate section of the dashboard, and preferably with a diff if possible.
+\[^1\]: When an application is updated, it should be made clear to `application-manager`s, perhaps through a separate section of the dashboard, and preferably with a diff if possible.
 
 ______________________________________________________________________
 
@@ -117,9 +96,7 @@ ______________________________________________________________________
 
 #### `reimbursement-applied`
 
-This role is granted when a submitted application includes a reimbursement request with details filled out.
-Requests are separate records attached to an applicant and hackathon. Each request identifies a category, such as travel or hotel. Multiple categories may be requested without implying approval of every category.
-Applicants can withdraw a pending request. Withdrawal preserves its history; it does not delete the request or a prior decision.
+This role is granted when a submitted application includes a reimbursement request with details filled out. Requests are separate records attached to an applicant and hackathon. Each request identifies a category, such as travel or hotel. Multiple categories may be requested without implying approval of every category. Applicants can withdraw a pending request. Withdrawal preserves its history; it does not delete the request or a prior decision.
 
 **Features:**
 
@@ -146,9 +123,7 @@ ______________________________________________________________________
 
 #### `attendee-potential`
 
-This represents a potential participant whose application has been accepted.
-They should be able to confirm their attendance, in which case they switch (read: lose `attendee-potential`) to `attendee-confirmed`,
-or decline their attendance, in which case they switch to `attendee-declined`.
+This represents a potential participant whose application has been accepted. They should be able to confirm their attendance, in which case they switch (read: lose `attendee-potential`) to `attendee-confirmed`, or decline their attendance, in which case they switch to `attendee-declined`.
 
 **Features:**
 
@@ -161,10 +136,7 @@ ______________________________________________________________________
 
 This represents a user who has accepted their spot.
 
-At this stage, there should be a very clear message that they need to check in in-person (get their QR code scanned)
-at an event to get access to submitting their project.
-This should, of course, be worded in a way such that it's also applicable before the event ever starts,
-since almost all will reach this stage before the beginning of the event.
+At this stage, there should be a very clear message that they need to check in in-person (get their QR code scanned) at an event to get access to submitting their project. This should, of course, be worded in a way such that it's also applicable before the event ever starts, since almost all will reach this stage before the beginning of the event.
 
 **Features:**
 
@@ -187,8 +159,7 @@ ______________________________________________________________________
 
 #### `attendee-declined`
 
-A user who has been accepted but declined to come.
-The dashboard should show the declined status and allow the attendee to confirm again before the confirmation deadline. Reconfirmation does not require organizer approval and must be clearly highlighted to application managers.
+A user who has been accepted but declined to come. The dashboard should show the declined status and allow the attendee to confirm again before the confirmation deadline. Reconfirmation does not require organizer approval and must be clearly highlighted to application managers.
 
 **Features:**
 
@@ -225,14 +196,11 @@ ______________________________________________________________________
 
 A user who has checked in to the event. They now have access to project submission for their team.
 
-This role should be given to an `attendee-confirmed` who checks in to *any* event.
-This simplifies the complexity of having to deal with people who arrived late and didn't get checked in to the main check-in session,
-since they're now able to attend talks and be logged correctly.
+This role should be given to an `attendee-confirmed` who checks in to *any* event. This simplifies the complexity of having to deal with people who arrived late and didn't get checked in to the main check-in session, since they're now able to attend talks and be logged correctly.
 
 **Features:**
 
-- All team operations from `attendee-confirmed` (create, request to join, search, share links, leave, etc.)[^2].
-  Probably simplest to just receive these transitively, since a `participant` should always also be an `attendee-confirmed`.
+- All team operations from `attendee-confirmed` (create, request to join, search, share links, leave, etc.)[^2]. Probably simplest to just receive these transitively, since a `participant` should always also be an `attendee-confirmed`.
 - Create a project submission using the hackathon's configured form. Default fields may include:
   - Project name
   - Project description
@@ -245,8 +213,7 @@ since they're now able to attend talks and be logged correctly.
 - Select a table number after submitting a project (manual entry or QR code scan; subject to the configured maximum teams per table)
 - Edit table number selection (until frozen by a `judge-organizer`)
 
-\[^2\]: Team operations remain accessible after check-in.
-Member removal and recovery follow the team membership rules below.
+\[^2\]: Team operations remain accessible after check-in. Member removal and recovery follow the team membership rules below.
 
 ______________________________________________________________________
 
@@ -290,8 +257,7 @@ ______________________________________________________________________
 
 #### `judge-organizer`
 
-This is an organizer in charge of managing judges.
-They should be able to judge (if they want to) with all the functionality that judges have (like "taking breaks").
+This is an organizer in charge of managing judges. They should be able to judge (if they want to) with all the functionality that judges have (like "taking breaks").
 
 **Features:**
 
@@ -391,8 +357,7 @@ The following features are available to every authenticated user, regardless of 
 - Edit editable (or all if did not apply) profile fields[^3] (display name, dietary restrictions, shirt size, and other fields flagged as post-submission editable)
 - View the schedule of events
 
-\[^3\]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile.
-People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
+\[^3\]: Note these options will be initially entered for participants via the application, and should be sourced from there for their profile. People coming in through other routes (organizers, judges, sponsors) will edit all of these directly in their profile view (participants can also edit editable details here).
 
 ### Application and attendance transitions
 
@@ -401,7 +366,7 @@ Application drafts are working copies visible to their owner and authorized appl
 Each application field has a post-submission edit flag and a configured edit deadline. The hackathon application deadline is the upper bound for applicant edits. Organizers can set earlier locks for decision-relevant fields, including rolling admissions. Rejected and waitlisted applications are read-only. Managers may correct submitted data with a reason and visible history; draft corrections likewise require a reason and visible history. Name and other global profile edits do not rewrite the submitted application snapshot.
 
 | Current state | Action | Result and guard |
-| --- | --- | --- |
+| -- | -- | -- |
 | Draft | Applicant submits | Submitted revision; required fields validated before the application deadline |
 | Submitted | Manager decides | Accepted, rejected, or waitlisted; decision references a submitted revision |
 | Accepted, attendance pending | Applicant confirms | Confirmed before the confirmation deadline |
@@ -435,9 +400,7 @@ Separate verification roles are unnecessary under [RFC 0009](./0009-leash.md). T
 
 ### `sponsor-manager` role
 
-A `sponsor-manager` role was considered, granting sponsors the additional ability to edit their company's prize track details
-and generate invitation links for other sponsors within their company.
-The separate role remains deferred. Whether existing sponsors should have these capabilities remains an open question in this RFC.
+A `sponsor-manager` role was considered, granting sponsors the additional ability to edit their company's prize track details and generate invitation links for other sponsors within their company. The separate role remains deferred. Whether existing sponsors should have these capabilities remains an open question in this RFC.
 
 ## Open Questions
 
@@ -454,19 +417,10 @@ The rules above are proposed resolutions for review, not an accepted implementat
 
 Implementation of different roles should be phased by timeline importance.
 
-**1. Applications:**
-The `applicant-draft` and `applicant-submitted` roles' functionality should be an initial target,
-as well as the `application-manager` role, to allow for the rollout of applications potentially before the rest of the system is fully ready.
-Reimbursement requests can follow alongside applications after Finance approves their evidence, budget, and access rules; they do not block the application launch.
+**1. Applications:** The `applicant-draft` and `applicant-submitted` roles' functionality should be an initial target, as well as the `application-manager` role, to allow for the rollout of applications potentially before the rest of the system is fully ready. Reimbursement requests can follow alongside applications after Finance approves their evidence, budget, and access rules; they do not block the application launch.
 
-**2. Attendance confirmation:**
-The rest of the attendance flow (`attendee-potential`, `attendee-confirmed`, `attendee-declined`, `attendee-expired`) should be the next milestone,
-allowing for acceptance and confirmation of attendance, including team formation features.
+**2. Attendance confirmation:** The rest of the attendance flow (`attendee-potential`, `attendee-confirmed`, `attendee-declined`, `attendee-expired`) should be the next milestone, allowing for acceptance and confirmation of attendance, including team formation features.
 
-**3. Event and participation:**
-The `participant` role (check-in, project submission, table selection), `organizer` and `admin` event management,
-and the full check-in system.
+**3. Event and participation:** The `participant` role (check-in, project submission, table selection), `organizer` and `admin` event management, and the full check-in system.
 
-**4. Judging and sponsors:**
-The `judge`, `judge-organizer`, `sponsor`, and `sponsor-organizer` roles,
-dependent on a separate judging system RFC being finalized.
+**4. Judging and sponsors:** The `judge`, `judge-organizer`, `sponsor`, and `sponsor-organizer` roles, dependent on a separate judging system RFC being finalized.
