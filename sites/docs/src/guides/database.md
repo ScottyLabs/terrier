@@ -1,7 +1,4 @@
----
-title: Database
-description: Find tables, query them with SeaORM, and change the schema.
----
+# Database
 
 Terrier uses PostgreSQL with SeaORM. Routes and policies access the connection
 through `AppState.db`; they do not open a connection for each request.
@@ -47,7 +44,7 @@ A user's Terrier UUID is independent of their provider identity. The unique
 `(oidc_issuer, oidc_subject)` pair identifies a login; email is not an identity key.
 Login synchronizes email while preserving the UUID and locally edited display
 name. Instance admin identities are configured outside the database, as described
-in [Authentication](/guides/authentication/).
+in [Authentication](authentication.md).
 
 Some tables have JSONB fields for form answers or configurable data. Those fields
 still need validation against the relevant form or API schema; JSON storage does
@@ -77,7 +74,7 @@ let team = team::Entity::find_by_id(team_id)
 The filter keeps the lookup within the requested hackathon. `.one(...)` returns
 at most one row, `.ok_or(...)` handles absence, and `.map_err(...)` handles a
 failed query. Return the checked model from the policy for the handler to use.
-See [API errors](/reference/api-errors/) for error choices.
+See [API errors](../reference/api-errors.md) for error choices.
 
 A simple foreign key confirms that a referenced row exists. The composite keys
 also enforce matching hackathon scope. Neither grants access: policies must check
@@ -125,7 +122,7 @@ fields, including OIDC identity details, stay private.
 
 Domain routes retain rows and change lifecycle state through `PATCH`. Do not use
 SeaORM delete methods or cascading deletes for business removal. See the
-[handler guidance](/guides/api-routes/#3-write-the-handler)
+[handler guidance](api-routes.md#3-write-the-handler)
 for permissions, revisions and restoration.
 
 The target schema in
@@ -160,17 +157,18 @@ From the repository root in the dev shell, with PostgreSQL running:
    sea-orm-cli migrate generate add_team_description -d crates/terrier-server/migration
    ```
 
-2. Implement the schema change in its `up` method and check that it is listed in
+1. Implement the schema change in its `up` method and check that it is listed in
    `migration/src/lib.rs`. Add a new migration rather than editing one already
    applied, and keep the database diagram in RFC 0008 current.
-3. Apply it and regenerate entities:
+
+1. Apply it and regenerate entities:
 
    ```sh
    cargo run -p migration -- up
    generate-entities
    ```
 
-4. Review the migration and generated diff together, then update affected routes,
+1. Review the migration and generated diff together, then update affected routes,
    tests, and API schemas. Entity files are generated; do not edit them by hand.
 
 The server applies migrations through `MIGRATION_DATABASE_URL`, then uses
@@ -202,4 +200,4 @@ TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server --test database -
 
 Database-dependent tests are ignored in ordinary runs and must be included
 explicitly. Route tests belong in `crates/terrier-server/tests/<domain>.rs`, as
-shown in the [route workflow](/guides/api-routes/).
+shown in the [route workflow](api-routes.md).

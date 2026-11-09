@@ -95,6 +95,9 @@
                   # Database tooling
                   seaOrmCli
 
+                  # Documentation
+                  zensical
+
                   # General tooling
                   git
                 ]
@@ -116,21 +119,16 @@
                 NIX_ENFORCE_PURITY = "0";
               };
 
-              # the Astro docs site is outside deno.dirs
-              hook = ''
-                (cd "$SCOTTYLABS_ROOT/sites/docs" && deno install --frozen && deno task astro sync)
-              '';
-
               scripts = {
                 migration = ''sea-orm-cli migrate generate "$1" -d crates/terrier-server/migration'';
                 migrate = "cargo run -p migration -- up";
                 generate-entities = "sea-orm-cli generate entity -o crates/terrier-server/src/entities --with-serde both";
                 generate-api = "cd app && deno task generate-api";
+                docs = "cd sites/docs && zensical serve";
               };
             };
           };
 
-          treefmt.programs.mdformat.excludes = [ "sites/docs/src/content/**" ];
           pre-commit.settings.hooks.oxlint.excludes = [ "^app/src/lib/api/schema[.]d[.]ts$" ];
 
           services.terrier = {
@@ -146,10 +144,9 @@
           };
 
           sites.docs = {
-            package = helpers.buildDenoTask {
+            package = helpers.buildZensical {
               src = ./sites/docs;
-              pname = "terrier-docs";
-              inherit (lib.importJSON ./sites/docs/package.json) version;
+              name = "terrier-docs";
             };
             customDomain = "docs.terrier.build";
           };

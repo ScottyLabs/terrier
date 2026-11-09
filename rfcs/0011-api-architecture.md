@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @abeni_hyz, @amzoeee, @anish, @Azzzz, @ethanli, @evanfost, @ipae, @JacenL, @jazang, @lucaswang08, @mdn2, @sbwang, @skancher, @kritdass
 - **Created:** 2026-10-07
-- **Updated:** 2026-11-07
+- **Updated:** 2026-11-09
 
 ## Overview
 
@@ -44,7 +44,7 @@ This builds on [RFC 0001](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main
 
 User lifecycle requirements follow [RFC 0010](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0010-user-flow.md). The mobile client uses Capacitor to align with other ScottyLabs mobile applications. RFC 0007 defines the Capacitor wrapper, native integrations, and packaging requirements.
 
-The API exposes `/api/health` for health checks, `/scalar` for interactive reference, and `/openapi.json` for client and documentation generation. These describe implemented endpoints; the domain routes below are proposed contracts, not a claim that those features have shipped.
+The API exposes `/api/health` for health checks, `/scalar` for interactive reference, and `/openapi.json` for client generation. These describe implemented endpoints; the domain routes below are proposed contracts, not a claim that those features have shipped.
 
 ### Route Conventions
 
@@ -68,7 +68,7 @@ Both sign-in paths use the same Keycloak-issued OIDC identity at the Terrier API
 
 Identity uses the validated Keycloak issuer and subject, mapped to an independent Terrier user UUID. Email stays synchronized from Keycloak; display name is initialized at account creation and later Terrier edits are preserved. Terrier trusts the configured issuer without requiring `email_verified` or a separate email-verification step, consistent with RFCs 0009 and 0010. University sign-in is optional and authentication alone does not establish student eligibility. Secure linking of multiple provider identities is managed through Keycloak; the remaining account-linking policy is [an open question](#question-registration-and-privacy).
 
-The shipped browser flow uses backend OIDC through Ricochet and opaque session cookies backed by Valkey. Sessions expire after 48 hours of inactivity; logout clears the Terrier session without ending Keycloak SSO. Unsafe authenticated requests require the session-bound `x-csrf-token` and reject foreign Origins. Frontend and API share the configured `APP_URL`; native origin, cookie, and callback handling must be defined before mobile authentication is implemented. See the [authentication guide](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/sites/docs/src/content/docs/guides/authentication.md) for current configuration and routes.
+The shipped browser flow uses backend OIDC through Ricochet and opaque session cookies backed by Valkey. Sessions expire after 48 hours of inactivity; logout clears the Terrier session without ending Keycloak SSO. Unsafe authenticated requests require the session-bound `x-csrf-token` and reject foreign Origins. Frontend and API share the configured `APP_URL`; native origin, cookie, and callback handling must be defined before mobile authentication is implemented. See the [authentication guide](https://docs.terrier.build/guides/authentication/) for current configuration and routes.
 
 Public hackathon fields and published winners need explicitly public read routes outside the application authentication gate. Authenticated management views still require their resource policies and must not be exposed through the public response. Keep public and protected route registration distinct; public reads do not bypass authorization for mutations.
 
@@ -286,7 +286,7 @@ Store deployment secrets in environment configuration according to [RFC 0001](ht
 
 [RFC 0008](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md) is reconciled and migrated. Generated entities include lifecycle flags, resource versions, scoped capabilities, application and project states, winner publication metadata and audit snapshots. Composite foreign keys and uniqueness constraints enforce resource scope and retained identities. Team requests and membership share TeamMember, distinguished by status.
 
-Application middleware and the `audited!` macro bind writes to the authenticated actor. Database triggers append audit entries in the same transaction and reject unaudited writes. Startup uses separate migration and runtime logins and validates audit storage permissions. See the [handler guide](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/sites/docs/src/content/docs/guides/api-routes.md) for the member workflow.
+Application middleware and the `audited!` macro bind writes to the authenticated actor. Database triggers append audit entries in the same transaction and reject unaudited writes. Startup uses separate migration and runtime logins and validates audit storage permissions. See the [handler guide](https://docs.terrier.build/guides/api-routes/) for the member workflow.
 
 Schema support does not implement the domain routes or settle their remaining payload, scoring, recovery and access-policy questions. Communications storage remains deferred. New schema changes still require forward migrations and regenerated entities.
 
@@ -300,7 +300,7 @@ This behavior is required for web and mobile, but the implementation remains a T
 
 ### Documentation and Integration
 
-Group routes by domain and register them through `utoipa-axum`. Document request bodies, response schemas, access requirements, validation failures, and workflow conflicts in OpenAPI. Publish the deployment's API specification at `/openapi.json`. Generate client types from that specification, and regenerate affected client types and documentation specifications from the running server when contracts change.
+Group routes by domain and register them through `utoipa-axum`. Document request bodies, response schemas, access requirements, validation failures, and workflow conflicts in OpenAPI. Publish the deployment's API specification at `/openapi.json`. Generate client types from that specification, and regenerate affected client types from the running server when contracts change.
 
 HTTP remains the authoritative read/write interface. WebSocket notifications may tell clients that assignments, results, or announcements changed, consistent with [RFC 0001](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0001-core-architecture-tech-stack.md), but their event contract remains [an open question](#question-real-time-and-retry-behavior). Clients must be able to fetch current state after reconnecting.
 

@@ -12,13 +12,13 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | Authorization | [Leash](crates/leash/README.md): typed policy extractors; keep this crate independent of Terrier domain types. |
 | SSO | [SAML proxy](crates/saml-proxy/README.md); currently absent from root workspace members, so workspace checks do not cover it. |
 | Frontend | [app](app/package.json): SvelteKit, Svelte 5, TypeScript, Vite, Deno; routes in `app/src/routes/`, static output in `app/dist/`, API client and generated types in `app/src/lib/api/`. |
-| Documentation | [sites/docs](sites/docs/package.json): Astro/Starlight content in `sites/docs/src/content/docs/`. Legacy mdBook files and the flake's `buildMdbook` configuration also remain; check the relevant build path. |
+| Documentation | [sites/docs](sites/docs/zensical.toml): Zensical site with pages in `sites/docs/src/`. The server publishes the API reference at `/scalar`. |
 | Development/deployment | [flake.nix](flake.nix). The ScottyLabs module supplies shared tooling and services, and the flake declares deployment routing. |
 | Development CLI | [Collar](https://git.cmu.dev/ScottyLabs/collar): forge, checks, development workflows, and RFC search. |
 
 ## Environment and commands
 
-Use `collar dev shell` from the root, or `collar dev run -- <command>` for noninteractive commands. See [dev shell setup](CONTRIBUTING.md#dev-shell) for installing Lix. Declare tools in `flake.nix`. Shell entry installs Deno dependencies and syncs SvelteKit and Astro. Use `collar dev up` when configured services (PostgreSQL, Valkey, Garage) are needed and `collar dev down` to stop them.
+Use `collar dev shell` from the root, or `collar dev run -- <command>` for noninteractive commands. See [dev shell setup](CONTRIBUTING.md#dev-shell) for installing Lix. Declare tools in `flake.nix`. Shell entry installs Deno dependencies and syncs SvelteKit. Use `collar dev up` when configured services (PostgreSQL, Valkey, Garage) are needed and `collar dev down` to stop them.
 
 Run component commands through `collar dev run -- <command>` from the indicated directory, or inside `collar dev shell`. Collar wrappers manage their own development shell:
 
@@ -28,8 +28,8 @@ Run component commands through `collar dev run -- <command>` from the indicated 
 | Focused Rust tests | root | `cargo test -p <package> [test_filter]` |
 | Workspace tests/lints | root | `cargo test --workspace`; `cargo clippy --workspace --all-targets` |
 | Frontend dev/check/build | `app` | `deno task dev`; `deno task check`; `deno task build` |
-| Frontend/docs lint | `app` or `sites/docs` | `deno task lint` |
-| Docs dev/build | `sites/docs` | `deno task dev`; `deno task build` |
+| Frontend lint | `app` | `deno task lint` |
+| Docs preview | root | `docs` |
 | Format changed files | root | `treefmt <changed-files>` |
 | Check formatting | root | `treefmt --fail-on-change --no-cache <changed-files>` |
 | Run applicable hooks | root | `collar check --files <changed-files>` |
@@ -38,7 +38,7 @@ Cover behavior changes with appropriate unit/integration tests, including failur
 
 After changing migrations or compile-time resources, run `nix build .#terrier .#migrator --no-link` to verify the filtered build source.
 
-For API contract changes, update Utoipa definitions, start the local API on port 3000, and run `deno task generate-api` in `app` and `sites/docs` as applicable. Validate the outputs and review diffs; do not hand-edit `app/src/lib/api/schema.d.ts` or `sites/docs/openapi.json`.
+For API contract changes, update Utoipa definitions, start the local API on port 3000, and run `deno task generate-api` in `app`. Validate the output and review the diff; do not hand-edit `app/src/lib/api/schema.d.ts`.
 
 The `generate-entities` helper uses the SeaORM CLI pinned in `flake.nix` and writes to `crates/terrier-server/src/entities`. Apply migrations before regenerating entities. See the [migrator instructions](crates/terrier-server/migration/README.md).
 
@@ -50,7 +50,7 @@ Use the dev shell's `rg` (ripgrep), `fd`, `jq`, and `collar`:
 - Search with `rg -n 'symbol' crates/leash`; use `rg -l 'pattern' app/src` for filenames only. Read matching functions and relevant callers/tests.
 - Use the Collar skill and prefer Collar commands and wrappers wherever supported, including forge, checks, development, documentation, RFCs, secrets, infrastructure, and Kennel workflows. Discover capabilities with `collar --help` and command-specific help before using lower-level tools. Use `collar api` when no typed command covers a Forgejo operation. See [Using Collar with agents](https://docs.collar.scottylabs.org/agents/).
 - Use `collar check --files <changed-files>` for applicable hooks, `collar check <hook> --files <changed-files>` for a specific hook, and `collar check --all` for all files. Direct `prek` or `pre-commit` invocation is normally unnecessary. Fall back to underlying tools only when Collar lacks the operation or a diagnosed wrapper failure requires it; report the reason.
-- Extract needed fields with `jq '.scripts' app/package.json` or `jq '.paths | keys' sites/docs/openapi.json`; avoid dumping lockfiles and generated schemas.
+- Extract needed fields with `jq '.scripts' app/package.json` or `curl -s localhost:3000/openapi.json | jq '.paths | keys'`; avoid dumping lockfiles and generated schemas.
 - Inspect `git status --short`, `git diff --stat`, then diffs for affected paths. Include untracked files in review. Batch independent searches; narrow truncated queries rather than ignoring omitted results.
 - Save verbose check output to a temporary log, preserving exit status. Inspect failures and summaries without hiding diagnostics.
 

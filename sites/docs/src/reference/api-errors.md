@@ -1,7 +1,4 @@
----
-title: API errors
-description: Error responses and when to use each ApiError variant.
----
+# API errors
 
 `crates/terrier-server/src/error.rs` defines `ApiError` and `ErrorResponse`.
 Axum converts an `ApiError` into an HTTP status and JSON body through its
@@ -79,7 +76,7 @@ Branch on `error.code`, not the message text. For `validation_failed`, use
 no API error body and need separate handling.
 
 List applicable status codes with `ErrorResponse` in the route's Utoipa responses,
-then regenerate the frontend types and docs schema. Axum's default `Path`, `Query`,
+then regenerate the frontend types. Axum's default `Path`, `Query`,
 and `Json` rejections do not use this format automatically; map them to `ApiError`
-when extracting input. See the [route guide](/guides/api-routes/) for registration
+when extracting input. See the [route guide](../guides/api-routes.md) for registration
 and generation steps.

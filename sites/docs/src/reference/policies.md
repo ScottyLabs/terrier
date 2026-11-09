@@ -1,14 +1,11 @@
----
-title: Authorization policies
-description: Terrier policies, their permission rules, and the data they return.
----
+# Authorization policies
 
 Policies live under `crates/terrier-server/src/auth/`. Reuse an existing policy
 when possible, or combine existing policies using the combinators below. Give a
 complex or reusable combination a named policy built from combinators and add
 an entry here. Write a new check only when existing policies cannot express the
 rule. Each entry describes the rule and what the handler receives.
-The [route guide](/guides/api-routes/) explains how to add one.
+The [route guide](../guides/api-routes.md) explains how to add one.
 
 ## OwnProfile
 
@@ -25,7 +22,7 @@ The [route guide](/guides/api-routes/) explains how to add one.
 
 The user is already loaded by middleware. This policy makes no database query.
 
-Errors use the shared [API error format](/reference/api-errors/).
+Errors use the shared [API error format](api-errors.md).
 
 ## Adding an entry
 

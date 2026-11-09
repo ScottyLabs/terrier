@@ -1,7 +1,4 @@
----
-title: Authentication
-description: Configure Terrier's Keycloak login and Valkey sessions.
----
+# Authentication
 
 Terrier manages OpenID Connect on the Rust backend. Keycloak handles Google and
 InCommon sign-in. Tokens stay in Valkey; the browser receives an opaque session
@@ -81,10 +78,10 @@ responses, including when serving the frontend.
 Health, auth status, login, callback, and logout remain outside the application
 authentication gate. An explicit `return_to` path starts a fresh login.
 
-See [API routes and policies](/guides/api-routes/) for the own-profile policy,
+See [API routes and policies](api-routes.md) for the own-profile policy,
 route registration, shared errors, and typed client usage.
 
 Database startup requires separate `DATABASE_URL` and `MIGRATION_DATABASE_URL`
-logins. See [database setup](/guides/database/#changing-the-schema). OIDC user
+logins. See [database setup](database.md#changing-the-schema). OIDC user
 creation and email changes are audited as automatic identity synchronization;
 unchanged claims do not create another write.

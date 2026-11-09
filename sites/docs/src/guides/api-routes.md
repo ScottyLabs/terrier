@@ -1,7 +1,4 @@
----
-title: API routes and policies
-description: Add a route with its policy, tests, and documentation.
----
+# API routes and policies
 
 To add an API route, you need a handler, an access policy, tests, and documentation.
 This guide follows `GET /api/users/{user_id}` through each of those pieces. You can
@@ -37,11 +34,11 @@ Request types use `Deserialize` to read JSON into a struct.
 Before adding fields, check the relevant RFC and the models in `src/entities/`.
 The profile route uses existing columns, but a route that needs a schema change
 also needs a migration. Apply it before running `generate-entities`, following
-the [database guide](/guides/database/).
+the [database guide](database.md).
 
 ## 2. Choose the policy
 
-Start with the [policy reference](/reference/policies/). Reuse a policy if it
+Start with the [policy reference](../reference/policies.md). Reuse a policy if it
 already checks the required permissions, or combine existing policies:
 
 - `leash::any!(A, B, C)` accepts the first policy that passes.
@@ -134,9 +131,9 @@ let team = team::Entity::find_by_id(team_id)
 The filter prevents a team from another hackathon being returned, even if its ID
 is valid. Use `Path<(Uuid, Uuid)>` for a path with both IDs, keep the hackathon
 filter in writes, and check roles against that same `hackathon_id`. See the
-[database guide](/guides/database/) for queries and transactions.
+[database guide](database.md) for queries and transactions.
 
-Add policies and named combinations to the [policy reference](/reference/policies/)
+Add policies and named combinations to the [policy reference](../reference/policies.md)
 with their rule, output, errors, source, and tests. Use `OwnProfile` as the template.
 
 ## 3. Write the handler
@@ -258,7 +255,7 @@ routes. Membership uses `removed`; join requests use `withdrawn` or `rejected`.
 Keep inactive records out of ordinary reads and authorization. Restoration must
 recheck permissions and constraints. Submitted projects cannot be withdrawn.
 Audit reads follow the resource's privacy rules. Keep secrets out of data and
-reasons. See [database lifecycle state](/guides/database/#deactivation-and-history).
+reasons. See [database lifecycle state](database.md#deactivation-and-history).
 
 ## 4. Register the route and its API description
 
@@ -309,7 +306,7 @@ For a new module, declare it in **`crates/terrier-server/src/lib.rs`**, import i
 in **`src/routes.rs`**, and add its pair to this array. When adding a handler to an
 existing module, update that module's `routes()` and `paths(...)` lists instead.
 Use `request_body` for body inputs and include applicable
-[API errors](/reference/api-errors/) in the annotation.
+[API errors](../reference/api-errors.md) in the annotation.
 
 ## 5. Test the route through HTTP requests
 
@@ -358,7 +355,7 @@ TEST_DATABASE_URL="$DATABASE_URL" cargo test -p terrier-server --test '<domain>'
 Mark database-dependent tests `#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]`
 so ordinary test runs can skip them. Use a development database for these tests.
 
-## 6. Generate API types and docs
+## 6. Generate API types
 
 Start the API on port 3000:
 
@@ -366,23 +363,23 @@ Start the API on port 3000:
 cargo run -p terrier-server
 ```
 
-Run this from both `app/` and `sites/docs/`:
+Run this from `app/`:
 
 ```sh
 deno task generate-api
 ```
 
 For the profile example, this adds `/api/users/{user_id}` and `Profile` to
-`app/src/lib/api/schema.d.ts` and `sites/docs/openapi.json`. The frontend uses the
-TypeScript types; the docs site builds its endpoint reference from the OpenAPI
-schema. Review both generated files and include them in the change. Do not edit
-them by hand.
+`app/src/lib/api/schema.d.ts`. Review the generated file and include it in the
+change. Do not edit it by hand. The server builds the
+[API reference](https://api.terrier.scottylabs.org/scalar) from the same OpenAPI
+specification, so the reference needs no separate update.
 
 ## 7. Write the frontend usage notes
 
-Step 6 generates the endpoint's types and API reference. This step explains how
-to use it: put a short request example and any error-handling notes in
-`sites/docs/src/content/docs/guides/<domain>.md`. The profile example is documented
+Step 6 generates the endpoint's types, and the API reference lists its parameters
+and responses. This step explains how to use it: put a short request example and
+any error-handling notes in `sites/docs/src/guides/<domain>.md`. The profile example is documented
 here, so it does not need a separate usage page.
 
 For the profile route, the caller gets their user ID from `/api/auth/status` and
@@ -398,16 +395,16 @@ const result = await api.GET("/api/users/{user_id}", {
 
 The client fills `{user_id}` with `userId` and sends the session cookie. A
 successful response is in `result.data`; an API error is in `result.error`, with
-the [shared error format](/reference/api-errors/). For this route, document that
+the [shared error format](../reference/api-errors.md). For this route, document that
 401 requires sign-in and 403 means the requested profile belongs to another user.
 Network failures throw rather than returning an API error.
 
 For a write, also show the `x-csrf-token` header using the token from
-`/api/auth/status`. Link to [Authentication](/guides/authentication/) for the
+`/api/auth/status`. Link to [Authentication](authentication.md) for the
 login flow, and do not automatically replay writes after login.
 
 Update an existing frontend caller if the route changes its behavior. Shared
-client conventions belong in [Frontend development](/guides/frontend/), while
+client conventions belong in [Frontend development](frontend.md), while
 route-specific examples belong in the domain guide. Documenting a backend route
 does not require building a new UI.
 
@@ -437,10 +434,9 @@ Use `collar check --files <changed-files>` before staging, or
 `collar check --all` for the whole repository. Hooks include the applicable tests,
 lints, formatting, and frontend checks; they skip ignored database tests.
 
-Run `deno task build` from `app/` when frontend code or generated API types change,
-and from `sites/docs/` when docs or their schema change.
+Run `deno task build` from `app/` when frontend code or generated API types change.
+Run `docs` from the dev shell to preview documentation changes.
 
 Before requesting review, check the policy entry and rendered docs links. New
-guides need an entry in the Development sidebar in `sites/docs/astro.config.mjs`;
-Reference pages appear automatically. Use site paths such as
-`/reference/policies/` for links, without `.md`.
+pages appear in the navigation automatically. Link between pages with relative
+paths to the Markdown file, such as `../reference/policies.md`.

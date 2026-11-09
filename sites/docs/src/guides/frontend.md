@@ -1,7 +1,4 @@
----
-title: Frontend development
-description: Run and build the Terrier SvelteKit app.
----
+# Frontend development
 
 Enter `nix develop` from the repository root, then run these commands in `app`:
 
@@ -31,15 +28,14 @@ the required session routing.
 ## API integration
 
 Use `src/lib/api/client.ts` for typed, same-origin API requests. Its types come from the
-Rust API through `src/lib/api/schema.d.ts`; regenerate them with `deno task
-generate-api` while the local API runs on port 3000. Do not edit the generated file or
+Rust API through `src/lib/api/schema.d.ts`; regenerate them with `deno task generate-api` while the local API runs on port 3000. Do not edit the generated file or
 duplicate its response types.
 
 Read `data` for successful responses and handle `error` for rejected requests. Mutations
 require the `x-csrf-token` from `/api/auth/status`. See
-[Authentication](/guides/authentication/) for login and logout.
+[Authentication](authentication.md) for login and logout.
 
-The [policy reference](/reference/policies/) lists each policy's permissions and errors.
-The [route implementation guide](/guides/api-routes/) covers API schemas, registration,
+The [policy reference](../reference/policies.md) lists each policy's permissions and errors.
+The [route implementation guide](api-routes.md) covers API schemas, registration,
 and tests. Add domain-specific request examples and UI error behavior to
 `guides/<domain>.md`; keep shared client conventions on this page.
