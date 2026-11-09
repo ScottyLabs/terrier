@@ -118,7 +118,7 @@ async fn failed_startup_rolls_back_pending_migrations() -> anyhow::Result<()> {
     let row = database
         .state
         .db
-        .query_one(Statement::from_string(
+        .query_one_raw(Statement::from_string(
             DbBackend::Postgres,
             "SELECT to_regtype('hackathon_role') IS NULL AS rolled_back",
         ))
@@ -206,10 +206,10 @@ async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Res
     let db = &database.state.db;
     Migrator::up(db, Some(1)).await?;
     let id = Uuid::new_v4();
-    db.execute(Statement::from_sql_and_values(
+    db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         r#"INSERT INTO "user" (id, email, display_name, is_global_admin)
-            VALUES ($1, 'existing@example.com', 'Existing user', true)"#,
+        VALUES ($1, 'existing@example.com', 'Existing user', true)"#,
         [id.into()],
     ))
     .await?;
@@ -222,7 +222,7 @@ async fn migration_rejects_unmapped_users_without_changing_them() -> anyhow::Res
         .context("startup accepted an unmapped user")?;
     ensure!(format!("{error:#}").contains("explicit issuer/subject mapping"));
     let row = db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"SELECT display_name, is_global_admin FROM "user" WHERE id = $1"#,
             [id.into()],
@@ -277,7 +277,7 @@ async fn mutate(
 
 async fn scalar(db: &DatabaseConnection, sql: &str) -> anyhow::Result<i64> {
     Ok(db
-        .query_one(Statement::from_string(DbBackend::Postgres, sql))
+        .query_one_raw(Statement::from_string(DbBackend::Postgres, sql))
         .await?
         .context("missing scalar")?
         .try_get("", "value")?)
@@ -562,7 +562,7 @@ async fn submission_snapshots_validate_identity_content_and_selected_tracks() ->
     let application = Uuid::new_v4();
     mutate(db,Scope::HackathonExclusive(f.hackathon),format!("INSERT INTO prize_track(id,hackathon_id,name,description,is_judging_started,judging_method) VALUES('{track}','{0}','Track','Track',false,'scoring'); INSERT INTO judge_track_assign(user_id,track_id,hackathon_id,manually_granted) VALUES('{1}','{track}','{0}',true);",f.hackathon,f.users[1])).await.map_err(|e|anyhow::anyhow!("{e:?}"))?;
     mutate(db,Scope::Hackathon(f.hackathon),format!("INSERT INTO project(id,hackathon_id,event_id,team_id,data) VALUES('{project}','{0}','{1}','{2}','{{}}'); INSERT INTO project_track_sub(project_id,track_id,hackathon_id) VALUES('{project}','{track}','{0}'); UPDATE project SET status='submitted', submitted_at=clock_timestamp() WHERE id='{project}'; INSERT INTO application(id,user_id,hackathon_id,status,data,submitted_at) VALUES('{application}','{3}','{0}','pending','{{\"answer\":false}}',clock_timestamp());",f.hackathon,f.event,f.team,f.users[0])).await.map_err(|e|anyhow::anyhow!("{e:?}"))?;
-    let row=db.query_one(Statement::from_sql_and_values(DbBackend::Postgres,"SELECT id,after_data FROM audit_event WHERE resource_type='project' AND resource_key=jsonb_build_object('id',$1::uuid) ORDER BY version DESC LIMIT 1",[project.into()])).await?.context("project snapshot missing")?;
+    let row=db.query_one_raw(Statement::from_sql_and_values(DbBackend::Postgres,"SELECT id,after_data FROM audit_event WHERE resource_type='project' AND resource_key=jsonb_build_object('id',$1::uuid) ORDER BY version DESC LIMIT 1",[project.into()])).await?.context("project snapshot missing")?;
     let snapshot: Uuid = row.try_get("", "id")?;
     let content: serde_json::Value = row.try_get("", "after_data")?;
     ensure!(content["track_ids"] == serde_json::json!([track]));
@@ -577,7 +577,7 @@ async fn submission_snapshots_validate_identity_content_and_selected_tracks() ->
         .await
         .map_err(|e| anyhow::anyhow!("{e:?}"))?;
     let application_snapshot: Uuid = db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT submitted_audit_id FROM application WHERE id=$1",
             [application.into()],
@@ -599,7 +599,7 @@ async fn submission_snapshots_validate_identity_content_and_selected_tracks() ->
         "application accepted a project snapshot"
     );
     mutate(db,Scope::Hackathon(f.hackathon),format!("UPDATE application SET reviewed_audit_id='{application_snapshot}',status='accepted',decided_by='{}',decided_at=now() WHERE id='{application}'; UPDATE application SET draft_data='{{\"answer\":0}}' WHERE id='{application}'",f.users[0])).await.map_err(|e|anyhow::anyhow!("{e:?}"))?;
-    let data=db.query_one(Statement::from_sql_and_values(DbBackend::Postgres,"SELECT submitted_audit_id,reviewed_audit_id,data,draft_data FROM application WHERE id=$1",[application.into()])).await?.unwrap();
+    let data=db.query_one_raw(Statement::from_sql_and_values(DbBackend::Postgres,"SELECT submitted_audit_id,reviewed_audit_id,data,draft_data FROM application WHERE id=$1",[application.into()])).await?.unwrap();
     ensure!(data.try_get::<Uuid>("", "submitted_audit_id")? == application_snapshot);
     ensure!(data.try_get::<Uuid>("", "reviewed_audit_id")? == application_snapshot);
     ensure!(data.try_get::<serde_json::Value>("", "data")? == serde_json::json!({"answer":false}));

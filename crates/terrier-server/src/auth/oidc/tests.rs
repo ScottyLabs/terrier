@@ -667,7 +667,7 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
             .await?;
         assert_eq!(response.status(), expected);
     }
-    let human_audit = audit_db.query_one(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
+    let human_audit = audit_db.query_one_raw(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
         "SELECT count(*) AS count FROM audit_event WHERE actor_user_id IS NOT NULL AND resource_type='user' AND after_data->>'display_name'='Updated member'"))
         .await?.unwrap();
     assert_eq!(human_audit.try_get::<i64>("", "count")?, 1);

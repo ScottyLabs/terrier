@@ -29,7 +29,7 @@ impl AppState {
             .context("inspect runtime database target")?;
         let nonce = uuid::Uuid::new_v4().to_string();
         let runtime_target = probe
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT pg_backend_pid() AS pid, set_config('application_name',$1,true)",
                 [nonce.clone().into()],
@@ -37,7 +37,7 @@ impl AppState {
             .await?
             .context("identify runtime database connection")?;
         let pid: i32 = runtime_target.try_get("", "pid")?;
-        let same_database = migrations.query_one(Statement::from_sql_and_values(DbBackend::Postgres,
+        let same_database = migrations.query_one_raw(Statement::from_sql_and_values(DbBackend::Postgres,
             "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND application_name=$2 AND datname=current_database()) AS matches",
             [pid.into(),nonce.into()])).await?.context("compare database targets")?;
         ensure!(
@@ -45,7 +45,7 @@ impl AppState {
             "DATABASE_URL and MIGRATION_DATABASE_URL must target the same PostgreSQL database"
         );
         probe.rollback().await?;
-        let runtime = db.query_one(Statement::from_string(DbBackend::Postgres,
+        let runtime = db.query_one_raw(Statement::from_string(DbBackend::Postgres,
             "SELECT current_user AS name, rolsuper OR rolcreaterole AS privileged FROM pg_roles WHERE rolname=current_user"))
             .await?.context("inspect runtime database role")?;
         let runtime_name: String = runtime.try_get("", "name")?;
@@ -54,7 +54,7 @@ impl AppState {
             "DATABASE_URL must use a non-superuser role without CREATEROLE"
         );
         let owner = migrations
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT current_user AS name",
             ))
@@ -62,7 +62,7 @@ impl AppState {
             .context("inspect migration database role")?;
         let owner_name: String = owner.try_get("", "name")?;
         let membership = db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT pg_has_role(current_user, $1, 'MEMBER') AS inherited",
                 [owner_name.into()],
@@ -82,7 +82,7 @@ impl AppState {
             .await
             .context("apply database migrations")?;
         let row = transaction
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT current_schema() AS name",
             ))
@@ -135,7 +135,7 @@ impl AppState {
             .await
             .context("close migration connection pool")?;
         let runtime_schema = db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT current_schema() AS name",
             ))
@@ -145,7 +145,7 @@ impl AppState {
             runtime_schema.try_get::<String>("", "name")? == schema,
             "Runtime and migration logins must use the same schema search path"
         );
-        let privileges = db.query_one(Statement::from_string(DbBackend::Postgres,
+        let privileges = db.query_one_raw(Statement::from_string(DbBackend::Postgres,
             "SELECT has_table_privilege(current_user, 'audit_event', 'INSERT,UPDATE,DELETE,TRUNCATE')
                 OR has_schema_privilege(current_user,current_schema(),'CREATE')
                 OR pg_has_role(current_user,(SELECT relowner FROM pg_class WHERE oid='audit_event'::regclass),'MEMBER') AS unsafe"))

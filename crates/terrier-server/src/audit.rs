@@ -110,13 +110,13 @@ async fn transaction<T: Send>(
         .await
         .context("begin audited transaction")
         .map_err(ApiError::Internal)?;
-    tx.execute(Statement::from_sql_and_values(
+    tx.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "SELECT set_config('terrier.actor_user_id', $1, true),
-                set_config('terrier.hackathon_id', $2, true),
-                set_config('terrier.audit_reason', $3, true),
-                set_config('terrier.automatic', $4, true),
-                set_config('terrier.management', $5, true)",
+            set_config('terrier.hackathon_id', $2, true),
+            set_config('terrier.audit_reason', $3, true),
+            set_config('terrier.automatic', $4, true),
+            set_config('terrier.management', $5, true)",
         [
             actor.map(|id| id.to_string()).unwrap_or_default().into(),
             scope
@@ -139,7 +139,7 @@ async fn transaction<T: Send>(
     .map_err(ApiError::Internal)?;
     if let Some(id) = scope.id() {
         let parent = tx
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 match scope {
                     Scope::HackathonExclusive(_) => {

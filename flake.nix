@@ -32,20 +32,6 @@
           ...
         }:
         let
-          seaOrmCli = pkgs.sea-orm-cli.overrideAttrs (
-            finalAttrs: _: {
-              version = "1.1.20";
-              src = pkgs.fetchCrate {
-                pname = "sea-orm-cli";
-                inherit (finalAttrs) version;
-                hash = "sha256-n7QkCnMF15UMLPPEF093ylzzDESGKKG/q4Y2jvdTcUo=";
-              };
-              cargoDeps = pkgs.rustPlatform.importCargoLock {
-                lockFile = "${finalAttrs.src}/Cargo.lock";
-              };
-            }
-          );
-
           app = helpers.buildDenoTask {
             src = ./app;
             pname = "terrier-app";
@@ -84,7 +70,7 @@
                 openssl
 
                 # Database tooling
-                seaOrmCli
+                sea-orm-cli
 
                 # Documentation
                 zensical

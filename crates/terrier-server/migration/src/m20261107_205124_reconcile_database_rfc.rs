@@ -104,15 +104,14 @@ async fn refuse_populated_tables(manager: &SchemaManager<'_>) -> Result<(), DbEr
             )
             .to_owned();
         let populated: bool = db
-            .query_one(db.get_database_backend().build(&query))
+            .query_one(&query)
             .await?
             .ok_or_else(|| DbErr::Custom("EXISTS returned no row".into()))?
             .try_get("", "populated")?;
 
         if populated {
             return Err(DbErr::Migration(format!(
-                "RFC 0008 migration needs an explicit legacy mapping for table {}. No rows were changed. Supply deadlines, actors, membership times, submission snapshots and scoped grants before retrying.",
-                table.to_string()
+                "RFC 0008 migration needs an explicit legacy mapping for table {table}. No rows were changed. Supply deadlines, actors, membership times, submission snapshots and scoped grants before retrying."
             )));
         }
     }
@@ -295,7 +294,7 @@ fn references(
 ) -> TableForeignKey {
     let column = column.into_iden();
     TableForeignKey::new()
-        .name(format!("{table}_{}_fkey", column.to_string()))
+        .name(format!("{table}_{column}_fkey"))
         .from_col(column)
         .to_tbl(target)
         .to_col(target_column)

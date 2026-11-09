@@ -88,7 +88,7 @@ impl MigrationTrait for Migration {
             )
             .to_owned();
         let schema: String = db
-            .query_one(db.get_database_backend().build(&query))
+            .query_one(&query)
             .await?
             .ok_or_else(|| DbErr::Custom("current_schema() returned no row".into()))?
             .try_get("", "schema")?;

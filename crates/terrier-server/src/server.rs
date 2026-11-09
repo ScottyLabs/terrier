@@ -156,7 +156,7 @@ mod tests {
             terrier_server::routes::routes().1,
         )
         .with_state(AppState {
-            db: sea_orm::DatabaseConnection::Disconnected,
+            db: sea_orm::DatabaseConnection::default(),
         })
     }
 
