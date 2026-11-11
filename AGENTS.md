@@ -9,7 +9,7 @@ Terrier is a hackathon management platform. These instructions apply throughout 
 | API | [terrier-server](crates/terrier-server/src/main.rs): Rust, Axum, Tokio, Utoipa OpenAPI; currently a health endpoint and optional static assets. |
 | Database | [entities](crates/terrier-server/src/entities) and [migrations](crates/terrier-server/migration); PostgreSQL/SeaORM design in [RFC 0008](rfcs/0008-database-model.md). |
 | Shared Rust | [terrier-common](crates/terrier-common/src/lib.rs): shared runtime helpers. |
-| Authorization | [Leash](crates/leash/README.md): typed policy extractors; keep this crate independent of Terrier domain types. |
+| Authorization | [Leash](https://git.cmu.dev/ScottyLabs/leash): typed policy extractors; keep this crate independent of Terrier domain types. |
 | SSO | [symbolon](https://codeberg.org/anish/symbolon): the SAML proxy for university sign-in, maintained outside this repository. Design in [RFC 0005](rfcs/0005-saml-proxy-university-auth.md). |
 | Frontend | [app](app/package.json): SvelteKit, Svelte 5, TypeScript, Vite, Deno; routes in `app/src/routes/`, static output in `app/dist/`, API client and generated types in `app/src/lib/api/`. |
 | Documentation | [sites/docs](sites/docs/zensical.toml): Zensical site with pages in `sites/docs/src/`. The server publishes the API reference at `/scalar`. |
@@ -47,7 +47,7 @@ The `generate-entities` helper uses the SeaORM CLI pinned in `flake.nix` and wri
 Use the dev shell's `rg` (ripgrep), `fd`, `jq`, and `collar`:
 
 - Find paths with `rg --files app/src` or `fd -e rs . crates`. Include hidden configuration explicitly when relevant; skip dependencies, build output, and caches.
-- Search with `rg -n 'symbol' crates/leash`; use `rg -l 'pattern' app/src` for filenames only. Read matching functions and relevant callers/tests.
+- Search with `rg -n 'symbol' crates/terrier-server/src/auth`; use `rg -l 'pattern' app/src` for filenames only. Read matching functions and relevant callers/tests.
 - Use the Collar skill and prefer Collar commands and wrappers wherever supported, including forge, checks, development, documentation, RFCs, secrets, infrastructure, and Kennel workflows. Discover capabilities with `collar --help` and command-specific help before using lower-level tools. Use `collar api` when no typed command covers a Forgejo operation. See [Using Collar with agents](https://docs.collar.scottylabs.org/agents/).
 - Use `collar check --files <changed-files>` for applicable hooks, `collar check <hook> --files <changed-files>` for a specific hook, and `collar check --all` for all files. Direct `prek` or `pre-commit` invocation is normally unnecessary. Fall back to underlying tools only when Collar lacks the operation or a diagnosed wrapper failure requires it; report the reason.
 - Extract needed fields with `jq '.scripts' app/package.json` or `curl -s localhost:3000/openapi.json | jq '.paths | keys'`; avoid dumping lockfiles and generated schemas.

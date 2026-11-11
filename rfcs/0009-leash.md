@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Author(s):** @kritdass
 - **Created:** 2026-04-18
-- **Updated:** 2026-11-09
+- **Updated:** 2026-11-11
 
 ## Overview
 
-This RFC establishes a small, domain-free Rust crate, `crates/leash`, that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
+This RFC establishes a small, domain-free Rust crate, [Leash](https://git.cmu.dev/ScottyLabs/leash), that lifts authorization out of axum handler bodies and into the type system. Handlers declare their access requirements as a type parameter, and the framework runs the check before the handler body executes.
 
 ## Motivation
 
@@ -126,7 +126,7 @@ Global admins are configured through deployment environment variables using stab
 
 ### Workspace Placement
 
-The crate is added to the workspace as `crates/leash`, alongside the existing `crates/terrier-common` and `crates/terrier-server`. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping Leash itself free of any Terrier types.
+The crate is maintained in the [Leash repository](https://git.cmu.dev/ScottyLabs/leash), independently of the Terrier workspace. Terrier-specific atomic policies (`IsHackathonAdmin`, `IsJudge`, etc.) live in `crates/terrier-server/src/auth/`, keeping Leash itself free of any Terrier types.
 
 `Authorized<P, S>` defaults `S` to `()` so stateless examples read nicely. Stateful consumers pin the state once via a project-local alias next to `AppState`:
 
@@ -161,9 +161,9 @@ If three or four ScottyLabs services each invent their own auth helpers, we end 
 
 ## Implementation Phases
 
-1. **Crate scaffolding.** *(Shipped.)* Adds `crates/leash/` to the workspace members and implements `Policy`, `Authorized<P, S>`, the `any!` / `all!` combinators, and the `policy!` sum-type macro. Covered by integration tests in `crates/leash/tests/integration.rs` that route real `Request`s through stub policies via `tower::ServiceExt::oneshot`.
+1. **Crate scaffolding.** *(Shipped.)* Implements `Policy`, `Authorized<P, S>`, the `any!` / `all!` combinators, and the `policy!` sum-type macro. Covered by [Leash's integration tests](https://git.cmu.dev/ScottyLabs/leash/src/branch/main/tests/integration.rs) that route real `Request`s through stub policies via `tower::ServiceExt::oneshot`.
 1. **Auth foundation in `terrier-server`.** Add `crates/terrier-server/src/auth/` with OIDC wiring, Valkey sessions, user synchronization, and the `CurrentUser` extractor. Establish shared application state, API errors, routing boundaries, and test-only identity and database fixtures. Test the authentication middleware independently of the Leash policies.
 1. **Terrier Leash integration.** Add `Auth<P>` and shared atomic policies on the auth foundation, including scoped resource loading and authorization tests. Keep Terrier domain types out of the Leash crate.
 1. **First worked example.** Implement a protected route with its tests using `Auth<P>` so that future handlers have a concrete template.
 1. **Per-domain rollout.** Add routes and tests domain-by-domain (registration, judging, teams, schedule, results), using the established pattern.
-1. **External adoption.** Promote Leash to its own repository or to crates.io once a second ScottyLabs service is ready to depend on it.
+1. **External adoption.** *(Repository extraction shipped.)* Leash is maintained in its own repository, and Terrier consumes it as a Git dependency. Publishing to crates.io remains optional.

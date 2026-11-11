@@ -52,4 +52,4 @@ leash::policy! {
 
 Here, `auth.data` is `Access::First(a)` or `Access::Second(b)`. With `any!(A, B)`, it would be `Either::Left(a)` or `Either::Right(b)`. These are illustrative patterns; the own-profile route only needs `Auth<OwnProfile>`.
 
-`any!` and `policy!` continue on every error, including `Internal`. When a database failure must stop the request, write an explicit check that propagates it. Branches share request parts and do not undo changes, so checks should avoid side effects. The macros live in `crates/leash/src/macros.rs`, with examples in `crates/leash/tests/integration.rs`.
+`any!` and `policy!` continue on every error, including `Internal`. When a database failure must stop the request, write an explicit check that propagates it. Branches share request parts and do not undo changes, so checks should avoid side effects. The macros live in [Leash's `src/macros.rs`](https://git.cmu.dev/ScottyLabs/leash/src/branch/main/src/macros.rs), with examples in [`tests/integration.rs`](https://git.cmu.dev/ScottyLabs/leash/src/branch/main/tests/integration.rs).

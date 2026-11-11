@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/leash/",
   "crates/terrier-common/",
   "crates/terrier-server/",
   "crates/terrier-server/migration",

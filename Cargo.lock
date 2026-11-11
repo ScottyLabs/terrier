@@ -1952,10 +1952,9 @@ dependencies = [
 [[package]]
 name = "leash"
 version = "0.1.0"
+source = "git+https://git.cmu.dev/ScottyLabs/leash?branch=main#dec086ce087e8b4baccc2ba41e96bfa4e1f45489"
 dependencies = [
  "axum",
- "tokio",
- "tower",
 ]
 
 [[package]]
