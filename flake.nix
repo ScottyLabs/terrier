@@ -26,6 +26,7 @@
 
       perSystem =
         {
+          config,
           pkgs,
           lib,
           helpers,
@@ -122,6 +123,8 @@
             };
             customDomain = "docs.terrier.build";
           };
+
+          packages.terrier = config.services.terrier.package;
 
           packages.migrator = helpers.buildRustService {
             src = ./.;
