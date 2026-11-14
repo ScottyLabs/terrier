@@ -97,6 +97,22 @@ See `tests/hackathons.rs` for route coverage.
 
 An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackathon returns 404. The update rechecks access under the exclusive hackathon lock.
 
+## ProjectReader
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/projects/{project_id}` in `src/projects.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug`, and the `project_id` UUID path parameter |
+| Hackathon scope | The slug must name an active hackathon, and the project must belong to it |
+| Permission | The caller is an active member of the project's team, or holds an active organizer role in the hackathon. Checked in that order |
+| Output | The project's database model, available as `auth.data` |
+| Rejections | 400 for a malformed UUID; 401 if no current user is present; 404 for an unknown or inactive hackathon, or a project outside it; 403 for any other caller |
+| Admin access | No override |
+| Tests | `project_reads_enforce_team_organizer_and_hackathon_scope` in `tests/projects.rs` |
+
+Drafts and submitted projects are both readable. Judges and track sponsors are not yet granted access to submitted projects; they receive 403. Query failures return 500.
+
 ## Adding an entry
 
 Use the same fields as `OwnProfile`, including required roles and hackathon scope. For combined policies, include branch order and error handling so callers know which rule applies. Keep the entry updated when behavior changes.

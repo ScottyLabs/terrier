@@ -12,9 +12,11 @@ use uuid::Uuid;
 use super::{config::AuthConfig, current_user::CurrentUser};
 use crate::{
     entities::{
-        application, hackathon, organizer,
-        sea_orm_active_enums::{ApplicationStatus, AttendanceStatus, Capability, HackathonRole},
-        user_hackathon_role,
+        application, hackathon, organizer, project,
+        sea_orm_active_enums::{
+            ApplicationStatus, AttendanceStatus, Capability, HackathonRole, TeamMemberStatus,
+        },
+        team_member, user_hackathon_role,
     },
     error::ApiError,
     state::AppState,
@@ -278,4 +280,42 @@ pub(crate) async fn ensure_manager(
         return Err(ApiError::Forbidden);
     }
     Ok(())
+}
+
+/// Judge and sponsor access to submitted projects is not granted here.
+pub struct ProjectReader;
+
+impl Policy<AppState> for ProjectReader {
+    type Output = project::Model;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Path((slug, project_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid project ID.".into()))?;
+        let hackathon = active_hackathon(&state.db, &slug).await?;
+        let project = project::Entity::find_by_id(project_id)
+            .filter(project::Column::HackathonId.eq(hackathon.id))
+            .one(&state.db)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+
+        let user_id = user.user().id;
+        let is_member = team_member::Entity::find_by_id((project.team_id, user_id))
+            .one(&state.db)
+            .await?
+            .is_some_and(|member| member.status == TeamMemberStatus::Active);
+        if is_member {
+            return Ok(project);
+        }
+        let is_organizer = user_hackathon_role::Entity::find_by_id((user_id, hackathon.id))
+            .one(&state.db)
+            .await?
+            .is_some_and(|role| role.is_active && role.role == HackathonRole::Organizer);
+        if is_organizer {
+            return Ok(project);
+        }
+        Err(ApiError::Forbidden)
+    }
 }

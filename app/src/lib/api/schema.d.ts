@@ -164,6 +164,22 @@ export interface paths {
     patch: operations["update_organizer"];
     trace?: never;
   };
+  "/api/hackathons/{slug}/projects/{project_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["read_project"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/hackathons/{slug}/users": {
     parameters: {
       query?: never;
@@ -279,6 +295,17 @@ export interface components {
       display_name: string;
       email: string;
       id: string;
+    };
+    Project: {
+      data: unknown;
+      event_id: string;
+      id: string;
+      status: string;
+      submitted_at?: string | null;
+      team_id: string;
+      track_ids: string[];
+      /** Format: int32 */
+      version: number;
     };
     /** @description An applicant's draft save or submission. */
     SaveApplication: {
@@ -962,6 +989,70 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  read_project: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+        /** @description Project UUID */
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Project"];
+        };
       };
       400: {
         headers: {
