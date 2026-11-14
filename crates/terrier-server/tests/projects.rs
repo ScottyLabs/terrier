@@ -38,7 +38,7 @@ async fn status(
 }
 
 #[tokio::test]
-async fn project_reads_enforce_team_organizer_and_hackathon_scope() -> anyhow::Result<()> {
+async fn project_reads_enforce_access_and_hackathon_scope() -> anyhow::Result<()> {
     let app = TestApp::new().await?;
     let caller = app.login("caller").await?;
     let session = Some(&caller);
@@ -140,12 +140,18 @@ async fn project_reads_enforce_team_organizer_and_hackathon_scope() -> anyhow::R
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = serde_json::from_slice(&to_bytes(response.into_body(), 4096).await?)?;
     assert_eq!(body["id"], json!(project.to_string()));
-    assert_eq!(body["team_id"], json!(team.to_string()));
+    assert_eq!(
+        body["team"],
+        json!({"id": team.to_string(), "name": team.to_string()})
+    );
     assert_eq!(body["event_id"], json!(event.to_string()));
     assert_eq!(body["data"], json!({}));
     assert_eq!(body["status"], "draft");
     assert_eq!(body["submitted_at"], Value::Null);
-    assert_eq!(body["track_ids"], json!([track.to_string()]));
+    assert_eq!(
+        body["tracks"],
+        json!([{"id": track.to_string(), "name": "Track"}])
+    );
     assert_eq!(
         status(&app, session, &other_path).await?,
         StatusCode::FORBIDDEN
@@ -157,6 +163,87 @@ async fn project_reads_enforce_team_organizer_and_hackathon_scope() -> anyhow::R
         format!(
             "UPDATE user_hackathon_role SET role='organizer' \
              WHERE user_id='{caller_id}' AND hackathon_id='{alpha}';"
+        ),
+    )
+    .await?;
+    assert_eq!(status(&app, session, &other_path).await?, StatusCode::OK);
+
+    let [organization, sponsored] = std::array::from_fn(|_| Uuid::new_v4());
+    seed(
+        &app,
+        Scope::Global,
+        format!(
+            "INSERT INTO sponsor_org(id,name,description) \
+             VALUES('{organization}','Sponsor','Sponsor');"
+        ),
+    )
+    .await?;
+    seed(
+        &app,
+        Scope::HackathonExclusive(alpha),
+        format!(
+            "UPDATE user_hackathon_role SET role='sponsor' \
+             WHERE user_id='{caller_id}' AND hackathon_id='{alpha}';\
+             INSERT INTO sponsor(user_id,org_id,hackathon_id) \
+             VALUES('{caller_id}','{organization}','{alpha}');\
+             INSERT INTO prize_track(id,hackathon_id,sponsor_org_id,name,description,\
+             is_judging_started,judging_method) \
+             VALUES('{sponsored}','{alpha}','{organization}','Sponsored','Sponsored',false,\
+             'scoring');"
+        ),
+    )
+    .await?;
+    seed(
+        &app,
+        Scope::Hackathon(alpha),
+        format!(
+            "INSERT INTO project_track_sub(project_id,track_id,hackathon_id) \
+             VALUES('{other_project}','{sponsored}','{alpha}');"
+        ),
+    )
+    .await?;
+    assert_eq!(
+        status(&app, session, &other_path).await?,
+        StatusCode::FORBIDDEN,
+        "sponsors cannot read drafts"
+    );
+    seed(
+        &app,
+        Scope::Hackathon(alpha),
+        format!(
+            "UPDATE project SET status='submitted', submitted_at=clock_timestamp() \
+             WHERE id='{other_project}';"
+        ),
+    )
+    .await?;
+    assert_eq!(status(&app, session, &other_path).await?, StatusCode::OK);
+
+    seed(
+        &app,
+        Scope::HackathonExclusive(alpha),
+        format!(
+            "UPDATE sponsor SET is_active=false WHERE user_id='{caller_id}';\
+             UPDATE user_hackathon_role SET role='judge' \
+             WHERE user_id='{caller_id}' AND hackathon_id='{alpha}';\
+             INSERT INTO judge_track_assign(user_id,track_id,hackathon_id,manually_granted) \
+             VALUES('{caller_id}','{sponsored}','{alpha}',true);"
+        ),
+    )
+    .await?;
+    assert_eq!(
+        status(&app, session, &other_path).await?,
+        StatusCode::FORBIDDEN,
+        "a track grant without an assignment does not grant access"
+    );
+    seed(
+        &app,
+        Scope::Hackathon(alpha),
+        format!(
+            "INSERT INTO evaluation(id,track_id,project_id,judge_id,hackathon_id,\
+             judging_method,status,created_at) \
+             VALUES('{}','{sponsored}','{other_project}','{caller_id}','{alpha}','scoring',\
+             'pending',now());",
+            Uuid::new_v4()
         ),
     )
     .await?;

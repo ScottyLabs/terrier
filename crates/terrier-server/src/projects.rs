@@ -1,11 +1,12 @@
+use anyhow::anyhow;
 use axum::{Json, Router, extract::State, routing::get};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::EntityTrait;
 use serde::Serialize;
 use utoipa::{OpenApi, ToSchema};
 
 use crate::{
     auth::policy::{Auth, ProjectReader},
-    entities::{project_track_sub, sea_orm_active_enums::ProjectStatus},
+    entities::{sea_orm_active_enums::ProjectStatus, team},
     error::ApiError,
     state::AppState,
 };
@@ -17,13 +18,25 @@ pub struct ProjectsApiDoc;
 #[derive(Serialize, ToSchema)]
 struct Project {
     id: String,
-    team_id: String,
     event_id: String,
+    team: Team,
+    tracks: Vec<Track>,
     data: serde_json::Value,
     status: &'static str,
     submitted_at: Option<String>,
-    track_ids: Vec<String>,
     version: i32,
+}
+
+#[derive(Serialize, ToSchema)]
+struct Team {
+    id: String,
+    name: String,
+}
+
+#[derive(Serialize, ToSchema)]
+struct Track {
+    id: String,
+    name: String,
 }
 
 pub fn routes() -> Router<AppState> {
@@ -46,26 +59,33 @@ async fn read_project(
     auth: Auth<ProjectReader>,
     State(state): State<AppState>,
 ) -> Result<Json<Project>, ApiError> {
-    let project = &auth.data;
-    let track_ids = project_track_sub::Entity::find()
-        .filter(project_track_sub::Column::ProjectId.eq(project.id))
-        .filter(project_track_sub::Column::IsActive.eq(true))
-        .all(&state.db)
+    let project = &auth.data.project;
+    let team = team::Entity::find_by_id(project.team_id)
+        .one(&state.db)
         .await?
-        .into_iter()
-        .map(|entry| entry.track_id.to_string())
-        .collect();
+        .ok_or_else(|| ApiError::Internal(anyhow!("project {} has no team", project.id)))?;
     Ok(Json(Project {
         id: project.id.to_string(),
-        team_id: project.team_id.to_string(),
         event_id: project.event_id.to_string(),
+        team: Team {
+            id: team.id.to_string(),
+            name: team.name,
+        },
+        tracks: auth
+            .data
+            .tracks
+            .iter()
+            .map(|track| Track {
+                id: track.id.to_string(),
+                name: track.name.clone(),
+            })
+            .collect(),
         data: project.data.clone(),
         status: match project.status {
             ProjectStatus::Draft => "draft",
             ProjectStatus::Submitted => "submitted",
         },
         submitted_at: project.submitted_at.map(|time| time.to_rfc3339()),
-        track_ids,
         version: project.version,
     }))
 }

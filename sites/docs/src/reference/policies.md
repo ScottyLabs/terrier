@@ -105,13 +105,20 @@ An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackat
 | Used by | `GET /api/hackathons/{slug}/projects/{project_id}` in `src/projects.rs` |
 | Inputs | `CurrentUser`, the hackathon `slug`, and the `project_id` UUID path parameter |
 | Hackathon scope | The slug must name an active hackathon, and the project must belong to it |
-| Permission | The caller is an active member of the project's team, or holds an active organizer role in the hackathon. Checked in that order |
-| Output | The project's database model, available as `auth.data` |
+| Permission | One of the four rules below, checked in order |
+| Output | `ReadableProject`: the project's database model and the active tracks it is entered in, available as `auth.data` |
 | Rejections | 400 for a malformed UUID; 401 if no current user is present; 404 for an unknown or inactive hackathon, or a project outside it; 403 for any other caller |
 | Admin access | No override |
-| Tests | `project_reads_enforce_team_organizer_and_hackathon_scope` in `tests/projects.rs` |
+| Tests | `project_reads_enforce_access_and_hackathon_scope` in `tests/projects.rs` |
 
-Drafts and submitted projects are both readable. Judges and track sponsors are not yet granted access to submitted projects; they receive 403. Query failures return 500.
+| Caller | Rule | Drafts |
+| -- | -- | -- |
+| Team member | Active member of the project's team | Yes |
+| Organizer | Active organizer role in the hackathon | Yes |
+| Sponsor | Active sponsor of an organization that owns an active track the project is entered in | No |
+| Judge | Holds a manual or sponsor grant for an active track the project is entered in, and has an evaluation for the project on that track that is not skipped | No |
+
+Sponsors and judges also need an active role in the hackathon. An evaluation row is treated as the judge's assignment to the project, following the [database RFC](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md); a track grant alone does not grant access. Query failures return 500.
 
 ## Adding an entry
 

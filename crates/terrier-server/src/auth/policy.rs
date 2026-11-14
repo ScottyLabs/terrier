@@ -6,17 +6,22 @@ use axum::{
     http::request::Parts,
 };
 use leash::Policy;
-use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder,
+};
 use uuid::Uuid;
 
 use super::{config::AuthConfig, current_user::CurrentUser};
 use crate::{
     entities::{
-        application, hackathon, organizer, project,
+        application, evaluation, hackathon, judge_track_assign, organizer, prize_track, project,
+        project_track_sub,
         sea_orm_active_enums::{
-            ApplicationStatus, AttendanceStatus, Capability, HackathonRole, TeamMemberStatus,
+            ApplicationStatus, AttendanceStatus, Capability, EvaluationStatus, HackathonRole,
+            ProjectStatus, TeamMemberStatus,
         },
-        team_member, user_hackathon_role,
+        sponsor, team_member, user_hackathon_role,
     },
     error::ApiError,
     state::AppState,
@@ -282,11 +287,18 @@ pub(crate) async fn ensure_manager(
     Ok(())
 }
 
-/// Judge and sponsor access to submitted projects is not granted here.
+/// A project the caller may read, with the active tracks it is entered in.
+pub struct ReadableProject {
+    pub project: project::Model,
+    pub tracks: Vec<prize_track::Model>,
+}
+
+/// Team members and organizers read drafts. Sponsors and judges read submitted projects only:
+/// a sponsor through a track their organization owns, a judge through an assignment on a track they hold a grant for.
 pub struct ProjectReader;
 
 impl Policy<AppState> for ProjectReader {
-    type Output = project::Model;
+    type Output = ReadableProject;
     type Error = ApiError;
 
     async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
@@ -294,28 +306,91 @@ impl Policy<AppState> for ProjectReader {
         let Path((slug, project_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
             .await
             .map_err(|_| ApiError::BadRequest("Invalid project ID.".into()))?;
-        let hackathon = active_hackathon(&state.db, &slug).await?;
+        let db = &state.db;
+        let hackathon = active_hackathon(db, &slug).await?;
         let project = project::Entity::find_by_id(project_id)
             .filter(project::Column::HackathonId.eq(hackathon.id))
-            .one(&state.db)
+            .one(db)
             .await?
             .ok_or(ApiError::NotFound)?;
+        let entered = project_track_sub::Entity::find()
+            .filter(project_track_sub::Column::ProjectId.eq(project.id))
+            .filter(project_track_sub::Column::IsActive.eq(true))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|entry| entry.track_id);
+        let tracks = prize_track::Entity::find()
+            .filter(prize_track::Column::Id.is_in(entered))
+            .filter(prize_track::Column::IsActive.eq(true))
+            .order_by_asc(prize_track::Column::Name)
+            .all(db)
+            .await?;
 
         let user_id = user.user().id;
         let is_member = team_member::Entity::find_by_id((project.team_id, user_id))
-            .one(&state.db)
+            .one(db)
             .await?
             .is_some_and(|member| member.status == TeamMemberStatus::Active);
-        if is_member {
-            return Ok(project);
+        let allowed = is_member || {
+            let role = user_hackathon_role::Entity::find_by_id((user_id, hackathon.id))
+                .one(db)
+                .await?
+                .filter(|role| role.is_active)
+                .ok_or(ApiError::Forbidden)?;
+            role.role == HackathonRole::Organizer
+                || project.status == ProjectStatus::Submitted
+                    && (sponsors(db, &project, &tracks, user_id).await?
+                        || judges(db, &project, &tracks, user_id).await?)
+        };
+        if !allowed {
+            return Err(ApiError::Forbidden);
         }
-        let is_organizer = user_hackathon_role::Entity::find_by_id((user_id, hackathon.id))
-            .one(&state.db)
-            .await?
-            .is_some_and(|role| role.is_active && role.role == HackathonRole::Organizer);
-        if is_organizer {
-            return Ok(project);
-        }
-        Err(ApiError::Forbidden)
+        Ok(ReadableProject { project, tracks })
     }
+}
+
+async fn sponsors(
+    db: &DatabaseConnection,
+    project: &project::Model,
+    tracks: &[prize_track::Model],
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    let organizations = tracks.iter().filter_map(|track| track.sponsor_org_id);
+    Ok(sponsor::Entity::find()
+        .filter(sponsor::Column::UserId.eq(user_id))
+        .filter(sponsor::Column::HackathonId.eq(project.hackathon_id))
+        .filter(sponsor::Column::IsActive.eq(true))
+        .filter(sponsor::Column::OrgId.is_in(organizations))
+        .one(db)
+        .await?
+        .is_some())
+}
+
+async fn judges(
+    db: &DatabaseConnection,
+    project: &project::Model,
+    tracks: &[prize_track::Model],
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    let granted = judge_track_assign::Entity::find()
+        .filter(judge_track_assign::Column::UserId.eq(user_id))
+        .filter(judge_track_assign::Column::TrackId.is_in(tracks.iter().map(|track| track.id)))
+        .filter(
+            Condition::any()
+                .add(judge_track_assign::Column::ManuallyGranted.eq(true))
+                .add(judge_track_assign::Column::SponsorGranted.eq(true)),
+        )
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|grant| grant.track_id);
+    Ok(evaluation::Entity::find()
+        .filter(evaluation::Column::ProjectId.eq(project.id))
+        .filter(evaluation::Column::JudgeId.eq(user_id))
+        .filter(evaluation::Column::TrackId.is_in(granted))
+        .filter(evaluation::Column::Status.ne(EvaluationStatus::Skipped))
+        .one(db)
+        .await?
+        .is_some())
 }

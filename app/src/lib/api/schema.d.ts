@@ -302,8 +302,8 @@ export interface components {
       id: string;
       status: string;
       submitted_at?: string | null;
-      team_id: string;
-      track_ids: string[];
+      team: components["schemas"]["Team"];
+      tracks: components["schemas"]["Track"][];
       /** Format: int32 */
       version: number;
     };
@@ -330,6 +330,14 @@ export interface components {
       submission_deadline: string;
       /** Format: date-time */
       team_formation_deadline: string;
+    };
+    Team: {
+      id: string;
+      name: string;
+    };
+    Track: {
+      id: string;
+      name: string;
     };
     UpdateHackathon: {
       is_active?: boolean | null;
