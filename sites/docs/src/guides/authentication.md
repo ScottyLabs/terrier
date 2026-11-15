@@ -46,6 +46,6 @@ Register application routes through `auth::middleware::application_routes`, then
 
 Health, auth status, login, callback, and logout remain outside the application authentication gate. An explicit `return_to` path starts a fresh login.
 
-See [API routes and policies](api-routes.md) for the own-profile policy, route registration, shared errors, and typed client usage.
+See [Profiles](profiles.md) for fetching the signed-in user's profile, and [API routes and policies](api-routes.md) for implementing routes and access policies.
 
 OIDC user creation and email changes are audited as automatic identity synchronization; unchanged claims do not create another write.

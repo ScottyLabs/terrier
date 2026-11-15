@@ -1,37 +1,20 @@
 use super::*;
 use axum::{
-    Form, Json,
     body::{Body, to_bytes},
     http::{
         Request,
         header::{COOKIE, LOCATION, SET_COOKIE},
     },
 };
-use axum_oidc::openidconnect::{
-    PkceCodeChallenge, PkceCodeVerifier,
-    core::{CoreHmacKey, CoreJwsSigningAlgorithm},
-};
 use serde_json::{Value, json};
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
 use tower::ServiceExt;
 use tower_sessions::{MemoryStore, SessionStore, cookie::time::OffsetDateTime, session::Id};
 
-const CLIENT_SECRET: &str = "oidc-test-client-secret";
-
-#[derive(Default)]
-struct Exchange {
-    nonce: String,
-    challenge: String,
-    overrides: serde_json::Map<String, Value>,
-    refresh_status: Option<StatusCode>,
-    refreshes: usize,
-}
-
-struct Provider {
-    url: String,
-    exchange: Mutex<Exchange>,
-    discovered: tokio::sync::Notify,
-}
+#[path = "../../../tests/common/provider.rs"]
+mod provider;
+use axum_oidc::openidconnect::core::{CoreHmacKey, CoreJwsSigningAlgorithm};
+use provider::{CLIENT_SECRET, Provider};
 
 struct Fixture {
     provider: Arc<Provider>,
@@ -63,46 +46,13 @@ impl Fixture {
     }
 
     async fn with_db(db: sea_orm::DatabaseConnection) -> Self {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let provider = Arc::new(Provider {
-            url: format!("http://{}", listener.local_addr().unwrap()),
-            exchange: Mutex::new(Exchange::default()),
-            discovered: tokio::sync::Notify::new(),
-        });
-        let metadata = provider.clone();
-        let mock = Router::new()
-            .route(
-                "/.well-known/openid-configuration",
-                get(move || async move {
-                    metadata.discovered.notify_one();
-                    Json(json!({
-                        "issuer": format!("{}/", metadata.url),
-                        "authorization_endpoint": format!("{}/authorize", metadata.url),
-                        "token_endpoint": format!("{}/token", metadata.url),
-                        "userinfo_endpoint": format!("{}/userinfo", metadata.url),
-                        "jwks_uri": format!("{}/jwks", metadata.url),
-                        "response_types_supported": ["code"],
-                        "subject_types_supported": ["public"],
-                        "id_token_signing_alg_values_supported": ["HS256"],
-                    }))
-                }),
-            )
-            .route("/jwks", get(|| async { Json(json!({"keys": []})) }))
-            .route(
-                "/userinfo",
-                get(|| async { Json(json!({"sub": "member"})) }),
-            )
-            .route("/token", post(token))
-            .with_state(provider.clone());
-        let task = tokio::spawn(async move {
-            axum::serve(listener, mock).await.unwrap();
-        });
+        let (provider, task) = Provider::start().await;
         let config = Arc::new(AuthConfig {
             app_url: "https://terrier.example/".parse().unwrap(),
             issuer: provider.url.parse().unwrap(),
             relay_url: "https://relay.example/callback".parse().unwrap(),
             client_id: "terrier".into(),
-            client_secret: CLIENT_SECRET.into(),
+            client_secret: provider::CLIENT_SECRET.into(),
             instance_admin_subjects: Default::default(),
         });
         let client = client(&config).await.unwrap();
@@ -263,44 +213,6 @@ fn session_errors_keep_backend_details_but_redact_stored_values() {
         panic!("expected internal error")
     };
     assert!(!format!("{error:#}").contains("private-token"));
-}
-
-async fn token(
-    State(provider): State<Arc<Provider>>,
-    Form(form): Form<HashMap<String, String>>,
-) -> Response {
-    let mut exchange = provider.exchange.lock().unwrap();
-    if form["grant_type"] == "authorization_code" {
-        let verifier = PkceCodeVerifier::new(form["code_verifier"].clone());
-        assert_eq!(
-            PkceCodeChallenge::from_code_verifier_sha256(&verifier).as_str(),
-            exchange.challenge
-        );
-    } else {
-        exchange.refreshes += 1;
-        if let Some(status) = exchange.refresh_status {
-            return (status, Json(json!({"error": if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"}}))).into_response();
-        }
-    }
-    let now = OffsetDateTime::now_utc().unix_timestamp();
-    let mut claims = json!({
-        "iss": format!("{}/", provider.url), "sub": "member", "aud": "terrier", "iat": now,
-        "exp": now + 300,
-        "nonce": exchange.nonce, "email": "member@example.com", "name": "Member", "email_verified": true,
-    });
-    claims
-        .as_object_mut()
-        .unwrap()
-        .extend(exchange.overrides.clone());
-    let token = axum_oidc::IdToken::<Claims>::new(
-        serde_json::from_value(claims).unwrap(),
-        &CoreHmacKey::new(CLIENT_SECRET),
-        CoreJwsSigningAlgorithm::HmacSha256,
-        None,
-        None,
-    )
-    .unwrap();
-    Json(json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": "test-refresh-token", "id_token": token.to_string()})).into_response()
 }
 
 fn cookie(response: &Response) -> String {
@@ -577,7 +489,7 @@ async fn anonymous_status_and_application_requests_have_distinct_responses() {
 }
 
 #[tokio::test]
-async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<()> {
+async fn authenticated_requests_enforce_csrf_and_audit() -> anyhow::Result<()> {
     use sea_orm::ConnectionTrait;
     let url = std::env::var("DATABASE_URL")?;
     let admin = sea_orm::Database::connect(&url).await?;
@@ -611,35 +523,6 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
     assert!(status["user"].get("oidc_subject").is_none());
     let response = fixture.request("/api/test", Some(&authenticated)).await;
     assert_eq!(response.status(), StatusCode::OK);
-    let own_path = format!("/api/users/{}", status["user"]["id"].as_str().unwrap());
-    let own = fixture.request(&own_path, Some(&authenticated)).await;
-    assert_eq!(own.status(), StatusCode::OK);
-    let own: Value = serde_json::from_slice(&to_bytes(own.into_body(), 4096).await?)?;
-    assert_eq!(
-        own,
-        json!({"id": status["user"]["id"], "email": "member@example.com", "display_name": "Member"})
-    );
-    assert_eq!(
-        fixture.request(&own_path, None).await.status(),
-        StatusCode::UNAUTHORIZED
-    );
-    assert_eq!(
-        fixture
-            .request(
-                &format!("/api/users/{}", uuid::Uuid::new_v4()),
-                Some(&authenticated)
-            )
-            .await
-            .status(),
-        StatusCode::FORBIDDEN
-    );
-    assert_eq!(
-        fixture
-            .request("/api/users/not-a-uuid", Some(&authenticated))
-            .await
-            .status(),
-        StatusCode::BAD_REQUEST
-    );
     for (origin, csrf, expected) in [
         ("https://terrier.example", "forged", StatusCode::FORBIDDEN),
         (

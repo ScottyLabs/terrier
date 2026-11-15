@@ -1,10 +1,10 @@
 # API routes and policies
 
-To add an API route, you need a handler, an access policy, tests, and documentation. This guide follows `GET /api/users/{user_id}` through each of those pieces. You can find the route in `crates/terrier-server/src/profile.rs` and its policy in `crates/terrier-server/src/auth/policy.rs`. All `src/` paths below refer to the server crate, and commands assume the development shell is ready.
+This guide uses `GET /api/users/{user_id}` to show how to add a route, policy, tests, and documentation. The handler is in `crates/terrier-server/src/profile.rs`; its policy is in `src/auth/policy.rs`. All `src/` paths refer to the server crate. Run commands in the development shell unless they use a `collar` wrapper.
 
 ## 1. Choose the route and response
 
-Start with what the route does and who should be able to use it. For the profile route, the caller supplies a Terrier user UUID and may only request their own ID. A successful request returns their ID, email, and display name, represented by this type in **`crates/terrier-server/src/profile.rs`**:
+Start with what the route does and who should be able to use it. For the profile route, the caller supplies a Terrier user UUID and may only request their own ID. A successful request returns their ID, email, and display name, represented by this type in `crates/terrier-server/src/profile.rs`:
 
 ```rust
 use axum::{Json, Router, routing::get};
@@ -19,9 +19,9 @@ struct Profile {
 }
 ```
 
-`#[derive(...)]` generates the code needed to use this type with other libraries: `Serialize` lets Axum write it as JSON, while `ToSchema` describes its fields in OpenAPI. A separate response type lets you choose which database fields to expose. Request types use `Deserialize` to read JSON into a struct.
+`Serialize` enables JSON output; `ToSchema` describes the fields in OpenAPI. Use a separate response type to control which database fields are public. Request types use `Deserialize` to parse JSON.
 
-Before adding fields, check the relevant RFC and the models in `src/entities/`. The profile route uses existing columns, but a route that needs a schema change also needs a migration. Apply it before running `generate-entities`, following the [database guide](database.md).
+Check the relevant RFC and models in `src/entities/`. If the route needs a schema change, add and apply a migration before running `generate-entities`. See the [database guide](database.md).
 
 ## 2. Choose the policy
 
@@ -30,7 +30,7 @@ Start with the [policy reference](../reference/policies.md). Reuse a policy if i
 - `leash::any!(A, B, C)` accepts the first policy that passes.
 - `leash::all!(A, B, C)` requires every policy to pass.
 
-A, B, and C stand for existing policy types. Give complex or repeated combinations a type alias. When the handler needs to know which alternative passed, `policy!` gives those branches names. For example, this pattern belongs beside the policies in **`src/auth/policy.rs`**:
+A, B, and C stand for existing policy types. Give complex or repeated combinations a type alias. When the handler needs to know which alternative passed, `policy!` gives those branches names. For example, this pattern belongs beside the policies in `src/auth/policy.rs`:
 
 ```rust
 leash::policy! {
@@ -41,11 +41,11 @@ leash::policy! {
 }
 ```
 
-Like `any!(A, B)`, it tries A first, then B if A fails. A handler using `Auth<Access>` receives `Access::First(a)` or `Access::Second(b)` in `auth.data`, rather than `Either::Left(a)` or `Either::Right(b)`. Each variant carries the successful policy's output.
+Like `any!(A, B)`, it tries A first, then B if A fails. A handler using `Auth<Access>` receives `Access::First(a)` or `Access::Second(b)` in `auth.data`. Each variant carries the successful policy's output.
 
 Only write a new check when existing policies cannot express the rule. `any!` and `policy!` continue after every error, including `Internal`, so they must not be used to hide database failures.
 
-The profile route needs a new check because no existing policy compares the requested ID with the current user. **`crates/terrier-server/src/auth/policy.rs`** defines `OwnProfile` for that check:
+The profile route uses `OwnProfile` in `src/auth/policy.rs` to compare the requested ID with the signed-in user's ID:
 
 ```rust
 use axum::{extract::{FromRequestParts, Path}, http::request::Parts};
@@ -76,11 +76,11 @@ impl Policy<AppState> for OwnProfile {
 
 `Output` is what the handler receives after success, and `Error` is the failure type. Here, the check returns the loaded user, 400 for an invalid UUID, or 403 for another user's ID.
 
-`FromRequestParts` reads request metadata without consuming the body. The first call gets the user attached by middleware; the second parses and unwraps the path UUID. `.await?` waits for a result and returns early on failure, while `.map_err(...)` changes the parsing error into `BadRequest`.
+`FromRequestParts` reads request metadata without consuming the body. The first call gets the user attached by middleware; the second parses the path UUID. Parsing errors become `BadRequest`.
 
 Policies live under `src/auth/` and use `AppState.db` for queries. Return the checked resource, with query failures reported as `ApiError::Internal`. Keep Terrier types out of the generic `leash` crate.
 
-**For hackathon routes**, check the caller's active role in an active hackathon, then include that hackathon in the resource query. For example, inside a policy in **`src/auth/policy.rs`**, with IDs parsed from the path:
+**For hackathon routes**, check the caller's active role in an active hackathon, then include that hackathon in the resource query. For example, inside a policy in `src/auth/policy.rs`, with IDs parsed from the path:
 
 ```rust
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -101,13 +101,13 @@ Add policies and named combinations to the [policy reference](../reference/polic
 
 ## 3. Write the handler
 
-The alias in **`crates/terrier-server/src/auth/policy.rs`** supplies Terrier's state type for both individual and composed policies:
+The alias in `crates/terrier-server/src/auth/policy.rs` supplies Terrier's state type for both individual and composed policies:
 
 ```rust
 pub type Auth<P> = leash::Authorized<P, AppState>;
 ```
 
-Middleware has already checked login and CSRF for writes. Axum then runs `P::check`: failure returns an error before the handler runs, while success puts the checked data in `auth.data`. In **`crates/terrier-server/src/profile.rs`**, import `Auth` and `OwnProfile` from `crate::auth::policy`. The handler uses the returned user directly:
+Middleware has already checked login and CSRF for writes. Axum then runs `P::check`: failure returns an error before the handler runs, while success puts the checked data in `auth.data`. In `crates/terrier-server/src/profile.rs`, import `Auth` and `OwnProfile` from `crate::auth::policy`. The handler uses the returned user directly:
 
 ```rust
 async fn profile(auth: Auth<OwnProfile>) -> Json<Profile> {
@@ -120,13 +120,13 @@ async fn profile(auth: Auth<OwnProfile>) -> Json<Profile> {
 }
 ```
 
-The handler wraps its response in `Json<Profile>`. Because `user()` borrows the checked user, `.clone()` copies its strings into the response; `.to_string()` formats the UUID. A handler that can fail would instead return `Result<Json<Profile>, ApiError>`, using `Ok(Json(...))` on success.
+`Json<Profile>` serializes the response. For a handler that can fail, return `Result<Json<Profile>, ApiError>` and wrap success in `Ok(Json(...))`.
 
 For a request body, put `Json<Input>` last in the handler arguments because it consumes the body. Map parsing failures to `ApiError::BadRequest`; use `ApiError::Validation` for parsed input that fails a field rule. Axum's default extractor errors do not automatically use Terrier's JSON error format.
 
 The profile handler only reads, so it needs no audit block. For writes, add `audit: Audit` and use `audited!`. Use the block's `db` for every query. Triggers record the actor and old/new values in the same transaction. A failed write or audit insert rolls back both. The block returns its `Ok(value)` after commit.
 
-This example changes only the caller's display name. Concurrent edits keep the last committed name. `OwnProfile` checks ownership; organizer workflows still need revision checks.
+To add a display-name update route, validate the input and update the user inside an audited transaction. In this example, the last committed edit wins. Organizer workflows that reject stale edits also need revision checks.
 
 ```rust
 use std::collections::BTreeMap;
@@ -163,9 +163,9 @@ async fn rename(
 }
 ```
 
-Register it with `.patch(rename)` and document it in OpenAPI in step 4. Return a response type or status, not the database model with its private identity fields.
+Register the new handler with `.patch(rename)` and document it in OpenAPI in step 4. Return a response type or status to avoid exposing private database fields.
 
-Add a reason inside the macro call:
+For privileged corrections and restoration, include an audit reason:
 
 ```rust
 let saved = audited!(audit, Scope::Global, reason = "Correct misspelled name", |db| {
@@ -173,7 +173,7 @@ let saved = audited!(audit, Scope::Global, reason = "Correct misspelled name", |
 }).await?;
 ```
 
-Use a literal or borrowed string for privileged corrections and restoration. Every entry from the block receives that reason. In a background job with `state: AppState`, use the pool instead of an authenticated `Audit`:
+Every audit entry from the block receives that reason. Background jobs use `audited_automatic!` with the database pool and a required reason:
 
 ```rust
 let saved = audited_automatic!(&state.db, Scope::Global, "Sync verified profile", |db| {
@@ -181,7 +181,7 @@ let saved = audited_automatic!(&state.db, Scope::Global, "Sync verified profile"
 }).await?;
 ```
 
-Import `audited_automatic` from `crate`. Automatic entries have no human actor and require a nonblank reason.
+Import `audited_automatic` from `crate`. These entries have no human actor; blank reasons are rejected.
 
 | Scope | Parent lock |
 | -- | -- |
@@ -189,13 +189,24 @@ Import `audited_automatic` from `crate`. Automatic entries have no human actor a
 | `Scope::Hackathon(id)` | Shared; ordinary hackathon writes. |
 | `Scope::HackathonExclusive(id)` | Exclusive; settings, grants, invitation redemption, table allocation and restoration. |
 
-Locks do not grant access. Keep the route policy and recheck mutable permissions, eligibility and deadlines after locking. Lock application rows, then team rows, in UUID order before child writes.
+For hackathon writes, the `Auth<...>` policy checks access before the handler runs. The `audited!` block acquires the scope's hackathon lock before running your code. Shared locks allow ordinary writes to run concurrently; an exclusive lock waits for other writers and blocks new ones.
+
+Inside the block, lock any application and team rows the operation depends on before changing them or their related records. Every write must acquire these locks in the same order to avoid deadlocks:
+
+1. Hackathon row, acquired by `audited!` using the selected scope.
+1. Relevant application rows, sorted by UUID.
+1. Relevant team rows, sorted by UUID.
+1. Related records, such as team memberships.
+
+Only lock rows involved in the operation; a profile rename does not need application or team locks.
+
+While a request waits for a lock, the caller's role could be revoked, a team could fill up, or a deadline could pass. After acquiring the locks, use the block's `db` to reload and check the permissions, eligibility, capacity, and deadlines required for the write. Check deadlines against the current time after waiting. Return an `ApiError` if a check fails, before making changes.
 
 For removal, use `PATCH` with `is_active: false`; do not add domain `DELETE` routes. Membership uses `removed`; join requests use `withdrawn` or `rejected`. Keep inactive records out of ordinary reads and authorization. Restoration must recheck permissions and constraints. Submitted projects cannot be withdrawn. Audit reads follow the resource's privacy rules. Keep secrets out of data and reasons. See [database lifecycle state](database.md#deactivation-and-history).
 
 ## 4. Register the route and its API description
 
-In **`crates/terrier-server/src/profile.rs`**, `routes()` maps the URL to the handler. Paths here omit `/api`; the server adds that prefix.
+In `crates/terrier-server/src/profile.rs`, `routes()` maps the URL to the handler. Paths here omit `/api`; the server adds that prefix.
 
 ```rust
 pub fn routes() -> Router<AppState> {
@@ -215,7 +226,7 @@ In the same file, put the OpenAPI annotation immediately above the handler. It d
         (status = 500, body = crate::error::ErrorResponse)))]
 ```
 
-Also in **`profile.rs`**, list the documented handlers:
+Also in `profile.rs`, list the documented handlers:
 
 ```rust
 #[derive(OpenApi)]
@@ -225,46 +236,62 @@ pub struct ProfileApiDoc;
 
 `paths(profile)` names the Rust function. `ProfileApiDoc::openapi()` builds its API description from the annotation above.
 
-In **`crates/terrier-server/src/routes.rs`**, register the router and description as one array entry:
+In `crates/terrier-server/src/routes.rs`, register the router and description as one array entry:
 
 ```rust
 [(profile::routes(), profile::ProfileApiDoc::openapi())]
 ```
 
-Each pair contains the module's router and its API description. Registration merges both, so no changes to `server.rs` are needed.
+Registration merges each module's router and API description.
 
-For a new module, declare it in **`crates/terrier-server/src/lib.rs`**, import it in **`src/routes.rs`**, and add its pair to this array. When adding a handler to an existing module, update that module's `routes()` and `paths(...)` lists instead. Use `request_body` for body inputs and include applicable [API errors](../reference/api-errors.md) in the annotation.
+For a new module, declare it in `crates/terrier-server/src/lib.rs`\*\*, import it in \*\*`src/routes.rs`, and add its pair to this array. When adding a handler to an existing module, update that module's `routes()` and `paths(...)` lists instead. Use `request_body` for body inputs and include applicable [API errors](../reference/api-errors.md) in the annotation.
 
-## 5. Test the route through HTTP requests
+## 5. Test the route
 
-Route tests should exercise the handler and policy together. For the profile route, the existing test sends requests through the application router and checks:
+Create `crates/terrier-server/tests/<domain>.rs`. Use the shared `TestApp` to test through the application router, including authentication and the route's policy. It supplies an isolated database and a local mock OIDC provider; no real account is needed.
 
-| Request | Expected response |
-| -- | -- |
-| Signed-in user requests their own ID | 200 with their ID, email, and display name |
-| Signed-in user requests another ID | 403 |
-| Signed-in user supplies a malformed UUID | 400 |
-| No session cookie | 401 |
+Start with this profile example and change the request and assertions for your route:
 
-You can read the setup and assertions in `authenticated_requests_enforce_ownership_and_csrf`, in `src/auth/oidc/tests.rs`. It uses a local OIDC provider and an isolated PostgreSQL schema, so it needs no real account. Start PostgreSQL (see kennel's [local services](https://docs.kennel.scottylabs.org/guides/local-development/#local-services)), then run it from the repository root:
+```rust
+mod common;
 
-```sh
-cargo test -p terrier-server authenticated_requests_enforce_ownership_and_csrf
+use axum::{
+    body::{Body, to_bytes},
+    http::{Request, StatusCode},
+};
+use common::TestApp;
+use serde_json::Value;
+
+#[tokio::test]
+async fn member_reads_own_profile() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let member = app.login("member").await?;
+    let response = app
+        .send(
+            member
+                .authorize(Request::get(format!("/api/users/{}", member.user_id)))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = serde_json::from_slice(&to_bytes(response.into_body(), 4096).await?)?;
+    assert_eq!(body["id"], member.user_id.to_string());
+
+    app.close().await
+}
 ```
 
-For a new domain, put route tests in `crates/terrier-server/tests/<domain>.rs`, using the module name for `<domain>`. These files import public code through `use terrier_server::...`. Small helper tests can stay beside their implementation in a `#[cfg(test)] mod tests` block.
+Use `app.db` to create domain records and assign roles. Different login names create different users. `member.authorize(...)` supplies the session cookie and CSRF headers; omit it to test a signed-out request. End each test with `app.close().await` to remove its database schema.
 
-The profile test's login fixture is currently private to `auth/oidc/tests.rs`. The first domain suite that needs authenticated requests must extract that setup into a shared helper; there is not yet a helper to import from `tests/common/`. Keep this setup in test code, with no authentication bypass in the server. `tests/database.rs` shows how to create and clean up an isolated database schema.
+Cover success, missing sessions, insufficient permissions, invalid input, and relevant database failures. Hackathon routes also need a case for access across hackathons. For writes, assert the resulting database state and that rejected requests leave it unchanged. See `tests/profile.rs` and `tests/auth.rs` for examples.
 
-For each route, check the success response, permission failures, invalid input, and query failures that affect its behavior. Hackathon routes also need a test that attempts access across hackathons. The shared login tests already cover the OIDC and CSRF details.
-
-Run a domain suite with the following command, replacing `<domain>` with its test file name without `.rs`:
+From the repository root, start PostgreSQL and run your suite, replacing `profile` with your test file name without `.rs`:
 
 ```sh
-cargo test -p terrier-server --test '<domain>'
+collar dev up postgres-setup
+collar dev run -- cargo test -p terrier-server --test profile
 ```
-
-Database-dependent tests connect through `DATABASE_URL`. Locally that is the dev shell's PostgreSQL, and in CI kennel's `test` and `mutants` checks give them an empty database of their own. Tests run in parallel, so create an isolated schema per test as `tests/database.rs` does.
 
 ## 6. Generate API types
 
@@ -280,27 +307,13 @@ Run this from `app/`:
 deno task generate-api
 ```
 
-For the profile example, this adds `/api/users/{user_id}` and `Profile` to `app/src/lib/api/schema.d.ts`. Review the generated file and include it in the change. Do not edit it by hand. The server builds the [API reference](https://api.terrier.scottylabs.org/scalar) from the same OpenAPI specification, so the reference needs no separate update.
+Review the changes to `app/src/lib/api/schema.d.ts` and include them in your commit. The profile route generates entries for `/api/users/{user_id}` and `Profile`. Do not edit this file by hand. The [API reference](https://api.terrier.scottylabs.org/scalar) uses the same OpenAPI specification.
 
-## 7. Write the frontend usage notes
+## 7. Add a usage example to the docs
 
-Step 6 generates the endpoint's types, and the API reference lists its parameters and responses. This step explains how to use it: put a short request example and any error-handling notes in `sites/docs/src/guides/<domain>.md`. The profile example is documented here, so it does not need a separate usage page.
+Update the relevant guide in `sites/docs/src/guides/`, or create one such as `teams.md`. Include a request example, where its inputs come from, and what the caller should do on success or failure. For write requests, show the `x-csrf-token` header too.
 
-For the profile route, the caller gets their user ID from `/api/auth/status` and passes it as the URL parameter:
-
-```ts
-import { api } from "$lib/api/client";
-
-const result = await api.GET("/api/users/{user_id}", {
-  params: { path: { user_id: userId } },
-});
-```
-
-The client fills `{user_id}` with `userId` and sends the session cookie. A successful response is in `result.data`; an API error is in `result.error`, with the [shared error format](../reference/api-errors.md). For this route, document that 401 requires sign-in and 403 means the requested profile belongs to another user. Network failures throw rather than returning an API error.
-
-For a write, also show the `x-csrf-token` header using the token from `/api/auth/status`. Link to [Authentication](authentication.md) for the login flow, and do not automatically replay writes after login.
-
-Update an existing frontend caller if the route changes its behavior. Shared client conventions belong in [Frontend development](frontend.md), while route-specific examples belong in the domain guide. Documenting a backend route does not require building a new UI.
+Use the [profile guide](profiles.md) as an example. Link to [Authentication](authentication.md), [API errors](../reference/api-errors.md), and [Frontend development](frontend.md) for shared behavior. Update existing frontend callers when the API change affects them.
 
 ## 8. Try it and prepare for review
 
@@ -314,13 +327,13 @@ curl -i http://localhost:3000/api/users/bdb2cef5-a417-4652-bb15-7c735463ee68
 
 You can also inspect the operation at `http://localhost:3000/scalar` to check that its parameters, response type, and errors match the implementation.
 
-Run database tests explicitly, then check the staged files:
+Run your route's test suite from step 5, then check the staged files:
 
 ```sh
 collar check
 ```
 
-Use `collar check --files <changed-files>` before staging, or `collar check --all` for the whole repository. Hooks include the applicable tests, lints, formatting, and frontend checks; they skip ignored database tests.
+Use `collar check --files <changed-files>` before staging, or `collar check --all` for the whole repository. Hooks run the applicable tests, lints, formatting, and frontend checks.
 
 Run `deno task build` from `app/` when frontend code or generated API types change. Run `docs` from the dev shell to preview documentation changes.
 

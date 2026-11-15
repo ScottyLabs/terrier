@@ -13,7 +13,7 @@ Policies live under `crates/terrier-server/src/auth/`. Reuse an existing policy 
 | Output | The caller's `CurrentUser`, available as `auth.data` |
 | Rejections | 400 for a malformed UUID; 403 for another user's ID; 401 if no current user is present |
 | Admin access | No override |
-| Tests | `authenticated_requests_enforce_ownership_and_csrf` in `src/auth/oidc/tests.rs` |
+| Tests | `tests/profile.rs`: success, ownership, malformed ID, and missing session |
 
 The user is already loaded by middleware. This policy makes no database query.
 
