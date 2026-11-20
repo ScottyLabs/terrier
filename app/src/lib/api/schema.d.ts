@@ -68,6 +68,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/hackathons/{slug}/organizers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["create_organizer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/organizers/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations["update_organizer"];
+    trace?: never;
+  };
   "/api/health": {
     parameters: {
       query?: never;
@@ -108,6 +140,10 @@ export interface components {
       csrf_token?: string | null;
       user?: components["schemas"]["UserProfile"] | null;
     };
+    CreateOrganizer: {
+      capabilities: components["schemas"]["OrganizerCapability"][];
+      user_id: string;
+    };
     /** @description Error response body. Omits empty field errors. */
     ErrorResponse: {
       code: string;
@@ -116,10 +152,19 @@ export interface components {
       };
       message: string;
     };
+    /** @enum {string} */
+    OrganizerCapability:
+      | "application_management"
+      | "judging_management"
+      | "sponsorship_management"
+      | "hackathon_admin";
     Profile: {
       display_name: string;
       email: string;
       id: string;
+    };
+    UpdateOrganizer: {
+      is_active: boolean;
     };
     UserProfile: {
       display_name: string;
@@ -261,6 +306,138 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AuthStatus"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_organizer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateOrganizer"];
+      };
+    };
+    responses: {
+      /** @description Organizer created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_organizer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+        /** @description Organizer user UUID */
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateOrganizer"];
+      };
+    };
+    responses: {
+      /** @description Organizer deactivated */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       500: {

@@ -19,6 +19,21 @@ The user is already loaded by middleware. This policy makes no database query.
 
 Errors use the shared [API error format](api-errors.md).
 
+## ManageOrganizers
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `POST /api/hackathons/{slug}/organizers` and `PATCH /api/hackathons/{slug}/organizers/{user_id}` in `src/organizers.rs` |
+| Inputs | Authenticated `CurrentUser` and hackathon `slug` path parameter |
+| Permission | The caller must have an active `Organizer` role with `HackathonAdmin` capability in an active hackathon |
+| Output | The authorized `hackathon::Model`, available as `auth.data` |
+| Rejections | 400 for invalid path parameters; 401 for unauthenticated requests; 403 for insufficient permissions; 404 for missing or inactive hackathons; 500 for database failures |
+| Admin access | Requires `HackathonAdmin`; no global administrator override |
+| Tests | `tests/organizers.rs`: authentication, permissions, successful creation and deactivation, duplicate creation, and missing hackathon |
+
+The policy resolves the hackathon by slug and verifies that the caller has an active organizer role with `HackathonAdmin` capability. Both organizer handlers recheck authorization inside an audited transaction using `Scope::HackathonExclusive` before writing to the database.
+
 ## Adding an entry
 
 Use the same fields as `OwnProfile`, including required roles and hackathon scope. For combined policies, include branch order and error handling so callers know which rule applies. Keep the entry updated when behavior changes.
