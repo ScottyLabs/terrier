@@ -50,6 +50,14 @@ async fn organizer_access(
     user_id: Uuid,
     hackathon_id: Uuid,
 ) -> Result<Option<ApplicationAccess>, ApiError> {
+    if user_hackathon_role::Entity::find_by_id((user_id, hackathon_id))
+        .filter(user_hackathon_role::Column::IsActive.eq(true))
+        .one(db)
+        .await?
+        .is_none()
+    {
+        return Ok(None);
+    }
     if let Some(row) = organizer::Entity::find_by_id((user_id, hackathon_id))
         .filter(organizer::Column::IsActive.eq(true))
         .one(db)
@@ -199,6 +207,57 @@ impl Policy<AppState> for BrowseDirectory {
             .one(&state.db)
             .await?
             .ok_or(ApiError::Forbidden)?;
+        Ok(hackathon)
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct HackathonPath {
+    slug: String,
+}
+
+pub struct ManageOrganizers;
+
+impl Policy<AppState> for ManageOrganizers {
+    type Output = hackathon::Model;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+
+        let Path(HackathonPath { slug }) = Path::<HackathonPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid hackathon slug.".into()))?;
+
+        let hackathon = hackathon::Entity::find()
+            .filter(hackathon::Column::Slug.eq(slug))
+            .filter(hackathon::Column::IsActive.eq(true))
+            .one(&state.db)
+            .await
+            .map_err(|error| ApiError::Internal(error.into()))?
+            .ok_or(ApiError::NotFound)?;
+
+        let role = user_hackathon_role::Entity::find_by_id((user.user().id, hackathon.id))
+            .filter(user_hackathon_role::Column::IsActive.eq(true))
+            .one(&state.db)
+            .await
+            .map_err(|error| ApiError::Internal(error.into()))?;
+
+        if role.is_none() {
+            return Err(ApiError::Forbidden);
+        }
+
+        let organizer = organizer::Entity::find_by_id((user.user().id, hackathon.id))
+            .filter(organizer::Column::IsActive.eq(true))
+            .one(&state.db)
+            .await
+            .map_err(|error| ApiError::Internal(error.into()))?
+            .ok_or(ApiError::Forbidden)?;
+
+        if !organizer.capabilities.contains(&Capability::HackathonAdmin) {
+            return Err(ApiError::Forbidden);
+        }
+
         Ok(hackathon)
     }
 }

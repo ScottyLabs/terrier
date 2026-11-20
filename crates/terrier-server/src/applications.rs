@@ -245,9 +245,16 @@ async fn write_application(
         ));
     }
 
+    let existing = application::Entity::find()
+        .filter(application::Column::UserId.eq(user_id))
+        .filter(application::Column::HackathonId.eq(hackathon_id))
+        .lock_exclusive()
+        .one(db)
+        .await?;
+
     let open = db
         .query_one_raw(statement(
-            "SELECT application_deadline > clock_timestamp() AS open FROM hackathon WHERE id=$1",
+            "SELECT application_deadline > clock_timestamp() AS open FROM hackathon WHERE id=$1 AND is_active",
             [hackathon_id.into()],
         ))
         .await?
@@ -258,13 +265,6 @@ async fn write_application(
             "The application deadline has passed.".into(),
         ));
     }
-
-    let existing = application::Entity::find()
-        .filter(application::Column::UserId.eq(user_id))
-        .filter(application::Column::HackathonId.eq(hackathon_id))
-        .lock_exclusive()
-        .one(db)
-        .await?;
 
     let id = match existing {
         None => {

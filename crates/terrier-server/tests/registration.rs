@@ -434,3 +434,68 @@ async fn directory_shows_opted_in_participants_to_attendees() -> anyhow::Result<
     }
     app.close().await
 }
+
+#[tokio::test]
+async fn existing_applicant_can_review_without_losing_membership() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let id = hackathon(&app, "registration", "1 day").await?;
+    let admin = app.login("admin").await?;
+    let applicant = app.login("applicant").await?;
+    organizer(&app, id, admin.user_id, "'hackathon_admin'").await?;
+    let application = format!(
+        "/api/hackathons/registration/applications/{}",
+        applicant.user_id
+    );
+    let (status, _) = put(
+        &app,
+        &applicant,
+        &application,
+        json!({"data": {}, "submit": true}),
+    )
+    .await?;
+    assert!(status.is_success());
+
+    let organizers = "/api/hackathons/registration/organizers";
+    let response = app
+        .send(
+            admin
+                .authorize(Request::post(organizers))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "user_id": applicant.user_id,
+                        "capabilities": ["application_management"]
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let listing = "/api/hackathons/registration/applications";
+    assert_eq!(
+        get(&app, Some(&applicant), listing).await?.0,
+        StatusCode::OK
+    );
+
+    let response = app
+        .send(
+            admin
+                .authorize(Request::patch(format!(
+                    "{organizers}/{}",
+                    applicant.user_id
+                )))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"is_active":false}"#))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        get(&app, Some(&applicant), listing).await?.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        get(&app, Some(&applicant), &application).await?.0,
+        StatusCode::OK
+    );
+    app.close().await
+}
