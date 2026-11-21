@@ -18,6 +18,20 @@ The packaged Rust server serves the built frontend using `STATIC_DIR`, which the
 
 Use `src/lib/api/client.ts` for typed, same-origin API requests. Its types come from the Rust API through `src/lib/api/schema.d.ts`; regenerate them with `deno task generate-api` while the local API runs on port 3000. Do not edit the generated file or duplicate its response types.
 
-Read `data` for successful responses and handle `error` for rejected requests. Mutations require the `x-csrf-token` from `/api/auth/status`. See [Authentication](authentication.md) for login and logout.
+Read `data` for successful responses and handle `error` for rejected requests. Mutations require the `x-csrf-token` from `/api/auth/status`. `loadSession` in `src/lib/auth.ts` returns the signed-in user and CSRF token, or `null`; `loginUrl` links to sign-in and returns to the current page.
+
+## Application forms
+
+`src/lib/forms/FormRenderer.svelte` renders a hackathon's [application form](hackathon-setup.md#application-form-format) from props alone, so the apply page and a setup preview share it:
+
+```svelte
+<FormRenderer form={settings.application_schema} bind:answers {errors} readonly={false} />
+```
+
+- `answers` is bound and keyed by field `id`.
+- `errors` maps field IDs to messages; strip the `data.` prefix from API `fields` keys.
+- `upload` is optional. It receives the field and file and resolves to the attachment ID. Without it, file questions say that upload is not available, which suits a preview.
+
+The renderer makes no API calls. See [Authentication](authentication.md) for login and logout.
 
 The [policy reference](../reference/policies.md) lists each policy's permissions and errors. The [route implementation guide](api-routes.md) covers API schemas, registration, and tests. Add domain-specific request examples and UI error behavior to `guides/<domain>.md`; keep shared client conventions on this page.

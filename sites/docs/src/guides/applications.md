@@ -2,6 +2,18 @@
 
 Applications are scoped to a hackathon and addressed by the applicant's Terrier user ID. Applicants save drafts and submit them with one route. Organizers read and list applications, limited by their capabilities. Confirmed attendees can browse a participant directory. See the [policy reference](../reference/policies.md) for the exact rules.
 
+## Apply in the browser
+
+Applicants open `/apply/?hackathon=<slug>`, for example `/apply/?hackathon=tartanhacks`. The page asks them to sign in if needed and returns them to the form afterwards. It then:
+
+- shows the hackathon's form and restores any saved draft
+- saves answers automatically shortly after each change, showing "Saving...", "All changes saved", or "Not saved" with a **Try again** button; answers stay on the page when a save fails
+- submits with **Submit application**, or **Submit changes** once submitted, and shows each problem beside its question
+- shows the status: not started, draft, submitted, accepted (with the attendance confirmation deadline), waitlisted or not accepted
+- becomes read-only once the application is decided or the deadline passes
+
+File questions show that upload is not available yet. A form with a required file question cannot be submitted until the upload endpoint exists; drafts still save.
+
 ## Save or submit your application
 
 Get your ID and CSRF token from `GET /api/auth/status`, then send your answers as a JSON object:
