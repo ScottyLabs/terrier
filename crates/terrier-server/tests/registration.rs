@@ -26,12 +26,16 @@ async fn fixture(app: &TestApp, scope: Scope, sql: String) -> anyhow::Result<()>
     .map_err(|error| anyhow::anyhow!("{error:?}"))
 }
 
+/// The fixture form: one optional text question, `school`.
+const FORM: &str =
+    r#"{"fields":[{"id":"school","label":"School","type":"text","required":false}]}"#;
+
 /// Creates an active hackathon whose application deadline is `deadline` from now.
 async fn hackathon(app: &TestApp, slug: &str, deadline: &str) -> anyhow::Result<Uuid> {
     let id = Uuid::new_v4();
     fixture(app, Scope::Global, format!(
         "INSERT INTO hackathon(id,slug,name,description,is_active,max_team_size,max_participants,location,contact_email,application_schema,data,directory_fields,application_deadline,team_formation_deadline,submission_deadline)
-            VALUES('{id}','{slug}','Fixture','Fixture',true,4,100,'Campus','fixture@example.com','{{}}','{{}}','[\"school\"]',clock_timestamp()+interval '{deadline}',clock_timestamp()+interval '2 days',clock_timestamp()+interval '3 days')"
+            VALUES('{id}','{slug}','Fixture','Fixture',true,4,100,'Campus','fixture@example.com','{FORM}','{{}}','[\"school\"]',clock_timestamp()+interval '{deadline}',clock_timestamp()+interval '2 days',clock_timestamp()+interval '3 days')"
     )).await?;
     Ok(id)
 }
@@ -497,5 +501,179 @@ async fn existing_applicant_can_review_without_losing_membership() -> anyhow::Re
         get(&app, Some(&applicant), &application).await?.0,
         StatusCode::OK
     );
+    app.close().await
+}
+
+/// Replaces the hackathon's application form.
+async fn set_form(app: &TestApp, hackathon: Uuid, form: Value) -> anyhow::Result<()> {
+    fixture(
+        app,
+        Scope::HackathonExclusive(hackathon),
+        format!("UPDATE hackathon SET application_schema='{form}' WHERE id='{hackathon}'"),
+    )
+    .await
+}
+
+fn error_fields(error: &Value) -> BTreeSet<String> {
+    error["fields"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(key, _)| key.clone())
+        .collect()
+}
+
+#[tokio::test]
+async fn answers_are_checked_against_the_form() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let hacker = app.login("hacker").await?;
+    let id = hackathon(&app, "tartanhacks", "1 day").await?;
+    set_form(
+        &app,
+        id,
+        json!({"fields": [
+            {"id": "school", "label": "School", "type": "text", "required": true},
+            {"id": "year", "label": "Graduation year", "type": "number", "required": true},
+            {"id": "shirt", "label": "Shirt size", "type": "single_choice", "required": false,
+             "options": [{"id": "s", "label": "Small"}, {"id": "m", "label": "Medium"}]},
+            {"id": "conduct", "label": "I agree to the code of conduct", "type": "checkbox",
+             "required": true}
+        ]}),
+    )
+    .await?;
+    let path = format!(
+        "/api/hackathons/tartanhacks/applications/{}",
+        hacker.user_id
+    );
+
+    let (status, error) = put(
+        &app,
+        &hacker,
+        &path,
+        json!({"data": {"school": 1, "shirt": "xl", "github": "ada"}}),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(error["code"], "validation_failed");
+    assert_eq!(
+        error_fields(&error),
+        ["data.github", "data.school", "data.shirt"]
+            .map(str::to_owned)
+            .into()
+    );
+    assert_eq!(
+        scalar(
+            &app,
+            "SELECT (SELECT count(*) FROM application) + (SELECT count(*) FROM user_hackathon_role) AS value"
+        )
+        .await?,
+        0,
+        "a rejected first save creates neither the application nor the membership"
+    );
+
+    let (status, draft) = put(&app, &hacker, &path, json!({"data": {"school": "CMU"}})).await?;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "drafts may leave required questions blank"
+    );
+    assert_eq!(draft["draft_data"], json!({"school": "CMU"}));
+
+    let (status, error) = put(
+        &app,
+        &hacker,
+        &path,
+        json!({"data": {"school": "CMU", "conduct": false}, "submit": true}),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        error_fields(&error),
+        ["data.conduct", "data.year"].map(str::to_owned).into()
+    );
+    let (_, unchanged) = get(&app, Some(&hacker), &path).await?;
+    assert_eq!(
+        unchanged["status"],
+        Value::Null,
+        "a rejected submission stays a draft"
+    );
+    assert_eq!(unchanged["draft_data"], json!({"school": "CMU"}));
+
+    let answers = json!({"school": "CMU", "year": 2027, "shirt": "m", "conduct": true});
+    let (status, submitted) = put(
+        &app,
+        &hacker,
+        &path,
+        json!({"data": answers, "submit": true}),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{submitted}");
+    assert_eq!(submitted["status"], "pending");
+    assert_eq!(submitted["data"], answers);
+
+    app.close().await
+}
+
+#[tokio::test]
+async fn read_only_applications_report_conflicts_before_answer_errors() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let hacker = app.login("hacker").await?;
+    let id = hackathon(&app, "tartanhacks", "1 day").await?;
+    let path = format!(
+        "/api/hackathons/tartanhacks/applications/{}",
+        hacker.user_id
+    );
+    let (status, _) = put(
+        &app,
+        &hacker,
+        &path,
+        json!({"data": {"school": "CMU"}, "submit": true}),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+    fixture(
+        &app,
+        Scope::Hackathon(id),
+        format!(
+            "UPDATE application SET status='rejected' WHERE user_id='{}'",
+            hacker.user_id
+        ),
+    )
+    .await?;
+
+    let (status, error) = put(&app, &hacker, &path, json!({"data": {"unknown": true}})).await?;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        error["message"],
+        "This application can no longer be edited."
+    );
+
+    app.close().await
+}
+
+#[tokio::test]
+async fn an_invalid_stored_form_fails_loudly() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let hacker = app.login("hacker").await?;
+    let id = hackathon(&app, "tartanhacks", "1 day").await?;
+    set_form(
+        &app,
+        id,
+        json!({"fields": [{"id": "school", "type": "essay"}]}),
+    )
+    .await?;
+    let path = format!(
+        "/api/hackathons/tartanhacks/applications/{}",
+        hacker.user_id
+    );
+
+    let (status, error) = put(&app, &hacker, &path, json!({"data": {}})).await?;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(error["code"], "internal_error");
+    assert_eq!(
+        scalar(&app, "SELECT count(*) AS value FROM application").await?,
+        0
+    );
+
     app.close().await
 }

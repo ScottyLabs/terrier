@@ -17,6 +17,8 @@ const { data, error } = await api.PUT("/api/hackathons/{slug}/applications/{user
 - `submit: false` saves `data` as your working copy (`draft_data`). The submitted revision is unchanged.
 - `submit: true` makes `data` the submitted revision and sets `status` to `pending`. Repeating a submission with unchanged answers does not create another revision.
 
+Answers are checked against the hackathon's [application form](hackathon-setup.md#application-form-format), read from `settings.application_schema` of `GET /api/hackathons/{slug}`. Every key must be a question on the form, and every answer must match its question's type. A draft may leave questions blank; `null`, empty text and empty lists count as blank, while `false` and `0` are answers. Submitting also requires every required question.
+
 The first save also adds you to the hackathon as a hacker. Saves are accepted until the application deadline while `status` is `null` (draft) or `pending`.
 
 | Status / code | Caller action |
@@ -24,8 +26,9 @@ The first save also adds you to the hackathon as a hacker. Saves are accepted un
 | 400 / `bad_request` | Send a JSON body with only `data` and `submit`. |
 | 403 / `forbidden` | Use your own user ID and include the CSRF token. Your role in this hackathon may be deactivated. |
 | 404 / `not_found` | The hackathon does not exist or is inactive. |
-| 409 / `conflict` | Show `message`: the deadline passed, or the application was decided or deactivated. |
-| 422 / `validation_failed` | `fields.data`: answers must be a JSON object. |
+| 409 / `conflict` | Show `message`: the deadline passed, or the application was decided or deactivated. These take priority over answer errors. |
+| 422 / `validation_failed` | Show each message beside its question. Keys are `data.<field id>`, such as `data.school`; `fields.data` means the answers were not an object. Nothing is saved. |
+| 500 / `internal_error` | The hackathon's stored form is invalid. Contact the organizers. |
 
 ## Read an application
 

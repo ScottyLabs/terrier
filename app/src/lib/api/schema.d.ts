@@ -262,6 +262,40 @@ export interface components {
       };
       message: string;
     };
+    Field: {
+      /**
+       * @description Stable answer key: lowercase letters, digits and underscores, starting with a letter.
+       *     Keep it when renaming or reordering the question.
+       */
+      id: string;
+      label: string;
+      /** @description Choices for `single_choice` and `multi_choice`; omitted for other types. */
+      options?: components["schemas"]["FieldOption"][];
+      /** @description Submitting requires an answer. A required checkbox must be checked. */
+      required: boolean;
+      type: components["schemas"]["FieldType"];
+    };
+    FieldOption: {
+      /** @description Stable answer value, with the same rules as a field `id` */
+      id: string;
+      label: string;
+    };
+    /** @enum {string} */
+    FieldType:
+      | "text"
+      | "long_text"
+      | "email"
+      | "url"
+      | "number"
+      | "single_choice"
+      | "multi_choice"
+      | "checkbox"
+      | "file";
+    /** @description A hackathon's application form. Answers are keyed by field `id`. */
+    Form: {
+      /** @description Questions in display order. Older hackathons store `{}`, which is a form with no fields. */
+      fields?: components["schemas"]["Field"][];
+    };
     Hackathon: {
       is_active: boolean;
       settings: components["schemas"]["Settings"];
@@ -290,7 +324,8 @@ export interface components {
     Settings: {
       /** Format: date-time */
       application_deadline: string;
-      application_schema: unknown;
+      /** @description The application form. See `Form` for the format. */
+      application_schema: components["schemas"]["Form"];
       contact_email: string;
       description: string;
       location: string;

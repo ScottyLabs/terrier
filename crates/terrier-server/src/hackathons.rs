@@ -28,6 +28,7 @@ use crate::{
         user_hackathon_role,
     },
     error::{ApiError, ErrorResponse},
+    forms::Form,
     state::AppState,
 };
 
@@ -50,6 +51,8 @@ struct Settings {
     team_formation_deadline: DateTimeWithTimeZone,
     #[schema(value_type = String, format = DateTime)]
     submission_deadline: DateTimeWithTimeZone,
+    /// The application form. See `Form` for the format.
+    #[schema(value_type = Form)]
     application_schema: Value,
 }
 
@@ -83,11 +86,15 @@ impl Settings {
                 "Set the application, team formation, and submission deadlines in order.".into(),
             );
         }
-        if !self.application_schema.is_object() {
-            errors.insert(
-                "settings.application_schema".into(),
-                "Send a JSON object.".into(),
-            );
+        if let Err(form_errors) = Form::parse(&self.application_schema) {
+            for (path, message) in form_errors {
+                let key = if path.is_empty() {
+                    "settings.application_schema".into()
+                } else {
+                    format!("settings.application_schema.{path}")
+                };
+                errors.insert(key, message);
+            }
         }
         if !errors.is_empty() {
             return Err(ApiError::Validation(errors));

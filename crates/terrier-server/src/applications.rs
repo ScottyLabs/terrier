@@ -13,7 +13,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, Select, Statement,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use utoipa::{IntoParams, OpenApi, ToSchema};
 use uuid::Uuid;
 
@@ -29,6 +29,7 @@ use crate::{
         user_hackathon_role,
     },
     error::ApiError,
+    forms::Form,
     state::AppState,
 };
 
@@ -189,13 +190,13 @@ async fn save_application(
     input: Result<Json<SaveApplication>, JsonRejection>,
 ) -> Result<Json<Application>, ApiError> {
     let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
-    if !input.data.is_object() {
+    let submit = input.submit;
+    let Value::Object(answers) = input.data else {
         return Err(ApiError::Validation(BTreeMap::from([(
             "data".into(),
             "Application data must be a JSON object.".into(),
         )])));
-    }
-    // TODO: validate `data` against `hackathon.application_schema` once its format is defined
+    };
     let Applicant {
         user_id,
         hackathon_id,
@@ -207,7 +208,7 @@ async fn save_application(
         Scope::HackathonExclusive(hackathon_id)
     };
     let saved = audited!(audit, scope, |db| {
-        write_application(db, user_id, hackathon_id, !has_role, input).await
+        write_application(db, user_id, hackathon_id, !has_role, answers, submit).await
     })
     .await?;
     Ok(Json(Application::view(saved, ApplicationAccess::Owner)))
@@ -222,7 +223,8 @@ async fn write_application(
     user_id: Uuid,
     hackathon_id: Uuid,
     create_role: bool,
-    input: SaveApplication,
+    answers: Map<String, Value>,
+    submit: bool,
 ) -> Result<application::Model, ApiError> {
     if create_role {
         db.execute_raw(statement(
@@ -252,24 +254,55 @@ async fn write_application(
         .one(db)
         .await?;
 
-    let open = db
+    let hackathon = db
         .query_one_raw(statement(
-            "SELECT application_deadline > clock_timestamp() AS open FROM hackathon WHERE id=$1 AND is_active",
+            "SELECT application_deadline > clock_timestamp() AS open, application_schema
+                FROM hackathon WHERE id=$1 AND is_active",
             [hackathon_id.into()],
         ))
         .await?
-        .ok_or(ApiError::NotFound)?
-        .try_get::<bool>("", "open")?;
-    if !open {
+        .ok_or(ApiError::NotFound)?;
+    if !hackathon.try_get::<bool>("", "open")? {
         return Err(ApiError::Conflict(
             "The application deadline has passed.".into(),
         ));
     }
+    if let Some(current) = &existing {
+        if !current.is_active {
+            return Err(ApiError::Conflict(
+                "This application was deactivated. Contact the organizers.".into(),
+            ));
+        }
+        if !matches!(
+            current.status,
+            None | Some(db_enum::ApplicationStatus::Pending)
+        ) {
+            return Err(ApiError::Conflict(
+                "This application can no longer be edited.".into(),
+            ));
+        }
+    }
+    let schema: Value = hackathon.try_get("", "application_schema")?;
+    let form = Form::parse(&schema).map_err(|errors| {
+        ApiError::Internal(anyhow::anyhow!(
+            "hackathon {hackathon_id} has an invalid application form: {errors:?}"
+        ))
+    })?;
+    let errors = form.check(&answers, submit);
+    if !errors.is_empty() {
+        return Err(ApiError::Validation(
+            errors
+                .into_iter()
+                .map(|(field, message)| (format!("data.{field}"), message))
+                .collect(),
+        ));
+    }
+    let data = Value::Object(answers);
 
     let id = match existing {
         None => {
             let id = Uuid::new_v4();
-            let sql = if input.submit {
+            let sql = if submit {
                 "INSERT INTO application(id,user_id,hackathon_id,status,data,draft_data,submitted_at)
                     VALUES($1,$2,$3,'pending',$4,$4,clock_timestamp())
                     ON CONFLICT (user_id,hackathon_id) DO NOTHING RETURNING id"
@@ -280,12 +313,7 @@ async fn write_application(
             };
             db.query_one_raw(statement(
                 sql,
-                [
-                    id.into(),
-                    user_id.into(),
-                    hackathon_id.into(),
-                    input.data.into(),
-                ],
+                [id.into(), user_id.into(), hackathon_id.into(), data.into()],
             ))
             .await?
             .ok_or_else(|| {
@@ -294,33 +322,19 @@ async fn write_application(
             id
         }
         Some(current) => {
-            if !current.is_active {
-                return Err(ApiError::Conflict(
-                    "This application was deactivated. Contact the organizers.".into(),
-                ));
-            }
-            if !matches!(
-                current.status,
-                None | Some(db_enum::ApplicationStatus::Pending)
-            ) {
-                return Err(ApiError::Conflict(
-                    "This application can no longer be edited.".into(),
-                ));
-            }
-            let new_revision =
-                input.submit && (current.status.is_none() || current.data != input.data);
+            let new_revision = submit && (current.status.is_none() || current.data != data);
             if new_revision {
                 db.execute_raw(statement(
                     "UPDATE application SET status=coalesce(status,'pending'), data=$3,
                         draft_data=$3, submitted_at=clock_timestamp()
                         WHERE id=$1 AND hackathon_id=$2",
-                    [current.id.into(), hackathon_id.into(), input.data.into()],
+                    [current.id.into(), hackathon_id.into(), data.into()],
                 ))
                 .await?;
-            } else if current.draft_data != input.data {
+            } else if current.draft_data != data {
                 db.execute_raw(statement(
                     "UPDATE application SET draft_data=$3 WHERE id=$1 AND hackathon_id=$2",
-                    [current.id.into(), hackathon_id.into(), input.data.into()],
+                    [current.id.into(), hackathon_id.into(), data.into()],
                 ))
                 .await?;
             }

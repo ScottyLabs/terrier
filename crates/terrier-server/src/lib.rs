@@ -4,6 +4,7 @@ pub mod auth;
 pub mod directory;
 pub mod entities;
 pub mod error;
+pub mod forms;
 pub mod organizers;
 
 pub mod hackathons;
