@@ -5,9 +5,9 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::{Json, Router, routing::get};
+use axum::{Extension, Json, Router, routing::get};
 use terrier_server::auth::{config::AuthConfig, middleware::application_routes, oidc, session};
-use terrier_server::state::AppState;
+use terrier_server::{state::AppState, storage::Storage};
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
@@ -82,6 +82,8 @@ pub async fn run() -> anyhow::Result<()> {
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
     let config = Arc::new(AuthConfig::from_env()?);
     let valkey_url = std::env::var("VALKEY_URL").context("VALKEY_URL must be set")?;
+    let storage = Storage::from_env()?;
+    storage.check().await?;
     let state = AppState::connect(database_url).await?;
     let (sessions, locks) = session::connect(&valkey_url).await?;
     let client = oidc::client(&config).await?;
@@ -102,6 +104,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let app = router(assets.as_deref(), auth, application_api)
         .with_state(state)
+        .layer(Extension(storage))
         .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
             tracing::info_span!("request", method = %request.method(), path = request.uri().path())
         }));

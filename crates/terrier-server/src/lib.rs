@@ -10,3 +10,4 @@ pub mod hackathons;
 pub mod profile;
 pub mod routes;
 pub mod state;
+pub mod storage;

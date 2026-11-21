@@ -11,6 +11,11 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+aws-sdk-s3 = { version = "1.161.0", default-features = false, features = [
+  "rt-tokio",
+  "default-https-client",
+  "behavior-version-latest",
+] }
 axum.workspace = true
 base64 = "0.22"
 dotenvy.workspace = true
