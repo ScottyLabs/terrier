@@ -96,6 +96,7 @@ async fn create_test_hackathon(app: &TestApp) -> anyhow::Result<Uuid> {
                 reimbursement_categories: Set(serde_json::json!({})),
                 sponsors: Set(serde_json::json!({})),
                 version: Set(1),
+                file_fields: Set(serde_json::json!({})),
             }
             .insert(db)
             .await?;

@@ -28,6 +28,8 @@ pub struct Model {
     pub confirmation_deadline: Option<DateTimeWithTimeZone>,
     pub is_active: bool,
     pub version: i32,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub attachments: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

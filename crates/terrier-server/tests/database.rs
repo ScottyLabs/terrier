@@ -67,7 +67,7 @@ async fn concurrent_startups_apply_migrations_once() -> anyhow::Result<()> {
         Migrator::get_applied_migrations(&database.state.db)
             .await?
             .len()
-            == 4
+            == Migrator::migrations().len()
     );
     AppState::connect(database.options.clone())
         .await?

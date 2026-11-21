@@ -5,6 +5,7 @@ mod m20260616_200457_redesign_schema;
 mod m20261105_161638_oidc_identity;
 mod m20261107_205124_reconcile_database_rfc;
 mod m20261107_210438_audit_transactions;
+mod m20261121_120000_application_files;
 
 pub struct Migrator;
 
@@ -16,6 +17,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261105_161638_oidc_identity::Migration),
             Box::new(m20261107_205124_reconcile_database_rfc::Migration),
             Box::new(m20261107_210438_audit_transactions::Migration),
+            Box::new(m20261121_120000_application_files::Migration),
         ]
     }
 }

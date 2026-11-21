@@ -37,6 +37,8 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub sponsors: Json,
     pub version: i32,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub file_fields: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
