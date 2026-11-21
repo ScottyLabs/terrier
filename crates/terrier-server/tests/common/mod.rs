@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, ensure};
 use axum::{
-    Router,
+    Extension, Router,
     body::{Body, to_bytes},
     http::{
         Request, StatusCode,
@@ -21,6 +21,7 @@ use terrier_server::{
     },
     error::ApiError,
     state::AppState,
+    storage::Storage,
 };
 use tower::ServiceExt;
 use tower_sessions::MemoryStore;
@@ -28,12 +29,16 @@ use uuid::Uuid;
 
 mod locks;
 mod provider;
+pub mod storage;
 
 pub struct TestApp {
     pub db: DatabaseConnection,
     app: Router,
     provider: Arc<provider::Provider>,
     task: tokio::task::JoinHandle<()>,
+    #[allow(dead_code, reason = "only file tests inspect stored objects")]
+    pub storage: Arc<storage::FakeS3>,
+    storage_task: tokio::task::JoinHandle<()>,
     admin: DatabaseConnection,
     schema: String,
 }
@@ -57,6 +62,7 @@ impl TestSession {
 impl Drop for TestApp {
     fn drop(&mut self) {
         self.task.abort();
+        self.storage_task.abort();
     }
 }
 
@@ -72,6 +78,7 @@ impl TestApp {
         options.set_schema_search_path(&schema);
         let state = AppState::connect(options).await?;
         let (provider, task) = provider::Provider::start().await;
+        let (storage_url, storage, storage_task) = storage::FakeS3::start().await;
         let config = Arc::new(AuthConfig {
             app_url: "https://terrier.example/".parse()?,
             issuer: provider.url.parse()?,
@@ -98,12 +105,21 @@ impl TestApp {
                 session::lock::serialize::<locks::MemoryLocks>,
             ))
             .layer(middleware::from_fn(session::error_response))
-            .with_state(state.clone());
+            .with_state(state.clone())
+            .layer(Extension(Storage::new(
+                &storage_url,
+                "garage".into(),
+                "test-key".into(),
+                "test-secret".into(),
+                storage::BUCKET.into(),
+            )));
         Ok(Self {
             db: state.db,
             app,
             provider,
             task,
+            storage,
+            storage_task,
             admin,
             schema,
         })

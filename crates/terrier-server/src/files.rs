@@ -502,3 +502,111 @@ fn disposition(filename: &str) -> String {
         .collect();
     format!("attachment; filename=\"{ascii}\"")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn attachment(id: Uuid, field: &str) -> Attachment {
+        Attachment {
+            id,
+            field: field.into(),
+            key: format!("key/{id}"),
+            filename: "resume.pdf".into(),
+            content_type: "application/pdf".into(),
+            size: 4,
+            uploaded_at: "2026-11-21T00:00:00+00:00".into(),
+            submitted: false,
+        }
+    }
+
+    #[test]
+    fn file_fields_default_to_pdf() {
+        let fields: FileFields = serde_json::from_value(json!({"portfolio": {}})).unwrap();
+        assert_eq!(fields["portfolio"].types, ["application/pdf"]);
+        assert_eq!(fields["portfolio"].max_bytes, DEFAULT_MAX_BYTES);
+    }
+
+    #[test]
+    fn file_field_settings_are_validated() {
+        let fields: FileFields = serde_json::from_value(json!({
+            "Bad Key": {},
+            "any": {"types": ["*/*"]},
+            "unknown": {"types": ["text/x-unknown"]},
+            "huge": {"max_bytes": MAX_FILE_BYTES + 1},
+        }))
+        .unwrap();
+        let mut errors = BTreeMap::new();
+        validate_file_fields(&fields, &mut errors);
+        assert_eq!(
+            errors.keys().collect::<Vec<_>>(),
+            [
+                "settings.file_fields.Bad Key",
+                "settings.file_fields.huge.max_bytes",
+                "settings.file_fields.unknown.types",
+            ]
+        );
+    }
+
+    #[test]
+    fn references_must_name_uploads_for_the_same_field() {
+        let fields: FileFields =
+            serde_json::from_value(json!({"resume": {}, "cover": {}})).unwrap();
+        let resume = Uuid::new_v4();
+        let cover = Uuid::new_v4();
+        let attachments = [attachment(resume, "resume"), attachment(cover, "cover")];
+
+        let data = json!({"resume": resume, "cover": null, "name": "Ada"});
+        assert_eq!(
+            referenced_files(&fields, &attachments, &data).unwrap(),
+            [resume]
+        );
+
+        for data in [
+            json!({"resume": cover}),
+            json!({"resume": Uuid::new_v4()}),
+            json!({"resume": "not-a-uuid"}),
+            json!({"resume": 7}),
+        ] {
+            let Err(ApiError::Validation(errors)) = referenced_files(&fields, &attachments, &data)
+            else {
+                panic!("accepted {data}");
+            };
+            assert!(errors.contains_key("data.resume"));
+        }
+    }
+
+    #[test]
+    fn detected_type_must_be_allowed() {
+        let pdf = b"%PDF-1.7\n";
+        let png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
+        let rule = FileField {
+            types: pdf_only(),
+            max_bytes: DEFAULT_MAX_BYTES,
+        };
+        assert_eq!(detect_type(&rule, pdf).unwrap(), "application/pdf");
+        assert!(detect_type(&rule, png).is_err());
+        assert!(detect_type(&rule, b"plain text").is_err());
+
+        let any = FileField {
+            types: vec![ANY_TYPE.into()],
+            max_bytes: DEFAULT_MAX_BYTES,
+        };
+        assert_eq!(detect_type(&any, png).unwrap(), "image/png");
+        assert_eq!(
+            detect_type(&any, b"plain text").unwrap(),
+            "application/octet-stream"
+        );
+    }
+
+    #[test]
+    fn filenames_are_cleaned_for_storage_and_headers() {
+        assert_eq!(clean_filename("C:\\Users\\ada\\resume.pdf"), "resume.pdf");
+        assert_eq!(clean_filename("../../etc/passwd"), "passwd");
+        assert_eq!(clean_filename(" \n "), "file");
+        assert_eq!(
+            disposition("r\u{e9}sum\u{e9} \"final\".pdf"),
+            "attachment; filename=\"r_sum_ _final_.pdf\""
+        );
+    }
+}

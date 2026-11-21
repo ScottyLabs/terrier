@@ -65,8 +65,24 @@ async fn admin_can_create_configure_and_deactivate_a_hackathon() -> anyhow::Resu
     assert_eq!(response.status(), StatusCode::OK);
     let public: Value = serde_json::from_slice(&to_bytes(response.into_body(), 4096).await?)?;
     assert_eq!(public["settings"]["name"], "Test Hackathon");
+    assert_eq!(
+        public["settings"]["file_fields"],
+        json!({"resume": {"types": ["application/pdf"], "max_bytes": 5242880}})
+    );
     let version = &public["version"];
     settings["name"] = json!("Updated Hackathon");
+    settings["file_fields"] = json!({"resume": {"types": ["text/plain"]}});
+    let invalid = json!({"version": version, "settings": settings});
+    let response = app
+        .send(
+            admin
+                .authorize(Request::patch(resource))
+                .header(CONTENT_TYPE, "application/json")
+                .body(Body::from(invalid.to_string()))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    settings["file_fields"] = json!({"portfolio": {"types": ["*/*"]}});
     let update = json!({"version": version, "settings": settings});
 
     for (actor, expected) in [
@@ -87,6 +103,10 @@ async fn admin_can_create_configure_and_deactivate_a_hackathon() -> anyhow::Resu
             let saved: Value =
                 serde_json::from_slice(&to_bytes(response.into_body(), 4096).await?)?;
             assert_eq!(saved["settings"]["name"], "Updated Hackathon");
+            assert_eq!(
+                saved["settings"]["file_fields"],
+                json!({"portfolio": {"types": ["*/*"], "max_bytes": 5242880}})
+            );
             assert_ne!(saved["version"], *version);
         }
     }

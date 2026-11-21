@@ -95,3 +95,42 @@ impl Storage {
             .into_bytes())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Storage;
+
+    #[tokio::test]
+    #[ignore = "requires Garage and the S3_* variables"]
+    async fn garage_stores_and_returns_objects() -> anyhow::Result<()> {
+        let storage = Storage::from_env()?;
+        storage.check().await?;
+        let key = format!("test/{}", uuid::Uuid::new_v4());
+        storage
+            .put(&key, "%PDF-1.7 test".into(), "application/pdf")
+            .await?;
+        assert_eq!(storage.get(&key).await?, "%PDF-1.7 test");
+        assert!(storage.get("test/missing").await.is_err());
+
+        let largest = axum::body::Bytes::from(vec![b'a'; crate::files::MAX_FILE_BYTES as usize]);
+        storage
+            .put(&key, largest.clone(), "application/octet-stream")
+            .await?;
+        assert_eq!(storage.get(&key).await?, largest);
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "requires Garage and the S3_* variables"]
+    async fn garage_rejects_the_wrong_secret() -> anyhow::Result<()> {
+        let storage = Storage::new(
+            &std::env::var("S3_ENDPOINT")?,
+            std::env::var("S3_REGION")?,
+            std::env::var("S3_ACCESS_KEY")?,
+            "wrong-secret".into(),
+            std::env::var("S3_BUCKET")?,
+        );
+        assert!(storage.check().await.is_err());
+        Ok(())
+    }
+}
