@@ -1,6 +1,6 @@
 # Profiles
 
-Signed-in users can read their own profile with `GET /api/users/{user_id}`. The response contains their Terrier user ID, email, and display name. Other users' profiles are not accessible through this route.
+Signed-in users can read their own profile with `GET /api/users/{user_id}` and change their display name with `PATCH /api/users/{user_id}`. Responses contain their Terrier user ID, email, and display name. Other users' profiles are not accessible through these routes.
 
 ## Read your profile
 
@@ -30,3 +30,23 @@ When `error` is present, handle its `code` as follows:
 | 500 / `internal_error` | Show that the profile could not be loaded. |
 
 Network failures throw instead of returning `error`; catch them and show a connection error. See [API errors](../reference/api-errors.md) for the error format and [Frontend development](frontend.md#api-integration) for shared client conventions.
+
+## Change your display name
+
+Send the new name with the CSRF token from `GET /api/auth/status`:
+
+```ts
+const { data, error } = await api.PATCH("/api/users/{user_id}", {
+  params: { path: { user_id: userId } },
+  body: { display_name: "Scotty" },
+  headers: { "x-csrf-token": csrfToken },
+});
+```
+
+Surrounding spaces are trimmed. On success, `data` is the updated profile. Omitting `display_name` leaves the profile unchanged. Email comes from the identity provider and cannot be edited; unknown fields return 400.
+
+| Status / code | Caller action |
+| -- | -- |
+| 400 / `bad_request` | Send a JSON object with only `display_name`. |
+| 403 / `forbidden` | Use the signed-in user's ID and include a valid CSRF token. |
+| 422 / `validation_failed` | Show `fields.display_name`: the name is blank or longer than 100 characters. |

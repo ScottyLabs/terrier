@@ -1,5 +1,7 @@
+pub mod applications;
 pub mod audit;
 pub mod auth;
+pub mod directory;
 pub mod entities;
 pub mod error;
 pub mod profile;
