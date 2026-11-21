@@ -7,17 +7,69 @@ Policies live under `crates/terrier-server/src/auth/`. Reuse an existing policy 
 | Property | Value |
 | -- | -- |
 | Source | `crates/terrier-server/src/auth/policy.rs` |
-| Used by | `GET /api/users/{user_id}` in `src/profile.rs` |
+| Used by | `GET` and `PATCH /api/users/{user_id}` in `src/profile.rs` |
 | Inputs | `CurrentUser` and one UUID path parameter, `user_id` |
 | Permission | The path UUID must equal the authenticated Terrier user UUID |
 | Output | The caller's `CurrentUser`, available as `auth.data` |
 | Rejections | 400 for a malformed UUID; 403 for another user's ID; 401 if no current user is present |
 | Admin access | No override |
-| Tests | `tests/profile.rs`: success, ownership, malformed ID, and missing session |
+| Tests | `tests/profile.rs`: success, ownership, malformed ID, missing session, and renames |
 
 The user is already loaded by middleware. This policy makes no database query.
 
 Errors use the shared [API error format](api-errors.md).
+
+## OwnApplication
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `PUT /api/hackathons/{slug}/applications/{user_id}` in `src/applications.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug` and the applicant `user_id` path parameters |
+| Permission | The path UUID must equal the authenticated Terrier user UUID, and the hackathon must be active |
+| Output | `Applicant`: the caller and hackathon IDs, and whether the caller already has a role there |
+| Rejections | 400 for a malformed UUID; 403 for another user's ID; 404 for an unknown or inactive hackathon; 401 if no current user is present |
+| Admin access | No override |
+| Tests | `tests/registration.rs`: ownership, malformed ID, missing session, unknown hackathon |
+
+## ReadApplication
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/applications/{user_id}` in `src/applications.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug` and the applicant `user_id` path parameters |
+| Permission | The applicant, or a user with organizer access in the same hackathon (active `organizer` row or `organizer` role) |
+| Output | `ApplicationTarget`: the hackathon and applicant IDs, and `ApplicationAccess::Owner`, `Manager` or `Organizer` |
+| Rejections | 400 for a malformed UUID; 404 for an unknown or inactive hackathon; 403 for anyone else; 401 if no current user is present |
+| Admin access | `application_management` and `hackathon_admin` capabilities give `Manager` access |
+| Tests | `tests/registration.rs`: owner, manager and organizer reads; other hackers |
+
+## ListApplications
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/applications` in `src/applications.rs` |
+| Inputs | `CurrentUser` and the hackathon `slug` path parameter |
+| Permission | Organizer access in the same hackathon (active `organizer` row or `organizer` role) |
+| Output | The hackathon ID and `ApplicationAccess::Manager` or `Organizer` |
+| Rejections | 404 for an unknown or inactive hackathon; 403 without organizer access; 401 if no current user is present |
+| Admin access | `application_management` and `hackathon_admin` capabilities give `Manager` access |
+| Tests | `tests/registration.rs`: manager and organizer views, filters, cross-hackathon access |
+
+## BrowseDirectory
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/users` in `src/directory.rs` |
+| Inputs | `CurrentUser` and the hackathon `slug` path parameter |
+| Permission | Organizer access in the hackathon, or an active accepted application with confirmed attendance there |
+| Output | The active `hackathon::Model` |
+| Rejections | 404 for an unknown or inactive hackathon; 403 for anyone else; 401 if no current user is present |
+| Admin access | Any organizer access |
+| Tests | `tests/registration.rs`: attendee and organizer reads, unconfirmed applicant, missing session |
 
 ## Adding an entry
 
