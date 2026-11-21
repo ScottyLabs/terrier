@@ -68,6 +68,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/hackathons": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["read"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations["update"];
+    trace?: never;
+  };
   "/api/hackathons/{slug}/applications": {
     parameters: {
       query?: never;
@@ -205,6 +237,10 @@ export interface components {
       csrf_token?: string | null;
       user?: components["schemas"]["UserProfile"] | null;
     };
+    CreateHackathon: {
+      settings: components["schemas"]["Settings"];
+      slug: string;
+    };
     CreateOrganizer: {
       capabilities: components["schemas"]["OrganizerCapability"][];
       user_id: string;
@@ -226,6 +262,13 @@ export interface components {
       };
       message: string;
     };
+    Hackathon: {
+      is_active: boolean;
+      settings: components["schemas"]["Settings"];
+      slug: string;
+      /** Format: int32 */
+      version: number;
+    };
     /** @enum {string} */
     OrganizerCapability:
       | "application_management"
@@ -243,6 +286,29 @@ export interface components {
       data: Record<string, never>;
       /** @description `true` submits `data` as the next revision; `false` only saves the working copy. */
       submit?: boolean;
+    };
+    Settings: {
+      /** Format: date-time */
+      application_deadline: string;
+      application_schema: unknown;
+      contact_email: string;
+      description: string;
+      location: string;
+      /** Format: int32 */
+      max_participants: number;
+      /** Format: int32 */
+      max_team_size: number;
+      name: string;
+      /** Format: date-time */
+      submission_deadline: string;
+      /** Format: date-time */
+      team_formation_deadline: string;
+    };
+    UpdateHackathon: {
+      is_active?: boolean | null;
+      settings?: components["schemas"]["Settings"] | null;
+      /** Format: int32 */
+      version: number;
     };
     UpdateOrganizer: {
       is_active: boolean;
@@ -393,6 +459,195 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AuthStatus"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateHackathon"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Hackathon"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  read: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Hackathon"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateHackathon"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Hackathon"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       500: {

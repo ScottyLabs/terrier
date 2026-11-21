@@ -21,6 +21,7 @@ type WriteFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, ApiError>> + Sen
 #[derive(Clone, Copy)]
 pub enum Scope {
     Global,
+    NewHackathon(Uuid),
     Hackathon(Uuid),
     HackathonExclusive(Uuid),
 }
@@ -29,7 +30,7 @@ impl Scope {
     fn id(self) -> Option<Uuid> {
         match self {
             Self::Global => None,
-            Self::Hackathon(id) | Self::HackathonExclusive(id) => Some(id),
+            Self::NewHackathon(id) | Self::Hackathon(id) | Self::HackathonExclusive(id) => Some(id),
         }
     }
 }
@@ -126,7 +127,7 @@ async fn transaction<T: Send>(
                 .into(),
             reason.unwrap_or_default().to_owned().into(),
             (if actor.is_none() { "true" } else { "false" }).into(),
-            (if matches!(scope, Scope::HackathonExclusive(_)) {
+            (if matches!(scope, Scope::NewHackathon(_) | Scope::HackathonExclusive(_)) {
                 "true"
             } else {
                 "false"
@@ -137,7 +138,10 @@ async fn transaction<T: Send>(
     .await
     .context("set audit transaction context")
     .map_err(ApiError::Internal)?;
-    if let Some(id) = scope.id() {
+    if let Some(id) = scope
+        .id()
+        .filter(|_| !matches!(scope, Scope::NewHackathon(_)))
+    {
         let parent = tx
             .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,

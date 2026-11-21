@@ -89,7 +89,10 @@ pub async fn run() -> anyhow::Result<()> {
     let (routes, application_api) = terrier_server::routes::routes();
     let application = application_routes(routes, state.clone(), config.clone(), client.clone());
     let auth = oidc::routes(config.clone(), client, state.clone())
-        .nest("/api", application)
+        .nest(
+            "/api",
+            application.merge(terrier_server::hackathons::public_routes()),
+        )
         .layer(session::layer(sessions, config.secure_cookies()))
         .layer(axum::middleware::from_fn_with_state(
             locks,

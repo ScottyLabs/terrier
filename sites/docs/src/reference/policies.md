@@ -86,6 +86,17 @@ Errors use the shared [API error format](api-errors.md).
 
 The policy resolves the hackathon by slug and verifies that the caller has an active hackathon membership with `HackathonAdmin` capability. Both organizer handlers recheck authorization inside an audited transaction using `Scope::HackathonExclusive` before writing to the database.
 
+## Hackathon setup
+
+See `tests/hackathons.rs` for route coverage.
+
+| Policy | Route | Permission and output |
+| -- | -- | -- |
+| `InstanceAdmin` | `POST /api/hackathons` | Signed-in user whose Keycloak subject appears in `INSTANCE_ADMIN_SUBJECTS`. Returns the creator's user ID. |
+| `ManageOrganizers` | `PATCH /api/hackathons/{slug}` | Reuses the hackathon admin policy above. |
+
+An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackathon returns 404. The update rechecks access under the exclusive hackathon lock.
+
 ## Adding an entry
 
 Use the same fields as `OwnProfile`, including required roles and hackathon scope. For combined policies, include branch order and error handling so callers know which rule applies. Keep the entry updated when behavior changes.

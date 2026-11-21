@@ -78,7 +78,7 @@ impl TestApp {
             relay_url: Some("https://relay.example/callback".parse()?),
             client_id: "terrier".into(),
             client_secret: provider::CLIENT_SECRET.into(),
-            instance_admin_subjects: Default::default(),
+            instance_admin_subjects: ["instance-admin".into()].into(),
         });
         let client = oidc::client(&config).await?;
         let application = application_routes(
@@ -88,7 +88,10 @@ impl TestApp {
             client.clone(),
         );
         let app = oidc::routes(config, client, state.clone())
-            .nest("/api", application)
+            .nest(
+                "/api",
+                application.merge(terrier_server::hackathons::public_routes()),
+            )
             .layer(session::layer(MemoryStore::default(), true))
             .layer(middleware::from_fn_with_state(
                 locks::MemoryLocks::default(),

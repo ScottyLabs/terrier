@@ -1,12 +1,15 @@
+use std::sync::Arc;
+
 use axum::{
+    Extension,
     extract::{FromRequestParts, Path},
     http::request::Parts,
 };
 use leash::Policy;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
-use super::current_user::CurrentUser;
+use super::{config::AuthConfig, current_user::CurrentUser};
 use crate::{
     entities::{
         application, hackathon, organizer,
@@ -83,7 +86,7 @@ async fn organizer_access(
     Ok(role.map(|_| ApplicationAccess::Organizer))
 }
 
-async fn active_hackathon(
+pub(crate) async fn active_hackathon(
     db: &DatabaseConnection,
     slug: &str,
 ) -> Result<hackathon::Model, ApiError> {
@@ -229,35 +232,50 @@ impl Policy<AppState> for ManageOrganizers {
             .await
             .map_err(|_| ApiError::BadRequest("Invalid hackathon slug.".into()))?;
 
-        let hackathon = hackathon::Entity::find()
-            .filter(hackathon::Column::Slug.eq(slug))
-            .filter(hackathon::Column::IsActive.eq(true))
-            .one(&state.db)
-            .await
-            .map_err(|error| ApiError::Internal(error.into()))?
-            .ok_or(ApiError::NotFound)?;
-
-        let role = user_hackathon_role::Entity::find_by_id((user.user().id, hackathon.id))
-            .filter(user_hackathon_role::Column::IsActive.eq(true))
-            .one(&state.db)
-            .await
-            .map_err(|error| ApiError::Internal(error.into()))?;
-
-        if role.is_none() {
-            return Err(ApiError::Forbidden);
-        }
-
-        let organizer = organizer::Entity::find_by_id((user.user().id, hackathon.id))
-            .filter(organizer::Column::IsActive.eq(true))
-            .one(&state.db)
-            .await
-            .map_err(|error| ApiError::Internal(error.into()))?
-            .ok_or(ApiError::Forbidden)?;
-
-        if !organizer.capabilities.contains(&Capability::HackathonAdmin) {
-            return Err(ApiError::Forbidden);
-        }
-
+        let hackathon = active_hackathon(&state.db, &slug).await?;
+        ensure_manager(&state.db, user.user().id, hackathon.id).await?;
         Ok(hackathon)
     }
+}
+
+pub struct InstanceAdmin;
+
+impl Policy<AppState> for InstanceAdmin {
+    type Output = Uuid;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Uuid, ApiError> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Extension(config) = Extension::<Arc<AuthConfig>>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::Internal(anyhow::anyhow!("Missing auth configuration")))?;
+        if !config
+            .instance_admin_subjects
+            .contains(&user.user().oidc_subject)
+        {
+            return Err(ApiError::Forbidden);
+        }
+        Ok(user.user().id)
+    }
+}
+
+pub(crate) async fn ensure_manager(
+    db: &impl ConnectionTrait,
+    user: Uuid,
+    event: Uuid,
+) -> Result<(), ApiError> {
+    let membership = user_hackathon_role::Entity::find_by_id((user, event))
+        .filter(user_hackathon_role::Column::IsActive.eq(true))
+        .one(db)
+        .await?;
+    let grant = organizer::Entity::find_by_id((user, event))
+        .filter(organizer::Column::IsActive.eq(true))
+        .one(db)
+        .await?;
+    if membership.is_none()
+        || !grant.is_some_and(|grant| grant.capabilities.contains(&Capability::HackathonAdmin))
+    {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(())
 }
