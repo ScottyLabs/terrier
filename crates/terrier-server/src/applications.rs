@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
+
 use axum::{
     Json, Router,
     extract::{
@@ -29,6 +31,10 @@ use crate::{
         user_hackathon_role,
     },
     error::ApiError,
+    files::{
+        Attachment, FileFields, FileInfo, mark_submitted, parse_file_fields, referenced_files,
+        visible_files,
+    },
     state::AppState,
 };
 
@@ -62,11 +68,14 @@ struct Application {
     /// `pending`, `confirmed`, `declined`, `expired` or `revoked`; `null` until accepted.
     attendance_status: Option<String>,
     confirmation_deadline: Option<String>,
+    /// Uploaded files. Application managers see only files used by a submitted revision.
+    files: Vec<FileInfo>,
 }
 
 impl Application {
-    fn view(model: application::Model, access: ApplicationAccess) -> Self {
-        Self {
+    fn view(model: application::Model, access: ApplicationAccess) -> Result<Self, ApiError> {
+        Ok(Self {
+            files: visible_files(&model, access)?,
             id: model.id.to_string(),
             user_id: model.user_id.to_string(),
             status: model.status.map(|status| status.to_value()),
@@ -75,7 +84,7 @@ impl Application {
             submitted_at: model.submitted_at.map(|at| at.to_rfc3339()),
             attendance_status: model.attendance_status.map(|status| status.to_value()),
             confirmation_deadline: model.confirmation_deadline.map(|at| at.to_rfc3339()),
-        }
+        })
     }
 }
 
@@ -103,7 +112,10 @@ struct SaveApplication {
     submit: bool,
 }
 
-fn applications_in(hackathon_id: Uuid, access: ApplicationAccess) -> Select<application::Entity> {
+pub(crate) fn applications_in(
+    hackathon_id: Uuid,
+    access: ApplicationAccess,
+) -> Select<application::Entity> {
     let query = application::Entity::find()
         .filter(application::Column::HackathonId.eq(hackathon_id))
         .filter(application::Column::IsActive.eq(true));
@@ -145,7 +157,7 @@ async fn list_applications(
         .await?
         .into_iter()
         .map(|model| Application::view(model, access))
-        .collect();
+        .collect::<Result<_, _>>()?;
     Ok(Json(ApplicationList { applications }))
 }
 
@@ -168,7 +180,7 @@ async fn read_application(
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
-    Ok(Json(Application::view(model, target.access)))
+    Ok(Json(Application::view(model, target.access)?))
 }
 
 #[utoipa::path(put, path = "/api/hackathons/{slug}/applications/{user_id}", tag = "applications",
@@ -210,10 +222,10 @@ async fn save_application(
         write_application(db, user_id, hackathon_id, !has_role, input).await
     })
     .await?;
-    Ok(Json(Application::view(saved, ApplicationAccess::Owner)))
+    Ok(Json(Application::view(saved, ApplicationAccess::Owner)?))
 }
 
-fn statement(sql: &str, values: impl IntoIterator<Item = sea_orm::Value>) -> Statement {
+pub(crate) fn statement(sql: &str, values: impl IntoIterator<Item = sea_orm::Value>) -> Statement {
     Statement::from_sql_and_values(DbBackend::Postgres, sql, values)
 }
 
@@ -252,19 +264,15 @@ async fn write_application(
         .one(db)
         .await?;
 
-    let open = db
-        .query_one_raw(statement(
-            "SELECT application_deadline > clock_timestamp() AS open FROM hackathon WHERE id=$1 AND is_active",
-            [hackathon_id.into()],
-        ))
-        .await?
-        .ok_or(ApiError::NotFound)?
-        .try_get::<bool>("", "open")?;
-    if !open {
-        return Err(ApiError::Conflict(
-            "The application deadline has passed.".into(),
-        ));
-    }
+    let file_fields = open_hackathon(db, hackathon_id).await?;
+    let mut attachments = match &existing {
+        Some(current) => {
+            ensure_editable(current)?;
+            Attachment::list(current)?
+        }
+        None => Vec::new(),
+    };
+    let referenced = referenced_files(&file_fields, &attachments, &input.data)?;
 
     let id = match existing {
         None => {
@@ -294,27 +302,23 @@ async fn write_application(
             id
         }
         Some(current) => {
-            if !current.is_active {
-                return Err(ApiError::Conflict(
-                    "This application was deactivated. Contact the organizers.".into(),
-                ));
-            }
-            if !matches!(
-                current.status,
-                None | Some(db_enum::ApplicationStatus::Pending)
-            ) {
-                return Err(ApiError::Conflict(
-                    "This application can no longer be edited.".into(),
-                ));
-            }
             let new_revision =
                 input.submit && (current.status.is_none() || current.data != input.data);
             if new_revision {
+                mark_submitted(&mut attachments, &referenced);
+                let attachments = serde_json::to_value(&attachments)
+                    .context("serialize attachments")
+                    .map_err(ApiError::Internal)?;
                 db.execute_raw(statement(
                     "UPDATE application SET status=coalesce(status,'pending'), data=$3,
-                        draft_data=$3, submitted_at=clock_timestamp()
+                        draft_data=$3, submitted_at=clock_timestamp(), attachments=$4
                         WHERE id=$1 AND hackathon_id=$2",
-                    [current.id.into(), hackathon_id.into(), input.data.into()],
+                    [
+                        current.id.into(),
+                        hackathon_id.into(),
+                        input.data.into(),
+                        attachments.into(),
+                    ],
                 ))
                 .await?;
             } else if current.draft_data != input.data {
@@ -333,4 +337,43 @@ async fn write_application(
         .one(db)
         .await?
         .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("saved application is missing")))
+}
+
+/// Rejects changes to deactivated or decided applications.
+pub(crate) fn ensure_editable(current: &application::Model) -> Result<(), ApiError> {
+    if !current.is_active {
+        return Err(ApiError::Conflict(
+            "This application was deactivated. Contact the organizers.".into(),
+        ));
+    }
+    if !matches!(
+        current.status,
+        None | Some(db_enum::ApplicationStatus::Pending)
+    ) {
+        return Err(ApiError::Conflict(
+            "This application can no longer be edited.".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Returns the hackathon's file fields while applications are open.
+pub(crate) async fn open_hackathon(
+    db: &DatabaseTransaction,
+    hackathon_id: Uuid,
+) -> Result<FileFields, ApiError> {
+    let row = db
+        .query_one_raw(statement(
+            "SELECT application_deadline > clock_timestamp() AS open, file_fields
+                FROM hackathon WHERE id=$1 AND is_active",
+            [hackathon_id.into()],
+        ))
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if !row.try_get::<bool>("", "open")? {
+        return Err(ApiError::Conflict(
+            "The application deadline has passed.".into(),
+        ));
+    }
+    parse_file_fields(row.try_get("", "file_fields")?)
 }

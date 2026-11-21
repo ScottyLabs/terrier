@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
 use axum::{
     Json, Router,
     extract::{Path, State, rejection::JsonRejection},
@@ -28,6 +29,7 @@ use crate::{
         user_hackathon_role,
     },
     error::{ApiError, ErrorResponse},
+    files::{FileFields, default_file_fields, parse_file_fields, validate_file_fields},
     state::AppState,
 };
 
@@ -51,6 +53,9 @@ struct Settings {
     #[schema(value_type = String, format = DateTime)]
     submission_deadline: DateTimeWithTimeZone,
     application_schema: Value,
+    /// Upload rules keyed by application field. Omitted fields default to PDFs up to 5 MB.
+    #[serde(default = "default_file_fields")]
+    file_fields: FileFields,
 }
 
 impl Settings {
@@ -89,13 +94,14 @@ impl Settings {
                 "Send a JSON object.".into(),
             );
         }
+        validate_file_fields(&self.file_fields, &mut errors);
         if !errors.is_empty() {
             return Err(ApiError::Validation(errors));
         }
         Ok(())
     }
 
-    fn apply(self, model: &mut hackathon::ActiveModel) {
+    fn apply(self, model: &mut hackathon::ActiveModel) -> Result<(), ApiError> {
         model.name = Set(self.name);
         model.description = Set(self.description);
         model.location = Set(self.location);
@@ -106,6 +112,10 @@ impl Settings {
         model.team_formation_deadline = Set(self.team_formation_deadline);
         model.submission_deadline = Set(self.submission_deadline);
         model.application_schema = Set(self.application_schema);
+        model.file_fields = Set(serde_json::to_value(self.file_fields)
+            .context("serialize file fields")
+            .map_err(ApiError::Internal)?);
+        Ok(())
     }
 }
 
@@ -132,9 +142,11 @@ struct Hackathon {
     settings: Settings,
 }
 
-impl From<hackathon::Model> for Hackathon {
-    fn from(model: hackathon::Model) -> Self {
-        Self {
+impl TryFrom<hackathon::Model> for Hackathon {
+    type Error = ApiError;
+
+    fn try_from(model: hackathon::Model) -> Result<Self, ApiError> {
+        Ok(Self {
             slug: model.slug,
             version: model.version,
             is_active: model.is_active,
@@ -149,8 +161,9 @@ impl From<hackathon::Model> for Hackathon {
                 team_formation_deadline: model.team_formation_deadline,
                 submission_deadline: model.submission_deadline,
                 application_schema: model.application_schema,
+                file_fields: parse_file_fields(model.file_fields)?,
             },
-        }
+        })
     }
 }
 
@@ -199,7 +212,7 @@ async fn create(
             data: Set(json!({})),
             ..Default::default()
         };
-        input.settings.apply(&mut model);
+        input.settings.apply(&mut model)?;
         let saved = model
             .insert(db)
             .await
@@ -230,7 +243,7 @@ async fn create(
         Ok(saved)
     })
     .await?;
-    Ok((StatusCode::CREATED, Json(saved.into())))
+    Ok((StatusCode::CREATED, Json(saved.try_into()?)))
 }
 
 #[utoipa::path(get, path = "/api/hackathons/{slug}", params(("slug" = String, Path)),
@@ -240,7 +253,7 @@ async fn read(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Hackathon>, ApiError> {
-    Ok(Json(active_hackathon(&state.db, &slug).await?.into()))
+    Ok(Json(active_hackathon(&state.db, &slug).await?.try_into()?))
 }
 
 #[utoipa::path(patch, path = "/api/hackathons/{slug}", params(("slug" = String, Path)),
@@ -294,7 +307,7 @@ async fn update(
                     "Resolve oversized teams before reducing team size.".into(),
                 ));
             }
-            settings.apply(&mut model);
+            settings.apply(&mut model)?;
         }
         if input.is_active == Some(false) {
             model.is_active = Set(false);
@@ -302,5 +315,5 @@ async fn update(
         Ok(model.update(db).await?)
     })
     .await?;
-    Ok(Json(saved.into()))
+    Ok(Json(saved.try_into()?))
 }

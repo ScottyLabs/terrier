@@ -16,10 +16,11 @@ aws-sdk-s3 = { version = "1.161.0", default-features = false, features = [
   "default-https-client",
   "behavior-version-latest",
 ] }
-axum.workspace = true
+axum = { workspace = true, features = ["multipart"] }
 base64 = "0.22"
 dotenvy.workspace = true
 fred = { version = "10", features = ["i-scripts", "unix-sockets"] }
+infer = "0.22.0"
 leash = { git = "https://git.cmu.dev/ScottyLabs/leash", branch = "main", version = "0.1.0" }
 migration = { version = "0.1.0", path = "migration" }
 openidconnect = { version = "4.1.0", default-features = false, features = [

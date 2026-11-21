@@ -143,24 +143,52 @@ impl Policy<AppState> for ReadApplication {
     type Error = ApiError;
 
     async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
-        let user = CurrentUser::from_request_parts(parts, state).await?;
         let Path((slug, applicant_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
             .await
             .map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
-        let hackathon = active_hackathon(&state.db, &slug).await?;
-        let access = if user.user().id == applicant_id {
-            ApplicationAccess::Owner
-        } else {
-            organizer_access(&state.db, user.user().id, hackathon.id)
-                .await?
-                .ok_or(ApiError::Forbidden)?
-        };
-        Ok(ApplicationTarget {
-            hackathon_id: hackathon.id,
-            applicant_id,
-            access,
-        })
+        application_target(parts, state, &slug, applicant_id).await
     }
+}
+
+/// Same access as `ReadApplication`, plus the requested file ID.
+pub struct ReadApplicationFile;
+
+impl Policy<AppState> for ReadApplicationFile {
+    type Output = (ApplicationTarget, Uuid);
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let Path((slug, applicant_id, file_id)) =
+            Path::<(String, Uuid, Uuid)>::from_request_parts(parts, state)
+                .await
+                .map_err(|_| ApiError::BadRequest("Invalid user or file ID.".into()))?;
+        Ok((
+            application_target(parts, state, &slug, applicant_id).await?,
+            file_id,
+        ))
+    }
+}
+
+async fn application_target(
+    parts: &mut Parts,
+    state: &AppState,
+    slug: &str,
+    applicant_id: Uuid,
+) -> Result<ApplicationTarget, ApiError> {
+    let user = CurrentUser::from_request_parts(parts, state).await?;
+    let hackathon = active_hackathon(&state.db, slug).await?;
+    let access = if user.user().id == applicant_id {
+        ApplicationAccess::Owner
+    } else {
+        organizer_access(&state.db, user.user().id, hackathon.id)
+            .await?
+            .ok_or(ApiError::Forbidden)?
+    };
+    Ok(ApplicationTarget {
+        hackathon_id: hackathon.id,
+        applicant_id,
+        access,
+    })
 }
 
 pub struct ListApplications;
