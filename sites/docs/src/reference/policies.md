@@ -102,7 +102,7 @@ An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackat
 | Property | Value |
 | -- | -- |
 | Source | `crates/terrier-server/src/auth/policy.rs` |
-| Used by | `GET /api/hackathons/{slug}/projects/{project_id}` in `src/projects.rs` |
+| Used by | `GET /api/hackathons/{slug}/projects/{project_id}` in `src/projects.rs`, and through `TeamProjectReader` |
 | Inputs | `CurrentUser`, the hackathon `slug`, and the `project_id` UUID path parameter |
 | Hackathon scope | The slug must name an active hackathon, and the project must belong to it |
 | Permission | One of the four rules below, checked in order |
@@ -119,6 +119,36 @@ An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackat
 | Judge | Holds a manual or sponsor grant for an active track the project is entered in, and has an evaluation for the project on that track that is not skipped | No |
 
 Sponsors and judges also need an active role in the hackathon. An evaluation row is treated as the judge's assignment to the project, following the [database RFC](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0008-database-model.md); a track grant alone does not grant access. Query failures return 500.
+
+## TeamProjectReader
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/teams/{team_id}/projects` in `src/projects.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug`, and the `team_id` UUID path parameter |
+| Hackathon scope | The slug must name an active hackathon, and the team must be active and belong to it |
+| Permission | If the team has a project, the [`ProjectReader`](#projectreader) rules for that project. Otherwise, an active member of the team or an active organizer role in the hackathon |
+| Output | `TeamProject`: the team's database model and, if it has one, its `ReadableProject`, available as `auth.data` |
+| Rejections | 400 for a malformed UUID; 401 if no current user is present; 404 for an unknown or inactive hackathon, or a team that is inactive or outside it; 403 for any other caller |
+| Admin access | No override |
+| Tests | `team_*` tests and `sponsors_and_judges_list_only_submitted_projects_they_can_read` in `tests/project_lists.rs` |
+
+## ProjectManager
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/projects` in `src/projects.rs` |
+| Inputs | `CurrentUser` and the hackathon `slug` path parameter |
+| Hackathon scope | The slug must name an active hackathon |
+| Permission | Active organizer role in the hackathon, and an active `organizer` row there with `judging_management` or `hackathon_admin` capability |
+| Output | The hackathon's database model, available as `auth.data` |
+| Rejections | 401 if no current user is present; 404 for an unknown or inactive hackathon; 403 for any other caller |
+| Admin access | `hackathon_admin` passes; deployment-wide admins have no override |
+| Tests | `project_lists_*` tests in `tests/project_lists.rs` |
+
+The [API architecture RFC](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0011-api-architecture.md) defines management access as the capability for the action rather than every organizer. Listing projects is treated as judging management.
 
 ## Adding an entry
 

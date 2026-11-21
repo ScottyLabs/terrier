@@ -33,3 +33,45 @@ const { data, error } = await api.GET(
 | 404 | No such active hackathon, or no such project in it | Show a not-found page |
 
 The response has no team member details.
+
+## List a team's project
+
+`GET /api/hackathons/{slug}/teams/{team_id}/projects` returns a list holding the team's project, or an empty list if the team has not started one. Each item has the same fields as [Read a project](#read-a-project). Use this route when you know the team but not the project ID, for example on a team page.
+
+```ts
+const { data, error } = await api.GET(
+  "/api/hackathons/{slug}/teams/{team_id}/projects",
+  { params: { path: { slug, team_id: teamId } } },
+);
+const project = data?.[0];
+```
+
+When the team has a project, the same people who can read that project can list it. When it has none, only the team's active members and organizers get the empty list; everyone else gets 403. See [`TeamProjectReader`](../reference/policies.md#teamprojectreader).
+
+| Status | Cause | Suggested handling |
+| -- | -- | -- |
+| 400 | `team_id` is not a UUID | Treat as a broken link |
+| 401 | No session | Start sign-in |
+| 403 | The caller cannot read the team's project, or the team has none and the caller is not a member or organizer | Explain that the project is not available to them |
+| 404 | No such active hackathon, or no such active team in it | Show a not-found page |
+
+## List all projects
+
+`GET /api/hackathons/{slug}/projects` returns every project in the hackathon, drafts included, ordered by team name. It is for organizers who manage judging. Add `track_id` to list only projects currently entered in that track.
+
+```ts
+const { data, error } = await api.GET("/api/hackathons/{slug}/projects", {
+  params: { path: { slug }, query: { track_id: trackId } },
+});
+```
+
+Each item has the same fields as [Read a project](#read-a-project). See [`ProjectManager`](../reference/policies.md#projectmanager) for who can use it.
+
+| Status | Cause | Suggested handling |
+| -- | -- | -- |
+| 400 | `track_id` is not a UUID, or the query has another parameter | Fix the request |
+| 401 | No session | Start sign-in |
+| 403 | The caller is not an organizer with judging-management or admin capability | Explain that the list is for judging managers |
+| 404 | No such active hackathon, or `track_id` is not an active track in it | Show a not-found page |
+
+The list is not paginated.

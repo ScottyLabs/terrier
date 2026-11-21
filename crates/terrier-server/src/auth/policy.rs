@@ -21,7 +21,7 @@ use crate::{
             ApplicationStatus, AttendanceStatus, Capability, EvaluationStatus, HackathonRole,
             ProjectStatus, TeamMemberStatus,
         },
-        sponsor, team_member, user_hackathon_role,
+        sponsor, team, team_member, user_hackathon_role,
     },
     error::ApiError,
     state::AppState,
@@ -313,41 +313,150 @@ impl Policy<AppState> for ProjectReader {
             .one(db)
             .await?
             .ok_or(ApiError::NotFound)?;
-        let entered = project_track_sub::Entity::find()
-            .filter(project_track_sub::Column::ProjectId.eq(project.id))
-            .filter(project_track_sub::Column::IsActive.eq(true))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|entry| entry.track_id);
-        let tracks = prize_track::Entity::find()
-            .filter(prize_track::Column::Id.is_in(entered))
-            .filter(prize_track::Column::IsActive.eq(true))
-            .order_by_asc(prize_track::Column::Name)
-            .all(db)
-            .await?;
+        readable(db, user.user().id, project).await
+    }
+}
 
-        let user_id = user.user().id;
-        let is_member = team_member::Entity::find_by_id((project.team_id, user_id))
+/// An active team and its project, which the caller may read when present.
+pub struct TeamProject {
+    pub team: team::Model,
+    pub project: Option<ReadableProject>,
+}
+
+/// Applies [`ProjectReader`] to the team's project. A team without a project is visible only to its members and organizers.
+pub struct TeamProjectReader;
+
+impl Policy<AppState> for TeamProjectReader {
+    type Output = TeamProject;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Path((slug, team_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid team ID.".into()))?;
+        let db = &state.db;
+        let hackathon = active_hackathon(db, &slug).await?;
+        let team = team::Entity::find_by_id(team_id)
+            .filter(team::Column::HackathonId.eq(hackathon.id))
+            .filter(team::Column::IsActive.eq(true))
             .one(db)
             .await?
-            .is_some_and(|member| member.status == TeamMemberStatus::Active);
-        let allowed = is_member || {
-            let role = user_hackathon_role::Entity::find_by_id((user_id, hackathon.id))
-                .one(db)
-                .await?
-                .filter(|role| role.is_active)
-                .ok_or(ApiError::Forbidden)?;
-            role.role == HackathonRole::Organizer
-                || project.status == ProjectStatus::Submitted
-                    && (sponsors(db, &project, &tracks, user_id).await?
-                        || judges(db, &project, &tracks, user_id).await?)
+            .ok_or(ApiError::NotFound)?;
+        let user_id = user.user().id;
+        let project = match project::Entity::find()
+            .filter(project::Column::TeamId.eq(team.id))
+            .one(db)
+            .await?
+        {
+            Some(project) => Some(readable(db, user_id, project).await?),
+            None if is_member(db, team.id, user_id).await?
+                || active_role(db, user_id, hackathon.id).await?
+                    == Some(HackathonRole::Organizer) =>
+            {
+                None
+            }
+            None => return Err(ApiError::Forbidden),
         };
-        if !allowed {
+        Ok(TeamProject { team, project })
+    }
+}
+
+/// Organizers with judging-management or hackathon-admin capability in an active hackathon.
+pub struct ProjectManager;
+
+impl Policy<AppState> for ProjectManager {
+    type Output = hackathon::Model;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Path(slug) = Path::<String>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid hackathon.".into()))?;
+        let db = &state.db;
+        let hackathon = active_hackathon(db, &slug).await?;
+        let user_id = user.user().id;
+        if active_role(db, user_id, hackathon.id).await? != Some(HackathonRole::Organizer) {
             return Err(ApiError::Forbidden);
         }
-        Ok(ReadableProject { project, tracks })
+        let manages = organizer::Entity::find_by_id((user_id, hackathon.id))
+            .filter(organizer::Column::IsActive.eq(true))
+            .one(db)
+            .await?
+            .is_some_and(|organizer| {
+                organizer.capabilities.iter().any(|capability| {
+                    matches!(
+                        capability,
+                        Capability::JudgingManagement | Capability::HackathonAdmin
+                    )
+                })
+            });
+        if !manages {
+            return Err(ApiError::Forbidden);
+        }
+        Ok(hackathon)
     }
+}
+
+async fn readable(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    project: project::Model,
+) -> Result<ReadableProject, ApiError> {
+    let entered = project_track_sub::Entity::find()
+        .filter(project_track_sub::Column::ProjectId.eq(project.id))
+        .filter(project_track_sub::Column::IsActive.eq(true))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|entry| entry.track_id);
+    let tracks = prize_track::Entity::find()
+        .filter(prize_track::Column::Id.is_in(entered))
+        .filter(prize_track::Column::IsActive.eq(true))
+        .order_by_asc(prize_track::Column::Name)
+        .all(db)
+        .await?;
+
+    let allowed = is_member(db, project.team_id, user_id).await?
+        || match active_role(db, user_id, project.hackathon_id).await? {
+            None => false,
+            Some(HackathonRole::Organizer) => true,
+            Some(_) => {
+                project.status == ProjectStatus::Submitted
+                    && (sponsors(db, &project, &tracks, user_id).await?
+                        || judges(db, &project, &tracks, user_id).await?)
+            }
+        };
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(ReadableProject { project, tracks })
+}
+
+async fn is_member(
+    db: &DatabaseConnection,
+    team_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    Ok(team_member::Entity::find_by_id((team_id, user_id))
+        .one(db)
+        .await?
+        .is_some_and(|member| member.status == TeamMemberStatus::Active))
+}
+
+async fn active_role(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    hackathon_id: Uuid,
+) -> Result<Option<HackathonRole>, ApiError> {
+    Ok(
+        user_hackathon_role::Entity::find_by_id((user_id, hackathon_id))
+            .one(db)
+            .await?
+            .filter(|role| role.is_active)
+            .map(|role| role.role),
+    )
 }
 
 async fn sponsors(
