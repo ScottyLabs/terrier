@@ -1,4 +1,3 @@
-use super::Claims;
 use axum::{
     Form, Json, Router,
     extract::State,
@@ -6,9 +5,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use axum_oidc::openidconnect::{
+use openidconnect::{
     PkceCodeChallenge, PkceCodeVerifier,
-    core::{CoreHmacKey, CoreJwsSigningAlgorithm},
+    core::{CoreHmacKey, CoreIdToken, CoreJwsSigningAlgorithm},
 };
 use serde_json::{Value, json};
 use std::{
@@ -22,10 +21,20 @@ pub const CLIENT_SECRET: &str = "oidc-test-client-secret";
 #[derive(Default)]
 pub struct Exchange {
     pub nonce: String,
+    pub refresh_delay: std::time::Duration,
     pub challenge: String,
     pub overrides: serde_json::Map<String, Value>,
     pub refresh_status: Option<StatusCode>,
+    pub refresh_error: Option<String>,
+    pub redirect_uri: String,
     pub refreshes: usize,
+    pub refresh_requests: Vec<String>,
+    pub next_refresh_token: Option<String>,
+    pub signing_secret: Option<String>,
+    pub require_issuer: bool,
+    pub omit_nonce: bool,
+    pub omit_id_token: bool,
+    pub omit_refresh_token: bool,
 }
 
 pub struct Provider {
@@ -50,6 +59,7 @@ impl Provider {
                     metadata.discovered.notify_one();
                     Json(json!({
                         "issuer": format!("{}/", metadata.url),
+                        "authorization_response_iss_parameter_supported": metadata.exchange.lock().unwrap().require_issuer,
                         "authorization_endpoint": format!("{}/authorize", metadata.url),
                         "token_endpoint": format!("{}/token", metadata.url),
                         "userinfo_endpoint": format!("{}/userinfo", metadata.url),
@@ -78,8 +88,13 @@ async fn token(
     State(provider): State<Arc<Provider>>,
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
+    if form["grant_type"] == "refresh_token" {
+        let delay = provider.exchange.lock().unwrap().refresh_delay;
+        tokio::time::sleep(delay).await;
+    }
     let mut exchange = provider.exchange.lock().unwrap();
     if form["grant_type"] == "authorization_code" {
+        assert_eq!(form["redirect_uri"], exchange.redirect_uri);
         let verifier = PkceCodeVerifier::new(form["code_verifier"].clone());
         assert_eq!(
             PkceCodeChallenge::from_code_verifier_sha256(&verifier).as_str(),
@@ -87,8 +102,11 @@ async fn token(
         );
     } else {
         exchange.refreshes += 1;
+        exchange
+            .refresh_requests
+            .push(form["refresh_token"].clone());
         if let Some(status) = exchange.refresh_status {
-            return (status, Json(json!({"error": if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"}}))).into_response();
+            return (status, Json(json!({"error": exchange.refresh_error.as_deref().unwrap_or(if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"})}))).into_response();
         }
     }
     let now = OffsetDateTime::now_utc().unix_timestamp();
@@ -101,13 +119,23 @@ async fn token(
         .as_object_mut()
         .unwrap()
         .extend(exchange.overrides.clone());
-    let token = axum_oidc::IdToken::<Claims>::new(
+    if exchange.omit_nonce {
+        claims.as_object_mut().unwrap().remove("nonce");
+    }
+    let token = CoreIdToken::new(
         serde_json::from_value(claims).unwrap(),
-        &CoreHmacKey::new(CLIENT_SECRET),
+        &CoreHmacKey::new(exchange.signing_secret.as_deref().unwrap_or(CLIENT_SECRET)),
         CoreJwsSigningAlgorithm::HmacSha256,
         None,
         None,
     )
     .unwrap();
-    Json(json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": "test-refresh-token", "id_token": token.to_string()})).into_response()
+    let mut response = json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": exchange.next_refresh_token.as_deref().unwrap_or("test-refresh-token"), "id_token": token.to_string()});
+    if exchange.omit_id_token {
+        response.as_object_mut().unwrap().remove("id_token");
+    }
+    if exchange.omit_refresh_token {
+        response.as_object_mut().unwrap().remove("refresh_token");
+    }
+    Json(response).into_response()
 }

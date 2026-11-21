@@ -4,7 +4,7 @@ Terrier manages OpenID Connect on the Rust backend. Keycloak handles Google and 
 
 ## Configuration
 
-The server requires these settings before it opens the listener:
+Configure these settings before the server opens the listener:
 
 | Setting | Purpose |
 | -- | -- |
@@ -15,7 +15,7 @@ The server requires these settings before it opens the listener:
 | `KEYCLOAK_REALM` | Realm name |
 | `OIDC_CLIENT_ID` | Confidential Keycloak client |
 | `OIDC_CLIENT_SECRET` | Client secret |
-| `OAUTH_RELAY_URL` | Registered Ricochet callback URL |
+| `OAUTH_RELAY_URL` | Optional registered Ricochet callback URL; omit for direct callbacks |
 | `INSTANCE_ADMIN_SUBJECTS` | JSON array of subjects under the configured issuer |
 
 Use `[]` for no instance admins. Local development sets this explicitly. Deployed instances must configure it through secretspec. Loading this setting does not implement authorization checks.
@@ -24,13 +24,17 @@ HTTPS is required except for loopback development URLs. Cookies are host-only, H
 
 ## Sign-in
 
-Navigate to `/api/auth/login?return_to=/dashboard`. The destination must be a local application path. Terrier sends the browser through Keycloak and Ricochet to `/api/auth/callback`, validates the response, rotates the session ID, and completes local user synchronization before redirecting to the requested page. Without a destination, sign-in returns to `/`.
+Navigate to `/api/auth/login?return_to=/dashboard`. The destination must be a local application path. Terrier sends the browser through Keycloak to `/api/auth/callback`, optionally through Ricochet, validates the response, rotates the session ID, and completes local user synchronization before redirecting to the requested page. Without a destination, sign-in returns to `/`.
 
-Register `OAUTH_RELAY_URL` as the Keycloak client's redirect URI. Ricochet's state contains the Terrier callback destination and a random value checked against the server session. The flow uses PKCE and validates the ID token's signature, issuer, audience, expiry, and nonce. Request the email and profile scopes, with nonempty email and name claims mapped in Keycloak.
+For ScottyLabs deployments using Ricochet, register `OAUTH_RELAY_URL` as the Keycloak client's redirect URI. Ricochet's state contains the Terrier callback destination and a random value checked against the server session. For a direct callback, leave `OAUTH_RELAY_URL` unset and register `<APP_URL>/api/auth/callback` with Keycloak. Self-hosted installations can use their own Keycloak instance without a relay.
+
+Terrier owns the login and session lifecycle and uses `openidconnect` for protocol and token validation. Login attempts expire after ten minutes and are consumed before the authorization code exchange. Provider denials require a new login. Existing sessions from the previous authentication implementation require a new sign-in after upgrading.
+
+The flow uses PKCE and validates the ID token's signature, issuer, audience, expiry, nonce, and authorized party. Callback issuer parameters must match the configured issuer and are required when discovery advertises them. Request the email and profile scopes, with nonempty email and name claims mapped in Keycloak.
 
 The frontend and API must share `APP_URL`. The Vite development server proxies `/api` to port 3000 so the callback receives the same host cookie.
 
-Rejected refresh tokens require a new sign-in. Provider and storage failures return server errors. Login failures do not redirect silently to the home page. Provider metadata and signing keys refresh every 15 minutes. Refresh failures are logged; token validation continues against the cached keys until the next successful refresh. A newly activated signing key may require up to 15 minutes to become available without a restart.
+Rejected refresh tokens require a new sign-in. Refresh responses must include a valid ID token for the same subject and authentication time. If the provider includes a nonce, it must match the original login. An omitted refresh token preserves the previous one. Provider and storage failures return server errors. Login failures do not redirect silently to the home page. Provider metadata and signing keys refresh every 15 minutes. Refresh failures are logged; token validation continues against the cached keys until the next successful refresh. A newly activated signing key may require up to 15 minutes to become available without a restart.
 
 ## Logout
 
@@ -42,10 +46,10 @@ Rejected refresh tokens require a new sign-in. Provider and storage failures ret
 
 Terrier trusts authentication from its configured Keycloak issuer and does not require the `email_verified` claim or send a separate verification email. Identity uses the validated issuer and subject; email is profile data, not an identity key.
 
-Register application routes through `auth::middleware::application_routes`, then nest them under `/api` within the session layer. Handlers extract `CurrentUser` to access the local user. The middleware rejects anonymous requests with 401 and unsafe requests without a matching CSRF token with 403. Database and session failures return 500 and stop handler execution. Unknown API paths return JSON 404 responses, including when serving the frontend.
+Register application routes through `auth::middleware::application_routes`, then nest them under `/api` within the session layer. Handlers extract `CurrentUser` to access the local user. The middleware rejects anonymous requests with 401 and unsafe requests without a matching CSRF token with 403. Database and session failures return 500 and stop handler execution.
+
+Requests with a session cookie acquire a session-specific Valkey lock before loading the session and release it after the response-time save. This serializes refresh, callback, and logout across server replicas. Lock acquisition waits at most five seconds. Requests holding a lock have a 30-second deadline, shorter than the 60-second lock lease. Contention, timeout, and lock-store failures return 500; a crashed server's lock expires automatically. Unknown API paths return JSON 404 responses, including when serving the frontend.
 
 Health, auth status, login, callback, and logout remain outside the application authentication gate. An explicit `return_to` path starts a fresh login.
 
-See [Profiles](profiles.md) for fetching the signed-in user's profile, and [API routes and policies](api-routes.md) for implementing routes and access policies.
-
-OIDC user creation and email changes are audited as automatic identity synchronization; unchanged claims do not create another write.
+See [API routes and policies](/guides/api-routes/) for the own-profile policy, route registration, shared errors, and typed client usage.

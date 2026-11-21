@@ -1,7 +1,6 @@
 use super::*;
 use crate::auth::session::OIDC_KEY;
 use axum::{
-    Form, Json,
     body::{Body, to_bytes},
     http::{
         Request,
@@ -10,41 +9,17 @@ use axum::{
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use openidconnect::{
-    PkceCodeChallenge, PkceCodeVerifier,
     core::{CoreHmacKey, CoreJwsSigningAlgorithm},
     core::{CoreIdToken, CoreIdTokenClaims},
 };
 use serde_json::{Value, json};
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
 use tower::ServiceExt;
 use tower_sessions::{MemoryStore, SessionStore, cookie::time::OffsetDateTime, session::Id};
 
-const CLIENT_SECRET: &str = "oidc-test-client-secret";
-
-#[derive(Default)]
-struct Exchange {
-    nonce: String,
-    refresh_delay: std::time::Duration,
-    challenge: String,
-    overrides: serde_json::Map<String, Value>,
-    refresh_status: Option<StatusCode>,
-    refresh_error: Option<String>,
-    redirect_uri: String,
-    refreshes: usize,
-    refresh_requests: Vec<String>,
-    next_refresh_token: Option<String>,
-    signing_secret: Option<String>,
-    require_issuer: bool,
-    omit_nonce: bool,
-    omit_id_token: bool,
-    omit_refresh_token: bool,
-}
-
-struct Provider {
-    url: String,
-    exchange: Mutex<Exchange>,
-    discovered: tokio::sync::Notify,
-}
+#[path = "../../../tests/common/provider.rs"]
+mod provider;
+use provider::{CLIENT_SECRET, Provider};
 
 struct Fixture {
     provider: Arc<Provider>,
@@ -81,41 +56,7 @@ impl Fixture {
     }
 
     async fn with_relay(db: sea_orm::DatabaseConnection, relay: bool) -> Self {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let provider = Arc::new(Provider {
-            url: format!("http://{}", listener.local_addr().unwrap()),
-            exchange: Mutex::new(Exchange::default()),
-            discovered: tokio::sync::Notify::new(),
-        });
-        let metadata = provider.clone();
-        let mock = Router::new()
-            .route(
-                "/.well-known/openid-configuration",
-                get(move || async move {
-                    metadata.discovered.notify_one();
-                    Json(json!({
-                        "issuer": format!("{}/", metadata.url),
-                        "authorization_response_iss_parameter_supported": metadata.exchange.lock().unwrap().require_issuer,
-                        "authorization_endpoint": format!("{}/authorize", metadata.url),
-                        "token_endpoint": format!("{}/token", metadata.url),
-                        "userinfo_endpoint": format!("{}/userinfo", metadata.url),
-                        "jwks_uri": format!("{}/jwks", metadata.url),
-                        "response_types_supported": ["code"],
-                        "subject_types_supported": ["public"],
-                        "id_token_signing_alg_values_supported": ["HS256"],
-                    }))
-                }),
-            )
-            .route("/jwks", get(|| async { Json(json!({"keys": []})) }))
-            .route(
-                "/userinfo",
-                get(|| async { Json(json!({"sub": "member"})) }),
-            )
-            .route("/token", post(token))
-            .with_state(provider.clone());
-        let task = tokio::spawn(async move {
-            axum::serve(listener, mock).await.unwrap();
-        });
+        let (provider, task) = Provider::start().await;
         let config = Arc::new(AuthConfig {
             app_url: "https://terrier.example/".parse().unwrap(),
             issuer: provider.url.parse().unwrap(),
@@ -141,8 +82,24 @@ impl Fixture {
         let application = super::super::middleware::application_routes(
             crate::routes::routes().0.route(
                 "/test",
-                get(|user: CurrentUser| async move { user.user().id.to_string() })
-                    .post(|| async { StatusCode::NO_CONTENT }),
+                get(|user: CurrentUser| async move { user.user().id.to_string() }).post(
+                    |audit: crate::audit::Audit, user: CurrentUser| async move {
+                        use sea_orm::{ActiveModelTrait, Set};
+                        let id = user.user().id;
+                        crate::audited!(audit, crate::audit::Scope::Global, |db| {
+                            crate::entities::user::ActiveModel {
+                                id: Set(id),
+                                display_name: Set("Updated member".into()),
+                                ..Default::default()
+                            }
+                            .update(db)
+                            .await?;
+                            Ok(())
+                        })
+                        .await?;
+                        Ok::<_, ApiError>(StatusCode::NO_CONTENT)
+                    },
+                ),
             ),
             AppState { db: db.clone() },
             config.clone(),
@@ -298,62 +255,6 @@ fn session_errors_keep_backend_details_but_redact_stored_values() {
         panic!("expected internal error")
     };
     assert!(!format!("{error:#}").contains("private-token"));
-}
-
-async fn token(
-    State(provider): State<Arc<Provider>>,
-    Form(form): Form<HashMap<String, String>>,
-) -> Response {
-    if form["grant_type"] == "refresh_token" {
-        let delay = provider.exchange.lock().unwrap().refresh_delay;
-        tokio::time::sleep(delay).await;
-    }
-    let mut exchange = provider.exchange.lock().unwrap();
-    if form["grant_type"] == "authorization_code" {
-        assert_eq!(form["redirect_uri"], exchange.redirect_uri);
-        let verifier = PkceCodeVerifier::new(form["code_verifier"].clone());
-        assert_eq!(
-            PkceCodeChallenge::from_code_verifier_sha256(&verifier).as_str(),
-            exchange.challenge
-        );
-    } else {
-        exchange.refreshes += 1;
-        exchange
-            .refresh_requests
-            .push(form["refresh_token"].clone());
-        if let Some(status) = exchange.refresh_status {
-            return (status, Json(json!({"error": exchange.refresh_error.as_deref().unwrap_or(if status == StatusCode::BAD_REQUEST {"invalid_grant"} else {"temporarily_unavailable"})}))).into_response();
-        }
-    }
-    let now = OffsetDateTime::now_utc().unix_timestamp();
-    let mut claims = json!({
-        "iss": format!("{}/", provider.url), "sub": "member", "aud": "terrier", "iat": now,
-        "exp": now + 300,
-        "nonce": exchange.nonce, "email": "member@example.com", "name": "Member", "email_verified": true,
-    });
-    claims
-        .as_object_mut()
-        .unwrap()
-        .extend(exchange.overrides.clone());
-    if exchange.omit_nonce {
-        claims.as_object_mut().unwrap().remove("nonce");
-    }
-    let token = CoreIdToken::new(
-        serde_json::from_value(claims).unwrap(),
-        &CoreHmacKey::new(exchange.signing_secret.as_deref().unwrap_or(CLIENT_SECRET)),
-        CoreJwsSigningAlgorithm::HmacSha256,
-        None,
-        None,
-    )
-    .unwrap();
-    let mut response = json!({"access_token": "test-access-token", "token_type": "Bearer", "refresh_token": exchange.next_refresh_token.as_deref().unwrap_or("test-refresh-token"), "id_token": token.to_string()});
-    if exchange.omit_id_token {
-        response.as_object_mut().unwrap().remove("id_token");
-    }
-    if exchange.omit_refresh_token {
-        response.as_object_mut().unwrap().remove("refresh_token");
-    }
-    Json(response).into_response()
 }
 
 fn cookie(response: &Response) -> String {
@@ -608,10 +509,9 @@ async fn anonymous_status_and_application_requests_have_distinct_responses() {
 }
 
 #[tokio::test]
-#[ignore = "requires PostgreSQL and TEST_DATABASE_URL"]
-async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<()> {
+async fn authenticated_requests_enforce_ownership_csrf_and_audit() -> anyhow::Result<()> {
     use sea_orm::ConnectionTrait;
-    let url = std::env::var("TEST_DATABASE_URL")?;
+    let url = std::env::var("DATABASE_URL")?;
     let admin = sea_orm::Database::connect(&url).await?;
     let schema = format!("auth_{}", uuid::Uuid::new_v4().simple());
     admin
@@ -695,6 +595,14 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
             .await?;
         assert_eq!(response.status(), expected);
     }
+    let audit = admin
+        .query_one_raw(sea_orm::Statement::from_string(
+            sea_orm::DbBackend::Postgres,
+            format!("SELECT count(*) AS count FROM {schema}.audit_event WHERE actor_user_id IS NOT NULL AND resource_type = 'user' AND after_data->>'display_name' = 'Updated member'"),
+        ))
+        .await?
+        .expect("count query returns one row");
+    assert_eq!(audit.try_get::<i64>("", "count")?, 1);
     drop(fixture);
     admin
         .execute_unprepared(&format!("DROP SCHEMA {schema} CASCADE"))
@@ -704,7 +612,7 @@ async fn authenticated_requests_enforce_ownership_and_csrf() -> anyhow::Result<(
 
 #[tokio::test]
 async fn direct_callbacks_do_not_require_a_relay() {
-    let fixture = Fixture::with_relay(sea_orm::DatabaseConnection::Disconnected, false).await;
+    let fixture = Fixture::with_relay(sea_orm::DatabaseConnection::default(), false).await;
     let (pending, state) = fixture.begin().await;
     let response = fixture.callback(&pending, &state).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);

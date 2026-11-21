@@ -20,7 +20,7 @@ Without a shared mechanism, every handler ends up performing the same load-resou
 - Make authorization requirements part of every handler's type signature
 - Make forgetting an auth check a compile-time error
 - Keep the core crate domain-free so it can be reused across services
-- Compose with the existing Keycloak + `axum-oidc` stack, not replace it
+- Compose with the Keycloak and Terrier OIDC stack
 - Stay small and stable enough for cross-project dependence
 
 ## Non-Goals

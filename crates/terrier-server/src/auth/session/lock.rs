@@ -69,8 +69,7 @@ pub async fn serialize<S: SessionLockStore>(
         .filter_map(|header| header.to_str().ok())
         .flat_map(|header| header.split(';'))
         .filter_map(|cookie| Cookie::parse_encoded(cookie.to_owned()).ok())
-        .filter(|cookie| cookie.name() == super::SESSION_COOKIE)
-        .next_back()
+        .rfind(|cookie| cookie.name() == super::SESSION_COOKIE)
         .and_then(|cookie| cookie.value().parse::<Id>().ok());
     let Some(id) = id else {
         return Ok(next.run(request).await);
@@ -86,8 +85,7 @@ pub async fn serialize<S: SessionLockStore>(
     .await
     .map_err(|_| internal("session is busy; retry the request"))??;
 
-    // The request deadline precedes the lease expiry so another replica cannot
-    // load stale credentials while this request is still saving the session.
+    // The request deadline precedes the lease expiry so another replica cannot load stale credentials while this request is still saving the session.
     let response = tokio::time::timeout(REQUEST_TIMEOUT, next.run(request))
         .await
         .map_err(|_| internal("session request timed out"));
@@ -111,31 +109,10 @@ fn internal(message: &'static str) -> ApiError {
 }
 
 #[cfg(test)]
-#[derive(Clone, Default)]
-pub(crate) struct MemoryLocks(
-    std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, String>>>,
-);
-
+#[path = "../../../tests/common/locks.rs"]
+mod test_locks;
 #[cfg(test)]
-impl SessionLockStore for MemoryLocks {
-    async fn acquire(&self, key: &str, owner: &str) -> Result<bool, ApiError> {
-        let mut locks = self.0.lock().await;
-        if locks.contains_key(key) {
-            return Ok(false);
-        }
-        locks.insert(key.into(), owner.into());
-        Ok(true)
-    }
-
-    async fn release(&self, key: &str, owner: &str) -> Result<(), ApiError> {
-        let mut locks = self.0.lock().await;
-        if locks.get(key).is_none_or(|value| value != owner) {
-            return Err(internal("session lock owner changed"));
-        }
-        locks.remove(key);
-        Ok(())
-    }
-}
+pub(crate) use test_locks::MemoryLocks;
 
 #[cfg(test)]
 mod tests {

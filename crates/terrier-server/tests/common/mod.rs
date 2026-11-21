@@ -15,13 +15,18 @@ use axum::{
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
 use serde_json::Value;
 use terrier_server::{
-    auth::{config::AuthConfig, middleware::application_routes, oidc, session, session::Claims},
+    auth::{
+        config::AuthConfig, middleware::application_routes, oidc, session,
+        session::lock::SessionLockStore,
+    },
+    error::ApiError,
     state::AppState,
 };
 use tower::ServiceExt;
 use tower_sessions::MemoryStore;
 use uuid::Uuid;
 
+mod locks;
 mod provider;
 
 pub struct TestApp {
@@ -70,7 +75,7 @@ impl TestApp {
         let config = Arc::new(AuthConfig {
             app_url: "https://terrier.example/".parse()?,
             issuer: provider.url.parse()?,
-            relay_url: "https://relay.example/callback".parse()?,
+            relay_url: Some("https://relay.example/callback".parse()?),
             client_id: "terrier".into(),
             client_secret: provider::CLIENT_SECRET.into(),
             instance_admin_subjects: Default::default(),
@@ -85,6 +90,10 @@ impl TestApp {
         let app = oidc::routes(config, client, state.clone())
             .nest("/api", application)
             .layer(session::layer(MemoryStore::default(), true))
+            .layer(middleware::from_fn_with_state(
+                locks::MemoryLocks::default(),
+                session::lock::serialize::<locks::MemoryLocks>,
+            ))
             .layer(middleware::from_fn(session::error_response))
             .with_state(state.clone());
         Ok(Self {
@@ -118,6 +127,7 @@ impl TestApp {
             let mut exchange = self.provider.exchange.lock().unwrap();
             exchange.nonce = query["nonce"].clone();
             exchange.challenge = query["code_challenge"].clone();
+            exchange.redirect_uri = query["redirect_uri"].clone();
             exchange.overrides.insert("sub".into(), subject.into());
             exchange
                 .overrides
