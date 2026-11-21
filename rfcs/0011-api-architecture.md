@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Author(s):** @abeni_hyz, @amzoeee, @anish, @Azzzz, @ethanli, @evanfost, @ipae, @JacenL, @jazang, @lucaswang08, @mdn2, @sbwang, @skancher, @kritdass
 - **Created:** 2026-10-07
-- **Updated:** 2026-11-09
+- **Updated:** 2026-11-21
 
 ## Overview
 
@@ -184,13 +184,15 @@ Business deletion deactivates persistent domain records. Session/token cleanup a
 | `PUT /api/hackathons/{slug}/applications/{user_id}` | Submit application data or create a new submitted revision, preserving prior revisions | Authenticated applicant matching `user_id` |
 | `GET /api/hackathons/{slug}/applications/{user_id}` | Read the specified user's application and status | Application owner; application management; organizers may read submitted participant applications |
 | `GET /api/hackathons/{slug}/applications` | List applications with status and other approved filters | Application managers/admins; organizers limited to participant applications |
+| `POST /api/hackathons/{slug}/applications/{user_id}/files?field={field}` | Upload one multipart file for a configured file field; returns a file ID to place in the application answer | Authenticated applicant matching `user_id` while the application is editable |
+| `GET /api/hackathons/{slug}/applications/{user_id}/files/{file_id}` | Download an uploaded file as an attachment | Application owner; application managers/admins for files used by a submitted revision |
 | `PATCH /api/hackathons/{slug}/applications/{user_id}/status` | Set an allowed application status | Application managers or admins |
 
 The frontend selects the relevant Terrier user ID and requests `/api/users/{user_id}`, including for the signed-in user. The server derives the caller from the authenticated identity, checks profile visibility on reads, and restricts profile updates to the owner. Access to other users' profile fields remains [an open question](#question-registration-and-privacy).
 
 Applications and their status changes are scoped to a hackathon and addressed by the applicant's `user_id`. The server checks that self-service reads and submissions target the authenticated user; application-management reads and status changes require application-management or admin capabilities. Ordinary organizers may read submitted participant applications as specified in RFC 0010, without gaining draft or admission-decision access. Managers can inspect drafts for troubleshooting through a separate, clearly labeled view. Drafts are excluded from submitted-application decision lists and cannot receive admission decisions. Public participant lists and private applicant lists use separate resources and response types.
 
-Validate application data against `Hackathon.application_schema`. Fields such as school, major, graduation year, shirt size, profile links, and resume information are configurable per hackathon. The server owns acceptance decisions and privileged fields. Repeating the same application `PUT` must not create another submitted revision or duplicate downstream effects; define revision preconditions and retry handling before implementing this write.
+Validate application data against `Hackathon.application_schema`. Fields such as school, major, graduation year, shirt size, profile links, and resume information are configurable per hackathon. File uploads pass through the API, which enforces the field's type and size rules from `Hackathon.file_fields` before storing the object in S3-compatible storage (Garage). Upload and download rules are in RFC 0008. The server owns acceptance decisions and privileged fields. Repeating the same application `PUT` must not create another submitted revision or duplicate downstream effects; define revision preconditions and retry handling before implementing this write.
 
 Application statuses are `pending`, `accepted`, `rejected`, and `waitlisted`. Rejection does not imply deleting the user. When notification delivery is implemented, status changes trigger the agreed flow after the database change commits. Initial communications use contact exports; a status change must not claim that a message was sent. Application edit rules follow RFC 0010, including immutable submitted revisions and read-only rejected or waitlisted applications. Applicants who declined attendance may reconfirm before the confirmation deadline without organizer approval. Preserve the decline history and expose a clear reconfirmation indicator to application managers; expired offers still require reopening. For a previously checked-in attendee, reconfirmation restores eligibility using the existing check-in, but does not restore team membership. Profile visibility and the notification contract remain open; admission capacity allocation is outside this RFC.
 

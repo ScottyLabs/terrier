@@ -25,7 +25,35 @@ The first save also adds you to the hackathon as a hacker. Saves are accepted un
 | 403 / `forbidden` | Use your own user ID and include the CSRF token. Your role in this hackathon may be deactivated. |
 | 404 / `not_found` | The hackathon does not exist or is inactive. |
 | 409 / `conflict` | Show `message`: the deadline passed, or the application was decided or deactivated. |
-| 422 / `validation_failed` | `fields.data`: answers must be a JSON object. |
+| 422 / `validation_failed` | `fields.data`: answers must be a JSON object. `fields.data.<field>`: a file answer must be an ID returned by an upload to that field. |
+
+## Upload files
+
+Each hackathon lists its file fields in `settings.file_fields`, for example a `resume` field that accepts PDFs up to 5 MB. Save your application once, then upload each file as multipart form data with a `file` part:
+
+```ts
+const form = new FormData();
+form.append("file", resumeFile);
+const response = await fetch(
+  `/api/hackathons/${slug}/applications/${userId}/files?field=resume`,
+  { method: "POST", body: form, headers: { "x-csrf-token": csrfToken } },
+);
+const file = await response.json();
+```
+
+The response has the file `id`, `filename`, `content_type`, `size` and `uploaded_at`. Put the `id` in your answers under the same field name, such as `{"resume": file.id}`, and save or submit as usual. To replace a file, upload a new one and save its ID. Earlier files are kept, so a submitted revision always points to the file it was submitted with.
+
+The server checks the file's contents, not its name, against the accepted types. Uploads follow the same deadline and edit rules as saves.
+
+| Status / code | Caller action |
+| -- | -- |
+| 400 / `bad_request` | Send `field` in the query and the file as `multipart/form-data`. |
+| 409 / `conflict` | Save the application first, or show `message`: the deadline passed, or the application was decided or deactivated. |
+| 422 / `validation_failed` | `fields.field`: the hackathon has no such file field. `fields.file`: the file is missing, empty, too large, or not an accepted type. |
+
+## Download files
+
+`GET /api/hackathons/{slug}/applications/{user_id}/files/{file_id}` returns the file as a download. Applications list their files in `files`. The applicant can download all of their uploads. Application managers and admins can download files used by a submitted revision; other files return 404. Other organizers get 403.
 
 ## Read an application
 
@@ -37,7 +65,7 @@ The first save also adds you to the hackathon as a hacker. Saves are accepted un
 | Application manager or admin | Submitted applications; never drafts |
 | Other organizers | Accepted applications with confirmed attendance only |
 
-An application outside your view returns 404. `status` is `null` for a draft. Timestamps are RFC 3339 strings.
+An application outside your view returns 404. `status` is `null` for a draft. `files` lists uploads you may download, with `submitted` set once a submitted revision uses the file. Timestamps are RFC 3339 strings.
 
 ## List applications
 

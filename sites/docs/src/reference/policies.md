@@ -24,7 +24,7 @@ Errors use the shared [API error format](api-errors.md).
 | Property | Value |
 | -- | -- |
 | Source | `crates/terrier-server/src/auth/policy.rs` |
-| Used by | `PUT /api/hackathons/{slug}/applications/{user_id}` in `src/applications.rs` |
+| Used by | `PUT /api/hackathons/{slug}/applications/{user_id}` in `src/applications.rs`; `POST .../applications/{user_id}/files` in `src/files.rs` |
 | Inputs | `CurrentUser`, the hackathon `slug` and the applicant `user_id` path parameters |
 | Permission | The path UUID must equal the authenticated Terrier user UUID, and the hackathon must be active |
 | Output | `Applicant`: the caller and hackathon IDs, and whether the caller already has a role there |
@@ -44,6 +44,21 @@ Errors use the shared [API error format](api-errors.md).
 | Rejections | 400 for a malformed UUID; 404 for an unknown or inactive hackathon; 403 for anyone else; 401 if no current user is present |
 | Admin access | `application_management` and `hackathon_admin` capabilities give `Manager` access |
 | Tests | `tests/registration.rs`: owner, manager and organizer reads; other hackers |
+
+## ReadApplicationFile
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `GET /api/hackathons/{slug}/applications/{user_id}/files/{file_id}` in `src/files.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug`, the applicant `user_id` and the `file_id` path parameters |
+| Permission | Same as `ReadApplication` |
+| Output | The `ApplicationTarget` and the requested file ID |
+| Rejections | 400 for a malformed UUID; 404 for an unknown or inactive hackathon; 403 for anyone else; 401 if no current user is present |
+| Admin access | Same as `ReadApplication` |
+| Tests | `tests/files.rs`: owner, manager, organizer and other hacker downloads |
+
+The handler further limits managers to files used by a submitted revision and rejects organizers without application management.
 
 ## ListApplications
 

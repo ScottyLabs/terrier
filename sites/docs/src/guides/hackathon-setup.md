@@ -30,6 +30,23 @@ x-csrf-token: <csrf-token>
 
 On 201, save the returned slug and version. On 409, pick a different slug.
 
+### File fields
+
+`file_fields` sets which files applicants can upload. Each key is the application answer that will hold the file ID. If you omit `file_fields`, the hackathon accepts a `resume` PDF up to 5 MB:
+
+```json
+"file_fields": {
+  "resume": {"types": ["application/pdf"], "max_bytes": 5242880},
+  "portfolio": {"types": ["*/*"], "max_bytes": 20971520}
+}
+```
+
+- `types` lists accepted MIME types. A field without `types` accepts PDFs only. Use `["*/*"]` to accept any file.
+- `max_bytes` is the largest accepted file, up to 25 MB. The default is 5 MB.
+- Keys use lowercase letters, numbers and underscores.
+
+Types are checked against file contents, so list only types that have a recognizable format, such as `application/pdf` or `image/png`. Plain text and similar formats need `*/*`.
+
 ## Read or change settings
 
 Anyone can read an active hackathon at `GET /api/hackathons/{slug}`. Use its `settings` to populate the editor. To save, send `PATCH /api/hackathons/{slug}` with the latest `version`, the full edited `settings` object, and the `x-csrf-token` header.

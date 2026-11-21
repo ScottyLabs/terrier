@@ -295,7 +295,7 @@ collar dev run -- cargo test -p terrier-server --test profile
 
 ## 6. Generate API types
 
-Start the API on port 3000:
+Start the API on port 3000. It needs PostgreSQL, Valkey and Garage, which `collar dev up` starts:
 
 ```sh
 cargo run -p terrier-server
