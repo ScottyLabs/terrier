@@ -173,7 +173,7 @@ export interface paths {
     };
     get: operations["list_projects"];
     put?: never;
-    post?: never;
+    post: operations["create_project"];
     delete?: never;
     options?: never;
     head?: never;
@@ -193,7 +193,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    patch: operations["update_project"];
     trace?: never;
   };
   "/api/hackathons/{slug}/teams/{team_id}/projects": {
@@ -317,6 +317,15 @@ export interface components {
       /** Format: int32 */
       version: number;
     };
+    NewProject: {
+      /** @description The team's answers to the submission form, as a JSON object */
+      data: unknown;
+      /** @description UUID of an active event in the hackathon where the project is presented */
+      event_id: string;
+      status?: components["schemas"]["SubmissionStatus"] | null;
+      /** @description UUIDs of the active prize tracks to enter, each at most once */
+      track_ids: string[];
+    };
     /** @enum {string} */
     OrganizerCapability:
       | "application_management"
@@ -337,6 +346,18 @@ export interface components {
       team: components["schemas"]["Team"];
       tracks: components["schemas"]["Track"][];
       /** Format: int32 */
+      version: number;
+    };
+    ProjectChanges: {
+      /** @description Replacement answers to the submission form, as a JSON object */
+      data?: unknown;
+      status?: components["schemas"]["SubmissionStatus"] | null;
+      /** @description Replacement prize track selection */
+      track_ids?: string[] | null;
+      /**
+       * Format: int32
+       * @description The `version` of the project the client last read
+       */
       version: number;
     };
     /** @description An applicant's draft save or submission. */
@@ -363,6 +384,8 @@ export interface components {
       /** Format: date-time */
       team_formation_deadline: string;
     };
+    /** @enum {string} */
+    SubmissionStatus: "draft" | "submitted";
     Team: {
       id: string;
       name: string;
@@ -1138,6 +1161,89 @@ export interface operations {
       };
     };
   };
+  create_project: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewProject"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Project"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description The team already has a project, the deadline has passed, or the team changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
   read_project: {
     parameters: {
       query?: never;
@@ -1185,6 +1291,91 @@ export interface operations {
         };
       };
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_project: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+        /** @description Project UUID */
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectChanges"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Project"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description `stale_revision` if the project changed since `version`; otherwise the deadline has passed, the project is already submitted, or the team changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
         headers: {
           [name: string]: unknown;
         };

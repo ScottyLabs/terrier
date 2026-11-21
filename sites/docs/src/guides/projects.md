@@ -75,3 +75,74 @@ Each item has the same fields as [Read a project](#read-a-project). See [`Projec
 | 404 | No such active hackathon, or `track_id` is not an active track in it | Show a not-found page |
 
 The list is not paginated.
+
+## Create a project
+
+`POST /api/hackathons/{slug}/projects` creates the caller's team's project. A team has at most one. The caller must have confirmed attendance, a valid check-in at an active event in the hackathon, and an active team membership; teammates do not need to have checked in. See [`ProjectSubmitter`](../reference/policies.md#projectsubmitter).
+
+```ts
+const { data, error } = await api.POST("/api/hackathons/{slug}/projects", {
+  params: { path: { slug } },
+  body: {
+    event_id: eventId,
+    data: { title, description },
+    track_ids: selectedTrackIds,
+    status: "draft",
+  },
+  headers: { "x-csrf-token": csrfToken },
+});
+```
+
+| Field | Meaning |
+| -- | -- |
+| `event_id` | UUID of an active event in the hackathon |
+| `data` | The team's answers, as a JSON object. The server does not yet check them against a configured form. |
+| `track_ids` | UUIDs of active prize tracks to enter, each at most once; may be empty |
+| `status` | `submitted` to submit now; omit it or send `draft` to save a draft |
+
+A successful request returns 201 with the project in the [read format](#read-a-project). Its `version` already counts each track entry.
+
+| Status | Cause | Suggested handling |
+| -- | -- | -- |
+| 400 | The body is not valid JSON, misses a required field, has an unknown field, or has an unknown `status` | Fix the request |
+| 401 | No session | Start sign-in |
+| 403 | Missing CSRF token, or the caller is not eligible to submit | Explain that a checked-in team member must submit |
+| 404 | No such active hackathon | Show a not-found page |
+| 409 | The team already has a project, the submission deadline has passed, or the caller's team changed during the request | Show the message; offer to open the existing project |
+| 422 | `event_id` or a track is not active in this hackathon, a track repeats, or `data` is not an object | Show `fields` beside the inputs |
+
+## Edit a project
+
+`PATCH /api/hackathons/{slug}/projects/{project_id}` changes the project's answers, its prize tracks, or submits a draft. The same eligibility applies, and the caller must belong to the project's team. Organizers cannot edit projects through this route.
+
+Send the `version` from the project you last read with at least one change:
+
+```ts
+const { data, error } = await api.PATCH(
+  "/api/hackathons/{slug}/projects/{project_id}",
+  {
+    params: { path: { slug, project_id: projectId } },
+    body: { version: project.version, track_ids: selectedTrackIds },
+    headers: { "x-csrf-token": csrfToken },
+  },
+);
+```
+
+| Field | Meaning |
+| -- | -- |
+| `version` | Required. The `version` of the project the client last read |
+| `data` | Replacement answers, as a JSON object |
+| `track_ids` | Replacement track selection; tracks left out are withdrawn, and re-entering one restores its earlier entry |
+| `status` | `submitted` submits a draft. A submitted project stays submitted and keeps its first `submitted_at` |
+
+Submitted projects remain editable until the submission deadline. Sending the same `data` again does not create a new version.
+
+| Status | Cause | Suggested handling |
+| -- | -- | -- |
+| 400 | Invalid JSON, a missing `version`, no change, an unknown field or `status`, or a `project_id` that is not a UUID | Fix the request |
+| 401 | No session | Start sign-in |
+| 403 | Missing CSRF token, the caller is not eligible, or the project belongs to another team | Explain that a checked-in member of the team must edit |
+| 404 | No such active hackathon, or no such project in it | Show a not-found page |
+| 409 `stale_revision` | Someone changed the project after the client read it | Reload the project, show the latest answers, and let the person reapply their change |
+| 409 `conflict` | The deadline has passed, the request tried to return a submitted project to `draft`, or the caller's team changed | Show the message |
+| 422 | A track is not active in this hackathon, a track repeats, or `data` is not an object | Show `fields` beside the inputs |

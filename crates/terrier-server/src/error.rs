@@ -21,8 +21,10 @@ pub enum ApiError {
     Forbidden,
     /// 404: Resource not found within the requested scope.
     NotFound,
-    /// 409: Duplicate resource, capacity limit, stale revision, or workflow conflict.
+    /// 409: Duplicate resource, capacity limit, or workflow conflict.
     Conflict(String),
+    /// 409: The client's revision no longer matches the resource.
+    StaleRevision,
     /// 422: Well-formed input fails validation. Maps field paths to error messages.
     Validation(BTreeMap<String, String>),
     /// 500: Unexpected failure. Context is logged, not sent to clients; exclude secrets.
@@ -65,6 +67,11 @@ impl IntoResponse for ApiError {
                 "The requested resource was not found.".into(),
             ),
             Self::Conflict(message) => (StatusCode::CONFLICT, "conflict", message),
+            Self::StaleRevision => (
+                StatusCode::CONFLICT,
+                "stale_revision",
+                "Someone else changed this since you loaded it. Reload it, then try again.".into(),
+            ),
             Self::Validation(errors) => {
                 fields = errors;
                 (

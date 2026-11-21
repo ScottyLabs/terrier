@@ -15,8 +15,8 @@ use uuid::Uuid;
 use super::{config::AuthConfig, current_user::CurrentUser};
 use crate::{
     entities::{
-        application, evaluation, hackathon, judge_track_assign, organizer, prize_track, project,
-        project_track_sub,
+        application, evaluation, event, event_check_in, hackathon, judge_track_assign, organizer,
+        prize_track, project, project_track_sub,
         sea_orm_active_enums::{
             ApplicationStatus, AttendanceStatus, Capability, EvaluationStatus, HackathonRole,
             ProjectStatus, TeamMemberStatus,
@@ -399,6 +399,121 @@ impl Policy<AppState> for ProjectManager {
     }
 }
 
+/// A caller allowed to create or edit their team's project in an active hackathon.
+pub struct Submitter {
+    pub hackathon: hackathon::Model,
+    pub user_id: Uuid,
+    pub team_id: Uuid,
+}
+
+/// An applicant with confirmed attendance, a valid check-in at an active event in the hackathon, and an active membership in an active team. Handlers recheck this with
+/// [`submitting_team`] after locking.
+pub struct ProjectSubmitter;
+
+impl Policy<AppState> for ProjectSubmitter {
+    type Output = Submitter;
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Path(slug) = Path::<String>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid hackathon.".into()))?;
+        let hackathon = active_hackathon(&state.db, &slug).await?;
+        let user_id = user.user().id;
+        let team_id = submitting_team(&state.db, user_id, hackathon.id).await?;
+        Ok(Submitter {
+            hackathon,
+            user_id,
+            team_id,
+        })
+    }
+}
+
+/// A [`ProjectSubmitter`] on the project's team, with the project ID from the path.
+pub struct ProjectEditor;
+
+impl Policy<AppState> for ProjectEditor {
+    type Output = (Submitter, Uuid);
+    type Error = ApiError;
+
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        let user = CurrentUser::from_request_parts(parts, state).await?;
+        let Path((slug, project_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid project ID.".into()))?;
+        let db = &state.db;
+        let hackathon = active_hackathon(db, &slug).await?;
+        let project = project::Entity::find_by_id(project_id)
+            .filter(project::Column::HackathonId.eq(hackathon.id))
+            .one(db)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+        let user_id = user.user().id;
+        let team_id = submitting_team(db, user_id, hackathon.id).await?;
+        if team_id != project.team_id {
+            return Err(ApiError::Forbidden);
+        }
+        Ok((
+            Submitter {
+                hackathon,
+                user_id,
+                team_id,
+            },
+            project.id,
+        ))
+    }
+}
+
+/// Returns the active team of a caller eligible to submit for it, or `Forbidden`.
+pub async fn submitting_team(
+    db: &impl ConnectionTrait,
+    user_id: Uuid,
+    hackathon_id: Uuid,
+) -> Result<Uuid, ApiError> {
+    if active_role(db, user_id, hackathon_id).await?.is_none() {
+        return Err(ApiError::Forbidden);
+    }
+    // A check constraint only allows attendance on accepted applications.
+    let confirmed = application::Entity::find()
+        .filter(application::Column::UserId.eq(user_id))
+        .filter(application::Column::HackathonId.eq(hackathon_id))
+        .filter(application::Column::IsActive.eq(true))
+        .filter(application::Column::AttendanceStatus.eq(AttendanceStatus::Confirmed))
+        .one(db)
+        .await?
+        .is_some();
+    if !confirmed {
+        return Err(ApiError::Forbidden);
+    }
+    let events = event::Entity::find()
+        .filter(event::Column::HackathonId.eq(hackathon_id))
+        .filter(event::Column::IsActive.eq(true))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|event| event.id);
+    let checked_in = event_check_in::Entity::find()
+        .filter(event_check_in::Column::UserId.eq(user_id))
+        .filter(event_check_in::Column::EventId.is_in(events))
+        .filter(event_check_in::Column::IsValid.eq(true))
+        .one(db)
+        .await?
+        .is_some();
+    if !checked_in {
+        return Err(ApiError::Forbidden);
+    }
+    // The roster trigger keeps inactive teams empty, so an active membership implies an active team.
+    team_member::Entity::find()
+        .filter(team_member::Column::UserId.eq(user_id))
+        .filter(team_member::Column::HackathonId.eq(hackathon_id))
+        .filter(team_member::Column::Status.eq(TeamMemberStatus::Active))
+        .one(db)
+        .await?
+        .map(|membership| membership.team_id)
+        .ok_or(ApiError::Forbidden)
+}
+
 async fn readable(
     db: &DatabaseConnection,
     user_id: Uuid,
@@ -435,7 +550,7 @@ async fn readable(
 }
 
 async fn is_member(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     team_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
@@ -446,7 +561,7 @@ async fn is_member(
 }
 
 async fn active_role(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     user_id: Uuid,
     hackathon_id: Uuid,
 ) -> Result<Option<HackathonRole>, ApiError> {

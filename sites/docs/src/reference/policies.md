@@ -150,6 +150,36 @@ Sponsors and judges also need an active role in the hackathon. An evaluation row
 
 The [API architecture RFC](https://git.cmu.dev/ScottyLabs/terrier/src/branch/main/rfcs/0011-api-architecture.md) defines management access as the capability for the action rather than every organizer. Listing projects is treated as judging management.
 
+## ProjectSubmitter
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `POST /api/hackathons/{slug}/projects` in `src/projects.rs` |
+| Inputs | `CurrentUser` and the hackathon `slug` path parameter |
+| Hackathon scope | The slug must name an active hackathon |
+| Permission | An active role in the hackathon; an active application with `confirmed` attendance; a valid check-in at an active event in the hackathon; and an active team membership |
+| Output | `Submitter`: the hackathon, the caller's user ID, and their team ID, available as `auth.data` |
+| Rejections | 401 if no current user is present; 404 for an unknown or inactive hackathon; 403 for any other caller |
+| Admin access | No override |
+| Tests | `project_creation_*` tests in `tests/project_writes.rs` |
+
+The check is `submitting_team`. Handlers call it again inside the write transaction, after locking the caller's application and team rows, and then check the submission deadline against server time. A caller whose team changed in between gets 409. The database only allows confirmed attendance on an accepted application and keeps inactive teams empty, so those conditions need no separate query.
+
+## ProjectEditor
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `PATCH /api/hackathons/{slug}/projects/{project_id}` in `src/projects.rs` |
+| Inputs | `CurrentUser`, the hackathon `slug`, and the `project_id` UUID path parameter |
+| Hackathon scope | The slug must name an active hackathon, and the project must belong to it |
+| Permission | [`ProjectSubmitter`](#projectsubmitter), and the caller's team owns the project |
+| Output | `(Submitter, Uuid)`: the submitter and the project ID, available as `auth.data` |
+| Rejections | 400 for a malformed UUID; 401 if no current user is present; 404 for an unknown or inactive hackathon, or a project outside it; 403 for any other caller, including organizers |
+| Admin access | No override; organizer overrides are an open question in RFC 0011 |
+| Tests | `members_*`, `drafts_*`, `only_eligible_members_of_the_owning_team_edit` and `project_edits_validate_scope_and_input` in `tests/project_writes.rs` |
+
 ## Adding an entry
 
 Use the same fields as `OwnProfile`, including required roles and hackathon scope. For combined policies, include branch order and error handling so callers know which rule applies. Keep the entry updated when behavior changes.

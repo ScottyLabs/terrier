@@ -22,7 +22,8 @@ A handler that can fail returns a `Result`, such as `Result<Json<Profile>, ApiEr
 | `Unauthenticated` | 401 / `unauthenticated` | Missing, invalid, or expired authentication |
 | `Forbidden` | 403 / `forbidden` | Caller lacks permission; also CSRF rejection |
 | `NotFound` | 404 / `not_found` | Resource absent within the requested scope |
-| `Conflict(message)` | 409 / `conflict` | Duplicate, stale revision, capacity, or workflow conflict |
+| `Conflict(message)` | 409 / `conflict` | Duplicate, capacity, or workflow conflict |
+| `StaleRevision` | 409 / `stale_revision` | The request's revision no longer matches the resource; the client should reload before retrying |
 | `Validation(fields)` | 422 / `validation_failed` | Valid input shape with invalid field values |
 | `Internal(error)` | 500 / `internal_error` | Unexpected database, provider, or storage failure |
 
