@@ -161,16 +161,17 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn lock_contention_is_bounded_and_does_not_run_the_handler() {
+        async fn unexpected_handler() -> StatusCode {
+            panic!("handler ran without a lock");
+        }
+
         let store = MemoryLocks::default();
         let id = Id::default();
         let key = format!("terrier:session-lock:{id}");
         assert!(store.acquire(&key, "other").await.unwrap());
-        let app = Router::new()
-            .route("/", get(|| async { panic!("handler ran without a lock") }))
-            .layer(middleware::from_fn_with_state(
-                store.clone(),
-                serialize::<MemoryLocks>,
-            ));
+        let app = Router::new().route("/", get(unexpected_handler)).layer(
+            middleware::from_fn_with_state(store.clone(), serialize::<MemoryLocks>),
+        );
         let response = app
             .oneshot(
                 Request::get("/")
