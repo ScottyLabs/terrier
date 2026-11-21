@@ -50,6 +50,17 @@ pub fn application_routes(
         .fallback(|| async { ApiError::NotFound })
 }
 
+/// Resolve a signed-in caller when present without requiring login for released public reads.
+pub fn optional_user_routes(
+    routes: Router<AppState>,
+    state: AppState,
+    client: OidcClient,
+) -> Router<AppState> {
+    routes
+        .layer(middleware::from_fn_with_state(state, resolve_user))
+        .layer(middleware::from_fn_with_state(client, authenticate))
+}
+
 async fn require_user(
     _user: CurrentUser,
     session: Session,

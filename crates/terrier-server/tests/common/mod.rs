@@ -87,10 +87,17 @@ impl TestApp {
             config.clone(),
             client.clone(),
         );
+        let public_results = terrier_server::auth::middleware::optional_user_routes(
+            terrier_server::track_results::public_routes(),
+            state.clone(),
+            client.clone(),
+        );
         let app = oidc::routes(config, client, state.clone())
             .nest(
                 "/api",
-                application.merge(terrier_server::hackathons::public_routes()),
+                application
+                    .merge(terrier_server::hackathons::public_routes())
+                    .merge(public_results),
             )
             .layer(session::layer(MemoryStore::default(), true))
             .layer(middleware::from_fn_with_state(

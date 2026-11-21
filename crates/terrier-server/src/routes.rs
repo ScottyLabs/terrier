@@ -1,7 +1,10 @@
 use axum::Router;
 use utoipa::{OpenApi, openapi};
 
-use crate::{applications, directory, hackathons, organizers, profile, state::AppState};
+use crate::{
+    applications, directory, hackathons, organizers, profile, state::AppState, track_results,
+    tracks,
+};
 
 pub fn routes() -> (Router<AppState>, openapi::OpenApi) {
     [
@@ -13,6 +16,11 @@ pub fn routes() -> (Router<AppState>, openapi::OpenApi) {
         (organizers::routes(), organizers::OrganizerApiDoc::openapi()),
         (directory::routes(), directory::DirectoryApiDoc::openapi()),
         (hackathons::routes(), hackathons::HackathonApiDoc::openapi()),
+        (tracks::routes(), tracks::TracksApiDoc::openapi()),
+        (
+            track_results::routes(),
+            track_results::TrackResultsApiDoc::openapi(),
+        ),
     ]
     .into_iter()
     .fold(

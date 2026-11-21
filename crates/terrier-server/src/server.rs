@@ -6,7 +6,11 @@ use std::{
 
 use anyhow::Context;
 use axum::{Json, Router, routing::get};
-use terrier_server::auth::{config::AuthConfig, middleware::application_routes, oidc, session};
+use terrier_server::auth::{
+    config::AuthConfig,
+    middleware::{application_routes, optional_user_routes},
+    oidc, session,
+};
 use terrier_server::state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -88,10 +92,17 @@ pub async fn run() -> anyhow::Result<()> {
     let metadata_client = client.clone();
     let (routes, application_api) = terrier_server::routes::routes();
     let application = application_routes(routes, state.clone(), config.clone(), client.clone());
+    let public_results = optional_user_routes(
+        terrier_server::track_results::public_routes(),
+        state.clone(),
+        client.clone(),
+    );
     let auth = oidc::routes(config.clone(), client, state.clone())
         .nest(
             "/api",
-            application.merge(terrier_server::hackathons::public_routes()),
+            application
+                .merge(terrier_server::hackathons::public_routes())
+                .merge(public_results),
         )
         .layer(session::layer(sessions, config.secure_cookies()))
         .layer(axum::middleware::from_fn_with_state(

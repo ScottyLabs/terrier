@@ -12,9 +12,9 @@ use uuid::Uuid;
 use super::{config::AuthConfig, current_user::CurrentUser};
 use crate::{
     entities::{
-        application, hackathon, organizer,
+        application, hackathon, organizer, prize_track,
         sea_orm_active_enums::{ApplicationStatus, AttendanceStatus, Capability, HackathonRole},
-        user_hackathon_role,
+        sponsor, user_hackathon_role,
     },
     error::ApiError,
     state::AppState,
@@ -274,6 +274,197 @@ pub(crate) async fn ensure_manager(
         .await?;
     if membership.is_none()
         || !grant.is_some_and(|grant| grant.capabilities.contains(&Capability::HackathonAdmin))
+    {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+pub enum TrackAction {
+    Create,
+    Edit,
+    Deactivate,
+    ReadResults,
+    Publish,
+}
+
+pub struct TrackAccess {
+    pub user: CurrentUser,
+    pub hackathon: hackathon::Model,
+    pub track: Option<prize_track::Model>,
+}
+
+pub struct CreateTrack;
+pub struct EditTrack;
+pub struct PublishTrackResults;
+
+async fn track_access(
+    parts: &mut Parts,
+    state: &AppState,
+    action: TrackAction,
+) -> Result<TrackAccess, ApiError> {
+    let user = CurrentUser::from_request_parts(parts, state).await?;
+    let (slug, track_id) = if matches!(action, TrackAction::Create) {
+        let Path(slug) = Path::<String>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid hackathon path.".into()))?;
+        (slug, None)
+    } else {
+        let Path((slug, track_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiError::BadRequest("Invalid track path.".into()))?;
+        (slug, Some(track_id))
+    };
+    let hackathon = active_hackathon(&state.db, &slug).await?;
+    let track = check_track_action(&state.db, user.user().id, &hackathon, track_id, action).await?;
+    Ok(TrackAccess {
+        user,
+        hackathon,
+        track,
+    })
+}
+
+impl Policy<AppState> for CreateTrack {
+    type Output = TrackAccess;
+    type Error = ApiError;
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        track_access(parts, state, TrackAction::Create).await
+    }
+}
+
+impl Policy<AppState> for EditTrack {
+    type Output = TrackAccess;
+    type Error = ApiError;
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        track_access(parts, state, TrackAction::Edit).await
+    }
+}
+
+impl Policy<AppState> for PublishTrackResults {
+    type Output = TrackAccess;
+    type Error = ApiError;
+    async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
+        track_access(parts, state, TrackAction::Publish).await
+    }
+}
+
+pub async fn check_track_action(
+    db: &impl ConnectionTrait,
+    user_id: Uuid,
+    hackathon: &hackathon::Model,
+    track_id: Option<Uuid>,
+    action: TrackAction,
+) -> Result<Option<prize_track::Model>, ApiError> {
+    let track = if let Some(track_id) = track_id {
+        Some(
+            prize_track::Entity::find_by_id(track_id)
+                .filter(prize_track::Column::HackathonId.eq(hackathon.id))
+                .filter(prize_track::Column::IsActive.eq(true))
+                .one(db)
+                .await?
+                .ok_or(ApiError::NotFound)?,
+        )
+    } else {
+        None
+    };
+    let role = user_hackathon_role::Entity::find_by_id((user_id, hackathon.id))
+        .filter(user_hackathon_role::Column::IsActive.eq(true))
+        .one(db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    let permitted = match role.role {
+        HackathonRole::Organizer => {
+            let grant = organizer::Entity::find_by_id((user_id, hackathon.id))
+                .filter(organizer::Column::IsActive.eq(true))
+                .one(db)
+                .await?
+                .ok_or(ApiError::Forbidden)?;
+            let admin = grant.capabilities.contains(&Capability::HackathonAdmin);
+            let judging = grant.capabilities.contains(&Capability::JudgingManagement);
+            match action {
+                TrackAction::Create | TrackAction::Deactivate => admin,
+                TrackAction::Edit | TrackAction::ReadResults | TrackAction::Publish => {
+                    admin || judging
+                }
+            }
+        }
+        HackathonRole::Sponsor
+            if !matches!(action, TrackAction::Publish | TrackAction::Deactivate) =>
+        {
+            if let Some(track) = &track {
+                if let Some(org_id) = track.sponsor_org_id {
+                    sponsor_for_org(db, user_id, hackathon.id, org_id).await?
+                        && associated_org(hackathon, org_id)?
+                } else {
+                    false
+                }
+            } else {
+                sponsor::Entity::find()
+                    .filter(sponsor::Column::UserId.eq(user_id))
+                    .filter(sponsor::Column::HackathonId.eq(hackathon.id))
+                    .filter(sponsor::Column::IsActive.eq(true))
+                    .one(db)
+                    .await?
+                    .is_some()
+            }
+        }
+        _ => false,
+    };
+    if !permitted {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(track)
+}
+
+fn associated_org(hackathon: &hackathon::Model, org_id: Uuid) -> Result<bool, ApiError> {
+    Ok(hackathon
+        .sponsors
+        .as_object()
+        .ok_or_else(|| {
+            ApiError::Internal(anyhow::anyhow!("Invalid hackathon sponsor associations"))
+        })?
+        .contains_key(&org_id.to_string()))
+}
+
+async fn sponsor_for_org(
+    db: &impl ConnectionTrait,
+    user_id: Uuid,
+    hackathon_id: Uuid,
+    org_id: Uuid,
+) -> Result<bool, ApiError> {
+    Ok(sponsor::Entity::find_by_id((user_id, org_id, hackathon_id))
+        .filter(sponsor::Column::IsActive.eq(true))
+        .one(db)
+        .await?
+        .is_some())
+}
+
+pub async fn check_track_creation_access(
+    db: &impl ConnectionTrait,
+    user_id: Uuid,
+    hackathon_id: Uuid,
+    org_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    let hackathon = hackathon::Entity::find_by_id(hackathon_id)
+        .filter(hackathon::Column::IsActive.eq(true))
+        .one(db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    check_track_action(db, user_id, &hackathon, None, TrackAction::Create).await?;
+    let role = user_hackathon_role::Entity::find_by_id((user_id, hackathon_id))
+        .one(db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    if role.role == HackathonRole::Sponsor {
+        let org_id = org_id.ok_or(ApiError::Forbidden)?;
+        if !sponsor_for_org(db, user_id, hackathon_id, org_id).await?
+            || !associated_org(&hackathon, org_id)?
+        {
+            return Err(ApiError::Forbidden);
+        }
+    } else if let Some(org_id) = org_id
+        && !associated_org(&hackathon, org_id)?
     {
         return Err(ApiError::Forbidden);
     }

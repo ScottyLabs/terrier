@@ -164,6 +164,70 @@ export interface paths {
     patch: operations["update_organizer"];
     trace?: never;
   };
+  "/api/hackathons/{slug}/tracks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["create_track"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/tracks/{track_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations["update_track"];
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/tracks/{track_id}/results": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["read_results"];
+    put?: never;
+    post: operations["publish_results"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/tracks/{track_id}/results/{project_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["read_project_result"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/hackathons/{slug}/users": {
     parameters: {
       query?: never;
@@ -245,6 +309,12 @@ export interface components {
       capabilities: components["schemas"]["OrganizerCapability"][];
       user_id: string;
     };
+    CreateTrackRequest: {
+      description: string;
+      judging_method: components["schemas"]["TrackJudgingMethod"];
+      name: string;
+      sponsor_org_id?: string | null;
+    };
     Directory: {
       users: components["schemas"]["DirectoryEntry"][];
     };
@@ -269,6 +339,19 @@ export interface components {
       /** Format: int32 */
       version: number;
     };
+    InternalEvaluation: {
+      id: string;
+      judge_id: string;
+      result?: unknown;
+      rubric: unknown;
+      status: string;
+    };
+    InternalResults: {
+      projects: components["schemas"]["ProjectResult"][];
+      track_id: string;
+      /** Format: int32 */
+      version: number;
+    };
     /** @enum {string} */
     OrganizerCapability:
       | "application_management"
@@ -280,6 +363,26 @@ export interface components {
       email: string;
       id: string;
     };
+    ProjectResult: {
+      evaluations: components["schemas"]["InternalEvaluation"][];
+      project_id: string;
+    };
+    PublishRequest: {
+      /** Format: date-time */
+      release_at?: string | null;
+      /** Format: int32 */
+      version: number;
+      winners: components["schemas"]["Winner"][];
+    };
+    PublishedResults: {
+      /** Format: date-time */
+      release_at: string;
+      track_id: string;
+      winners: components["schemas"]["Winner"][];
+    };
+    ResultsResponse:
+      | components["schemas"]["InternalResults"]
+      | components["schemas"]["PublishedResults"];
     /** @description An applicant's draft save or submission. */
     SaveApplication: {
       /** @description Answers to the hackathon's application form, as a JSON object. */
@@ -304,6 +407,18 @@ export interface components {
       /** Format: date-time */
       team_formation_deadline: string;
     };
+    /** @enum {string} */
+    TrackJudgingMethod: "scoring" | "expo";
+    TrackResponse: {
+      description: string;
+      id: string;
+      is_active: boolean;
+      judging_method: components["schemas"]["TrackJudgingMethod"];
+      name: string;
+      sponsor_org_id?: string | null;
+      /** Format: int32 */
+      version: number;
+    };
     UpdateHackathon: {
       is_active?: boolean | null;
       settings?: components["schemas"]["Settings"] | null;
@@ -317,10 +432,20 @@ export interface components {
     UpdateProfile: {
       display_name?: string | null;
     };
+    UpdateTrackRequest: {
+      description?: string | null;
+      is_active?: boolean | null;
+      name?: string | null;
+      /** Format: int32 */
+      version: number;
+    };
     UserProfile: {
       display_name: string;
       email: string;
       id: string;
+    };
+    Winner: {
+      project_id: string;
     };
   };
   responses: never;
@@ -969,6 +1094,354 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_track: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateTrackRequest"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TrackResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_track: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+        track_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateTrackRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TrackResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  read_results: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+        track_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Internal evaluations for authorized callers; released winners for public callers */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResultsResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  publish_results: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+        track_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublishRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishedResults"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  read_project_result: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+        track_id: string;
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectResult"];
         };
       };
       401: {

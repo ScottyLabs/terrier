@@ -97,6 +97,41 @@ See `tests/hackathons.rs` for route coverage.
 
 An unauthorized signed-in caller gets 403. Editing an inactive or unknown hackathon returns 404. The update rechecks access under the exclusive hackathon lock.
 
+## CreateTrack
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `POST /api/hackathons/{slug}/tracks` |
+| Permission | Active hackathon admin, or active sponsor representing an associated organization in this hackathon |
+| Output | Caller and active hackathon; the handler checks the requested sponsor organization again under the audited lock |
+| Rejections | 401 without login; 403 for insufficient access or an unassociated organization; 404 for an inactive or missing hackathon |
+| Tests | `tests/tracks.rs`: admin and sponsor creation, malformed input, and scope failures |
+
+## EditTrack
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `PATCH /api/hackathons/{slug}/tracks/{track_id}` |
+| Permission | Active hackathon admin or judging manager, or an active sponsor representing the track's associated organization; only hackathon admins may deactivate |
+| Output | Caller, hackathon, and active track scoped to that hackathon |
+| Rejections | 401 without login; 403 for insufficient access; 404 for a missing or inactive track; 409 for a stale version or locked track |
+| Tests | `tests/tracks.rs`: sponsor edit, stale version, and deactivation permission |
+
+## PublishTrackResults
+
+| Property | Value |
+| -- | -- |
+| Source | `crates/terrier-server/src/auth/policy.rs` |
+| Used by | `POST /api/hackathons/{slug}/tracks/{track_id}/results` |
+| Permission | Active hackathon admin or judging manager; sponsor access does not permit publication |
+| Output | Caller, hackathon, and active track scoped to that hackathon |
+| Rejections | 401 without login; 403 for insufficient access; 404 for a missing track; 409 for a stale version or existing publication |
+| Tests | `tests/tracks.rs`: scheduled publication and public release gate |
+
+The two result reads use `check_track_action` directly. Internal results require hackathon admin, judging management, or active sponsorship of the track's associated organization. Released winners are public only after `release_at` and while publication has not been revoked. The single-project result is always private.
+
 ## Adding an entry
 
 Use the same fields as `OwnProfile`, including required roles and hackathon scope. For combined policies, include branch order and error handling so callers know which rule applies. Keep the entry updated when behavior changes.
