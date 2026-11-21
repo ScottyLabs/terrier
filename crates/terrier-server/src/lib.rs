@@ -2,6 +2,8 @@ pub mod audit;
 pub mod auth;
 pub mod entities;
 pub mod error;
+pub mod judging;
 pub mod profile;
 pub mod routes;
 pub mod state;
+pub mod teams;

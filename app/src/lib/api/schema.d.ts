@@ -68,6 +68,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/hackathons/{slug}/teams": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["list_teams"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/teams/{team_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["get_team_details"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/hackathons/{slug}/tracks/{track_id}/judges/{judge_id}/assignments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["list_judge_assignments"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health": {
     parameters: {
       query?: never;
@@ -104,6 +152,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AssignedProject: {
+      data?: unknown;
+      id: string;
+      snapshot_id?: string | null;
+    };
     AuthStatus: {
       csrf_token?: string | null;
       user?: components["schemas"]["UserProfile"] | null;
@@ -116,10 +169,59 @@ export interface components {
       };
       message: string;
     };
+    JudgeAssignment: {
+      created_at: string;
+      evaluation_id: string;
+      judging_method: string;
+      project: components["schemas"]["AssignedProject"];
+      rubric: unknown;
+      status: string;
+    };
+    JudgeAssignmentsResponse: {
+      assignments: components["schemas"]["JudgeAssignment"][];
+      hackathon_id: string;
+      judge_id: string;
+      track_id: string;
+    };
+    ListTeamsResponse: {
+      /** Format: int64 */
+      page: number;
+      /** Format: int64 */
+      page_size: number;
+      teams: components["schemas"]["TeamSummary"][];
+    };
     Profile: {
       display_name: string;
       email: string;
       id: string;
+    };
+    RestrictedTeamDetails: {
+      latest_submission?: components["schemas"]["SubmittedProject"] | null;
+      members: components["schemas"]["TeamMemberSummary"][];
+    };
+    SubmittedProject: {
+      data: unknown;
+      id: string;
+      submitted_at?: string | null;
+    };
+    TeamDetailsResponse: {
+      description: string;
+      details?: components["schemas"]["RestrictedTeamDetails"] | null;
+      id: string;
+      leader?: components["schemas"]["TeamMemberSummary"] | null;
+      /** Format: int64 */
+      member_count: number;
+      name: string;
+    };
+    TeamMemberSummary: {
+      display_name: string;
+      is_leader: boolean;
+      user_id: string;
+    };
+    TeamSummary: {
+      description: string;
+      id: string;
+      name: string;
     };
     UserProfile: {
       display_name: string;
@@ -261,6 +363,203 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AuthStatus"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_teams: {
+    parameters: {
+      query?: {
+        /** @description Page number starting at 1; defaults to 1 */
+        page?: number;
+        /** @description Only teams below capacity; defaults to false */
+        seeking_members?: boolean;
+      };
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ListTeamsResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_team_details: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+        /** @description Team UUID */
+        team_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TeamDetailsResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_judge_assignments: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Hackathon slug */
+        slug: string;
+        /** @description Track UUID */
+        track_id: string;
+        /** @description Authenticated judge's user UUID */
+        judge_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JudgeAssignmentsResponse"];
+        };
+      };
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       500: {
