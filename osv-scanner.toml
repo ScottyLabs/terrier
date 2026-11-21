@@ -12,3 +12,8 @@ reason = "The advisory affects private-key RSA decryption. OpenID Connect uses R
 id = "RUSTSEC-2026-0459"
 ignoreUntil = 2026-12-07
 reason = "SQLx's SQLite driver is locked but never compiled. sqlx-sqlite 0.9.0 caps libsqlite3-sys below the fixed 0.39.0."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = 2026-12-15
+reason = "RustSec marks Chrono unmaintained and lists no patched release. Terrier uses SeaORM's Chrono timestamp types. Track migration to a maintained timestamp library: https://rustsec.org/advisories/RUSTSEC-2026-0543.html"
