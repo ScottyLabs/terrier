@@ -107,10 +107,7 @@
               };
             };
             customDomain = "api.terrier.scottylabs.org";
-            env = {
-              STATIC_DIR = "${app}";
-              S3_REGION = "us-east-1";
-            };
+            env.STATIC_DIR = "${app}";
           };
 
           sites.docs = {

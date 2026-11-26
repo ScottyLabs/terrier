@@ -16,18 +16,13 @@ pub struct Storage {
 
 impl Storage {
     pub fn from_env() -> anyhow::Result<Self> {
-        let var = |names: &[&str]| {
-            names
-                .iter()
-                .find_map(|name| std::env::var(name).ok())
-                .with_context(|| format!("{} must be set", names.join(" or ")))
-        };
+        let var = |name: &str| std::env::var(name).with_context(|| format!("{name} must be set"));
         Ok(Self::new(
-            &var(&["S3_ENDPOINT"])?,
-            var(&["S3_REGION"])?,
-            var(&["S3_ACCESS_KEY", "AWS_ACCESS_KEY_ID"])?,
-            var(&["S3_SECRET_KEY", "AWS_SECRET_ACCESS_KEY"])?,
-            var(&["S3_BUCKET"])?,
+            &var("S3_ENDPOINT")?,
+            var("S3_REGION")?,
+            var("S3_ACCESS_KEY")?,
+            var("S3_SECRET_KEY")?,
+            var("S3_BUCKET")?,
         ))
     }
 
