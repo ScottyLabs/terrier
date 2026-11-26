@@ -11,7 +11,7 @@
     name: "", description: "", location: "", contact_email: "",
     max_team_size: 4, max_participants: 100,
     application_deadline: "", team_formation_deadline: "", submission_deadline: "",
-    application_schema: {},
+    application_schema: { fields: [] },
   };
 
   const stripPrefix = (fields?: Record<string, string>) =>
