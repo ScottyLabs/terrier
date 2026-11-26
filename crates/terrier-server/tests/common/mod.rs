@@ -38,6 +38,8 @@ pub struct TestApp {
     task: tokio::task::JoinHandle<()>,
     #[allow(dead_code, reason = "only file tests inspect stored objects")]
     pub storage: Arc<storage::FakeS3>,
+    #[allow(dead_code, reason = "only file tests use storage directly")]
+    pub bucket: Storage,
     storage_task: tokio::task::JoinHandle<()>,
     admin: DatabaseConnection,
     schema: String,
@@ -105,20 +107,22 @@ impl TestApp {
                 session::lock::serialize::<locks::MemoryLocks>,
             ))
             .layer(middleware::from_fn(session::error_response))
-            .with_state(state.clone())
-            .layer(Extension(Storage::new(
-                &storage_url,
-                "garage".into(),
-                "test-key".into(),
-                "test-secret".into(),
-                storage::BUCKET.into(),
-            )));
+            .with_state(state.clone());
+        let bucket = Storage::new(
+            &storage_url,
+            "garage".into(),
+            "test-key".into(),
+            "test-secret".into(),
+            storage::BUCKET.into(),
+        );
+        let app = app.layer(Extension(bucket.clone()));
         Ok(Self {
             db: state.db,
             app,
             provider,
             task,
             storage,
+            bucket,
             storage_task,
             admin,
             schema,

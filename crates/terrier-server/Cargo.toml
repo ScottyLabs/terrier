@@ -22,6 +22,7 @@ dotenvy.workspace = true
 fred = { version = "10", features = ["i-scripts", "unix-sockets"] }
 infer = "0.22.0"
 leash = { git = "https://git.cmu.dev/ScottyLabs/leash", branch = "main", version = "0.1.0" }
+lopdf = { version = "0.47.0", default-features = false }
 migration = { version = "0.1.0", path = "migration" }
 openidconnect = { version = "4.1.0", default-features = false, features = [
   "reqwest",

@@ -102,9 +102,10 @@ pub async fn run() -> anyhow::Result<()> {
         ))
         .layer(axum::middleware::from_fn(session::error_response));
 
+    let db = state.db.clone();
     let app = router(assets.as_deref(), auth, application_api)
         .with_state(state)
-        .layer(Extension(storage))
+        .layer(Extension(storage.clone()))
         .layer(TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
             tracing::info_span!("request", method = %request.method(), path = request.uri().path())
         }));
@@ -112,10 +113,14 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::info!("listening on {addr}");
     let listener = TcpListener::bind(&addr).await?;
     let metadata_refresh = tokio::spawn(oidc::refresh_metadata(metadata_client));
+    let upload_cleanup = tokio::spawn(terrier_server::files::remove_unused_uploads_hourly(
+        db, storage,
+    ));
     let result = axum::serve(listener, app)
         .with_graceful_shutdown(terrier_common::shutdown_signal())
         .await;
     metadata_refresh.abort();
+    upload_cleanup.abort();
     result?;
 
     Ok(())

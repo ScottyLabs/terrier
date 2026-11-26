@@ -82,6 +82,18 @@ impl Storage {
         Ok(())
     }
 
+    pub async fn delete(&self, key: &str) -> anyhow::Result<()> {
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|error| anyhow!("{}", DisplayErrorContext(error)))
+            .with_context(|| format!("delete object {key}"))?;
+        Ok(())
+    }
+
     pub async fn get(&self, key: &str) -> anyhow::Result<Bytes> {
         let object = self
             .client
@@ -116,6 +128,9 @@ mod tests {
             .await?;
         assert_eq!(storage.get(&key).await?, "%PDF-1.7 test");
         assert!(storage.get("test/missing").await.is_err());
+        storage.delete(&key).await?;
+        assert!(storage.get(&key).await.is_err());
+        storage.delete(&key).await?;
 
         let largest = axum::body::Bytes::from(vec![b'a'; crate::files::MAX_FILE_BYTES as usize]);
         storage

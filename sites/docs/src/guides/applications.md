@@ -41,15 +41,15 @@ const response = await fetch(
 const file = await response.json();
 ```
 
-The response has the file `id`, `filename`, `content_type`, `size` and `uploaded_at`. Put the `id` in your answers under the same field name, such as `{"resume": file.id}`, and save or submit as usual. To replace a file, upload a new one and save its ID. Earlier files are kept, so a submitted revision always points to the file it was submitted with.
+The response has the file `id`, `filename`, `content_type`, `size` and `uploaded_at`. Put the `id` in your answers under the same field name, such as `{"resume": file.id}`, and save or submit as usual. To replace a file, upload a new one and save its ID. Files used by a submitted revision are kept, so a submitted revision always points to the file it was submitted with. Other files are deleted once they are 24 hours old unless your saved or draft answers use them, so save the ID soon after uploading.
 
-The server checks the file's contents, not its name, against the accepted types. Uploads follow the same deadline and edit rules as saves.
+The server checks the file's contents, not its name, against the accepted types, and rejects PDFs with scripts, forms or password protection. Uploads follow the same deadline and edit rules as saves.
 
 | Status / code | Caller action |
 | -- | -- |
-| 400 / `bad_request` | Send `field` in the query and the file as `multipart/form-data`. |
-| 409 / `conflict` | Save the application first, or show `message`: the deadline passed, or the application was decided or deactivated. |
-| 422 / `validation_failed` | `fields.field`: the hackathon has no such file field. `fields.file`: the file is missing, empty, too large, or not an accepted type. |
+| 400 / `bad_request` | Send `field` in the query and the file as `multipart/form-data`, or retry an upload that took over 2 minutes. |
+| 409 / `conflict` | Save the application first, or show `message`: the deadline passed, the application was decided or deactivated, or it already has 10 files not used by a submission. |
+| 422 / `validation_failed` | `fields.field`: the hackathon has no such file field. `fields.file`: the file is missing, empty, too large, not an accepted type, unreadable, or a PDF with scripts, forms or password protection. |
 
 ## Download files
 

@@ -31,7 +31,10 @@ impl FakeS3 {
         let store = Arc::new(Self::default());
         let router = Router::new()
             .route("/{bucket}", get(head_bucket))
-            .route("/{bucket}/{*key}", get(get_object).put(put_object))
+            .route(
+                "/{bucket}/{*key}",
+                get(get_object).put(put_object).delete(delete_object),
+            )
             .layer(DefaultBodyLimit::disable())
             .with_state(store.clone());
         let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
@@ -86,4 +89,16 @@ async fn get_object(
         }
         None => StatusCode::NOT_FOUND.into_response(),
     }
+}
+
+async fn delete_object(
+    State(store): State<Arc<FakeS3>>,
+    Path((bucket, key)): Path<(String, String)>,
+) -> Response {
+    if let Some(response) = store.unavailable() {
+        return response;
+    }
+    assert_eq!(bucket, BUCKET);
+    store.objects.lock().unwrap().remove(&key);
+    StatusCode::NO_CONTENT.into_response()
 }

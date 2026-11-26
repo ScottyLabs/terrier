@@ -12,10 +12,11 @@ use axum::{
 use common::{TestApp, TestSession};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use serde_json::{Value, json};
-use terrier_server::{audit::Scope, error::ApiError};
+use terrier_server::{audit::Scope, error::ApiError, files::remove_unused_uploads};
 use uuid::Uuid;
 
-const PDF: &[u8] = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n";
+const PDF: &[u8] = b"%PDF-1.4\n1 0 obj <</Type/Catalog/Pages 2 0 R>> endobj\n2 0 obj <</Type/Pages/Kids[]/Count 0>> endobj\ntrailer <</Root 1 0 R>>\n%%EOF\n";
+const SCRIPT_PDF: &[u8] = b"%PDF-1.4\n1 0 obj <</Type/Catalog/Pages 2 0 R/OpenAction<</S/JavaScript/JS(app.alert(1))>>>> endobj\n2 0 obj <</Type/Pages/Kids[]/Count 0>> endobj\ntrailer <</Root 1 0 R>>\n%%EOF\n";
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
 
 async fn fixture(app: &TestApp, scope: Scope, sql: String) -> anyhow::Result<()> {
@@ -147,6 +148,7 @@ async fn applicant_uploads_replaces_and_submits_a_resume() -> anyhow::Result<()>
 
     for (field, filename, contents, error) in [
         ("resume", "photo.pdf", PNG, "file"),
+        ("resume", "script.pdf", SCRIPT_PDF, "file"),
         ("resume", "notes.pdf", b"plain text".as_slice(), "file"),
         ("resume", "empty.pdf", b"".as_slice(), "file"),
         ("portfolio", "resume.pdf", PDF, "field"),
@@ -763,6 +765,122 @@ async fn uploads_stop_at_the_server_size_cap() -> anyhow::Result<()> {
     .await?;
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(app.storage.objects.lock().unwrap().len(), 1);
+
+    app.close().await
+}
+
+async fn age_uploads(app: &TestApp, hackathon_id: Uuid, ids: &[&str]) -> anyhow::Result<()> {
+    let ids = ids
+        .iter()
+        .map(|id| format!("'{id}'"))
+        .collect::<Vec<_>>()
+        .join(",");
+    fixture(
+        app,
+        Scope::Hackathon(hackathon_id),
+        format!(
+            "UPDATE application SET attachments=(SELECT jsonb_agg(CASE WHEN f->>'id' IN ({ids})
+                THEN jsonb_set(f,'{{uploaded_at}}',to_jsonb(clock_timestamp()-interval '2 days'))
+                ELSE f END ORDER BY n) FROM jsonb_array_elements(attachments) WITH ORDINALITY t(f,n))
+                WHERE hackathon_id='{hackathon_id}' AND jsonb_array_length(attachments)>0"
+        ),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
+    let app = TestApp::new().await?;
+    let hacker = app.login("hacker").await?;
+    let hackathon_id = hackathon(&app, "tartanhacks").await?;
+    let application = format!(
+        "/api/hackathons/tartanhacks/applications/{}",
+        hacker.user_id
+    );
+    let (status, _) = json_request(
+        &app,
+        &hacker,
+        Method::PUT,
+        &application,
+        Some(json!({"data": {}})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+
+    let mut ids = Vec::new();
+    for name in ["submitted.pdf", "draft.pdf", "old.pdf", "recent.pdf"] {
+        let (status, body) = upload(
+            &app,
+            &hacker,
+            "tartanhacks",
+            hacker.user_id,
+            "resume",
+            name,
+            PDF,
+        )
+        .await?;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+        ids.push(body["id"].as_str().unwrap().to_owned());
+    }
+    let [submitted, draft, old, recent] = [&ids[0], &ids[1], &ids[2], &ids[3]];
+    for body in [
+        json!({"data": {"resume": submitted}, "submit": true}),
+        json!({"data": {"resume": draft.to_uppercase()}}),
+    ] {
+        let (status, body) =
+            json_request(&app, &hacker, Method::PUT, &application, Some(body)).await?;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+    age_uploads(&app, hackathon_id, &[submitted, draft, old]).await?;
+
+    app.storage.fail.store(true, Ordering::SeqCst);
+    assert_eq!(
+        remove_unused_uploads(&app.db, &app.bucket)
+            .await
+            .map_err(|error| anyhow::anyhow!("{error:?}"))?,
+        0
+    );
+    app.storage.fail.store(false, Ordering::SeqCst);
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 4);
+
+    for expected in [1, 0] {
+        assert_eq!(
+            remove_unused_uploads(&app.db, &app.bucket)
+                .await
+                .map_err(|error| anyhow::anyhow!("{error:?}"))?,
+            expected
+        );
+    }
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 3);
+
+    let (status, body) = json_request(&app, &hacker, Method::GET, &application, None).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        file_ids(&body),
+        [submitted.as_str(), draft.as_str(), recent.as_str()]
+    );
+    let response = download(&app, &hacker, &format!("{application}/files/{old}")).await?;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let response = download(&app, &hacker, &format!("{application}/files/{draft}")).await?;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    for expected in [StatusCode::CREATED; 8]
+        .into_iter()
+        .chain([StatusCode::CONFLICT])
+    {
+        let (status, body) = upload(
+            &app,
+            &hacker,
+            "tartanhacks",
+            hacker.user_id,
+            "resume",
+            "extra.pdf",
+            PDF,
+        )
+        .await?;
+        assert_eq!(status, expected, "{body}");
+    }
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 11);
 
     app.close().await
 }
