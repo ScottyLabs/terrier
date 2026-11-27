@@ -128,6 +128,13 @@
                         >
                             Remove option
                         </button>
+
+                        {#each errors.filter(
+                            (error) => error.fieldIndex === index &&
+                                error.optionIndex === optionIndex
+                        ) as error}
+                            <p>{error.message}</p>
+                        {/each}
                     </div>
                 {/each}
 
@@ -165,23 +172,16 @@
         <button type="button" onclick={() => removeField(field.id)}>
             Remove question
         </button>
+
+        {#each errors.filter(
+            (error) => error.fieldIndex === index &&
+                error.optionIndex === undefined
+        ) as error}
+            <p>{error.message}</p>
+        {/each}
     </fieldset>
 {/each}
 
 <button type="button" onclick={addField}>
     + Add question
 </button>
-
-{#if errors.length > 0}
-    <div>
-        <h3>Validation errors</h3>
-
-        <ul>
-            {#each errors as error}
-                <li>{error}</li>
-            {/each}
-        </ul>
-    </div>
-{:else}
-    <p>Form is valid.</p>
-{/if}
