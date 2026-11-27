@@ -1,4 +1,4 @@
-use std::{cell::Cell, collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, time::Duration};
 
 use anyhow::Context;
 use axum::{
@@ -16,7 +16,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use lopdf::{LoadOptions, Object, ObjectId};
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
     QueryFilter, QuerySelect, prelude::DateTimeWithTimeZone,
@@ -34,6 +33,7 @@ use crate::{
     auth::policy::{Applicant, ApplicationAccess, Auth, OwnApplication, ReadApplicationFile},
     entities::{application, hackathon},
     error::{ApiError, ErrorResponse},
+    pdf,
     state::AppState,
     storage::Storage,
 };
@@ -45,24 +45,6 @@ const ANY_TYPE: &str = "*/*";
 const MAX_UNSUBMITTED_UPLOADS: usize = 10;
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(120);
 static UPLOAD_SLOTS: Semaphore = Semaphore::const_new(8);
-const ACTIVE_PDF_NAMES: [&[u8]; 9] = [
-    b"JS",
-    b"JavaScript",
-    b"Launch",
-    b"SubmitForm",
-    b"ImportData",
-    b"GoToE",
-    b"XFA",
-    b"RichMedia",
-    b"RichMediaExecute",
-];
-
-const ACTIVE_PDF: &str = "Choose a PDF without scripts, forms or password protection.";
-
-thread_local! {
-    static ACTIVE_PDF_OBJECT: Cell<bool> = const { Cell::new(false) };
-}
-
 /// Upload rules for one application file field.
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -452,7 +434,7 @@ async fn upload_file(
     let content_type = detect_type(&rule, &body)?;
     if content_type == "application/pdf" {
         let pdf = body.clone();
-        if let Some(problem) = tokio::task::spawn_blocking(move || pdf_problem(&pdf))
+        if let Some(problem) = tokio::task::spawn_blocking(move || pdf::problem(&pdf))
             .await
             .context("inspect PDF")
             .map_err(ApiError::Internal)?
@@ -645,68 +627,6 @@ fn detect_type(rule: &FileField, body: &[u8]) -> Result<String, ApiError> {
         })
 }
 
-fn pdf_problem(body: &[u8]) -> Option<&'static str> {
-    if pdf_names(body).any(|name| name == b"Encrypt") {
-        return Some(ACTIVE_PDF);
-    }
-    ACTIVE_PDF_OBJECT.set(false);
-    let options = LoadOptions {
-        filter: Some(inspect_pdf_object),
-        max_decompressed_size: Some(4 * 1024 * 1024),
-        ..LoadOptions::default()
-    };
-    if lopdf::Document::load_mem_with_options(body, options).is_err() {
-        return Some("This PDF could not be read. Export it again and upload it.");
-    }
-    ACTIVE_PDF_OBJECT.get().then_some(ACTIVE_PDF)
-}
-
-fn inspect_pdf_object(id: ObjectId, object: &mut Object) -> Option<(ObjectId, Object)> {
-    if has_active_name(object) {
-        ACTIVE_PDF_OBJECT.set(true);
-    }
-    let object_stream = matches!(object, Object::Stream(stream) if stream.dict.has_type(b"ObjStm"));
-    object_stream.then(|| (id, object.clone()))
-}
-
-fn has_active_name(object: &Object) -> bool {
-    let dictionary = match object {
-        Object::Name(name) => return ACTIVE_PDF_NAMES.contains(&name.as_slice()),
-        Object::Array(items) => return items.iter().any(has_active_name),
-        Object::Dictionary(dictionary) => dictionary,
-        Object::Stream(stream) => &stream.dict,
-        _ => return false,
-    };
-    dictionary
-        .iter()
-        .any(|(key, value)| ACTIVE_PDF_NAMES.contains(&key.as_slice()) || has_active_name(value))
-}
-
-fn pdf_names(body: &[u8]) -> impl Iterator<Item = Vec<u8>> + '_ {
-    body.split(|&byte| byte == b'/').skip(1).map(|rest| {
-        let end = rest
-            .iter()
-            .position(|byte| byte.is_ascii_whitespace() || b"/[]<>(){}%".contains(byte))
-            .unwrap_or(rest.len());
-        let mut name = Vec::new();
-        let mut bytes = rest[..end].iter();
-        while let Some(&byte) = bytes.next() {
-            let escaped = (byte == b'#')
-                .then(|| std::str::from_utf8(bytes.as_slice().get(..2)?).ok())
-                .flatten()
-                .and_then(|hex| u8::from_str_radix(hex, 16).ok());
-            match escaped {
-                Some(decoded) => {
-                    name.push(decoded);
-                    bytes.nth(1);
-                }
-                None => name.push(byte),
-            }
-        }
-        name
-    })
-}
-
 fn clean_filename(name: &str) -> String {
     let base = name.rsplit(['/', '\\']).next().unwrap_or_default();
     let clean: String = base.chars().filter(|c| !c.is_control()).take(255).collect();
@@ -732,8 +652,6 @@ fn disposition(filename: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use lopdf::{Dictionary, Document, SaveOptions, dictionary};
-
     use super::*;
 
     fn attachment(id: Uuid, field: &str) -> Attachment {
@@ -825,69 +743,6 @@ mod tests {
         assert_eq!(
             detect_type(&any, b"plain text").unwrap(),
             "application/octet-stream"
-        );
-    }
-
-    const MINIMAL_PDF: &str = "%PDF-1.4\n1 0 obj <</Type/Catalog/Pages 2 0 R{}>> endobj\n2 0 obj <</Type/Pages/Kids[]/Count 0>> endobj\ntrailer <</Root 1 0 R{}>>\n%%EOF\n";
-
-    fn minimal_pdf(catalog: &str, trailer: &str) -> Vec<u8> {
-        MINIMAL_PDF
-            .replacen("{}", catalog, 1)
-            .replacen("{}", trailer, 1)
-            .into_bytes()
-    }
-
-    fn compressed_pdf(open_action: Option<Dictionary>) -> Vec<u8> {
-        let mut document = Document::with_version("1.5");
-        let pages =
-            document.add_object(dictionary! {"Type" => "Pages", "Kids" => vec![], "Count" => 0});
-        let mut catalog = dictionary! {"Type" => "Catalog", "Pages" => pages};
-        if let Some(action) = open_action {
-            catalog.set("OpenAction", action);
-        }
-        let catalog = document.add_object(catalog);
-        document.trailer.set("Root", catalog);
-        let mut body = Vec::new();
-        document
-            .save_with_options(
-                &mut body,
-                SaveOptions::builder()
-                    .use_object_streams(true)
-                    .use_xref_streams(true)
-                    .compression_level(6)
-                    .build(),
-            )
-            .unwrap();
-        body
-    }
-
-    #[test]
-    fn pdfs_with_active_content_are_detected() {
-        assert_eq!(pdf_problem(&minimal_pdf("", "")), None);
-        assert_eq!(pdf_problem(&compressed_pdf(None)), None);
-
-        let script = dictionary! {
-            "S" => "JavaScript",
-            "JS" => Object::string_literal("app.alert(1)"),
-        };
-        let hidden = compressed_pdf(Some(script));
-        assert!(!pdf_names(&hidden).any(|name| name == b"JavaScript"));
-        assert_eq!(pdf_problem(&hidden), Some(ACTIVE_PDF));
-
-        for pdf in [
-            minimal_pdf("/OpenAction<</S/Java#53cript/JS(app.alert(1))>>", ""),
-            minimal_pdf("/OpenAction<</S/Launch/F(run.exe)>>", ""),
-            minimal_pdf("", "/Encr#79pt 3 0 R"),
-        ] {
-            assert_eq!(
-                pdf_problem(&pdf),
-                Some(ACTIVE_PDF),
-                "{}",
-                String::from_utf8_lossy(&pdf)
-            );
-        }
-        assert!(
-            pdf_problem(b"%PDF-1.7\nnot a document").is_some_and(|problem| problem != ACTIVE_PDF)
         );
     }
 

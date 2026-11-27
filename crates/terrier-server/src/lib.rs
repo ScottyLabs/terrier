@@ -6,6 +6,7 @@ pub mod entities;
 pub mod error;
 pub mod files;
 pub mod organizers;
+pub mod pdf;
 
 pub mod hackathons;
 pub mod profile;
