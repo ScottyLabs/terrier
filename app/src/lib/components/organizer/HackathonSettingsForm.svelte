@@ -29,8 +29,10 @@
       if (!v || v.length > 255) e[f] = "Use 1 to 255 characters.";
     }
     if (mode === "create" && !/^[a-z0-9-]+$/.test(slug)) e.slug = "Use lowercase letters, numbers, and hyphens.";
-    if (form.max_team_size <= 0 || form.max_team_size > form.max_participants)
-      e.max_team_size = "Use a positive size that fits within the participant limit.";
+    if (!Number.isInteger(form.max_participants) || form.max_participants <= 0)
+      e.max_participants = "Use a whole number greater than 0.";
+    if (!Number.isInteger(form.max_team_size) || form.max_team_size <= 0 || form.max_team_size > form.max_participants)
+      e.max_team_size = "Use a whole number that fits within the participant limit.";
     const [a, t, s] = [form.application_deadline, form.team_formation_deadline, form.submission_deadline];
     if (!a || !t || !s) e.deadlines = "Set all three deadlines.";
     else if (new Date(a) > new Date(t) || new Date(t) > new Date(s))
@@ -41,17 +43,22 @@
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     errors = validate();
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length > 0) return;
     saving = true;
-    const result = await onSubmit({
-      ...form,
-      application_deadline: fromLocalInput(form.application_deadline),
-      team_formation_deadline: fromLocalInput(form.team_formation_deadline),
-      submission_deadline: fromLocalInput(form.submission_deadline),
-      application_schema: initial.application_schema, // pass through untouched
-    }, slug);
-    saving = false;
-    errors = result ?? {};
+    try {
+      const result = await onSubmit({
+        ...form,
+        application_deadline: fromLocalInput(form.application_deadline),
+        team_formation_deadline: fromLocalInput(form.team_formation_deadline),
+        submission_deadline: fromLocalInput(form.submission_deadline),
+        application_schema: initial.application_schema, // pass through untouched
+      }, slug);
+      errors = result ?? {};
+    } catch {
+      errors = { form: "Couldn't reach the server. Check your connection and try again." };
+    } finally {
+      saving = false;
+    }
   }
 </script>
 
@@ -83,11 +90,11 @@
   <fieldset>
     <legend>Limits</legend>
     <label for="max_team_size">Max team size</label>
-    <input id="max_team_size" type="number" min="1" bind:value={form.max_team_size} />
+    <input id="max_team_size" type="number" min="1" step="1" bind:value={form.max_team_size} />
     {#if errors.max_team_size}<p>{errors.max_team_size}</p>{/if}
 
     <label for="max_participants">Max participants</label>
-    <input id="max_participants" type="number" min="1" bind:value={form.max_participants} />
+    <input id="max_participants" type="number" min="1" step="1" bind:value={form.max_participants} />
     {#if errors.max_participants}<p>{errors.max_participants}</p>{/if}
   </fieldset>
 
@@ -102,5 +109,6 @@
     {#if errors.deadlines || errors.application_deadline}<p>{errors.deadlines ?? errors.application_deadline}</p>{/if}
   </fieldset>
 
+  {#if errors.form}<p role="alert">{errors.form}</p>{/if}
   <button type="submit" disabled={saving}>{saving ? "Saving..." : mode === "create" ? "Create" : "Save"}</button>
 </form>
