@@ -4,7 +4,8 @@
 
   let { children }: { children: Snippet } = $props();
 
-  // Organizer pages always use the ScottyLabs brand.
+  // Organizer pages use the ScottyLabs brand. Colors, fonts, and corner
+  // radius live in src/lib/themes/index.ts; change them there.
   const theme = scottylabsTheme;
 </script>
 
@@ -95,7 +96,8 @@
     cursor: not-allowed;
   }
 
-  .organizer :global(fieldset p) {
+  .organizer :global(fieldset p),
+  .organizer :global([role="alert"]) {
     margin: 0.25rem 0 0;
     color: var(--error);
     font-size: 0.875rem;
