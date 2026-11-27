@@ -39,3 +39,23 @@ On 200, keep the returned version for the next edit. On 409, read the error mess
 To deactivate the hackathon, send `{"version": 1, "is_active": false}` with the current version and CSRF token. Public reads return 404 after deactivation.
 
 See [API errors](../reference/api-errors.md) and [Frontend development](frontend.md) for client integration.
+
+## Organizer screens
+
+| Page | Purpose |
+| -- | -- |
+| `/organizer/hackathons/new` | Create a hackathon. Only global admins can create. |
+| `/organizer/hackathons/[slug]/settings` | Edit name, description, location, contact email, limits, and deadlines. |
+
+Both pages share `HackathonSettingsForm`, which checks the same rules as the server before sending: text fields use 1 to 255 characters, the team size fits within the participant limit, and deadlines are in order. Deadlines are entered and shown in the browser's time zone, which the form displays.
+
+Saving sends every settings field with the `version` the page loaded. The form passes `application_schema` through unchanged so it never overwrites the form editor's work. New hackathons start with `{"fields": []}`.
+
+| Response | What the page does |
+| -- | -- |
+| 200 | Shows "Saved." and reloads the form with the new version. |
+| 409 | Shows the server's message and a Reload button. This covers both a stale version and a team size smaller than an existing team. Reloading discards unsaved edits. |
+| 422 | Shows each field error under its input. |
+| 403 | Shows a permission message. |
+
+Deactivating sends only `version` and `is_active: false`, asks for confirmation first, and returns to the home page. The API cannot reactivate a hackathon, so this cannot be undone from the UI.
