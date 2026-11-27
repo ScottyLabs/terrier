@@ -808,7 +808,13 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
     assert_eq!(status, StatusCode::OK);
 
     let mut ids = Vec::new();
-    for name in ["submitted.pdf", "draft.pdf", "old.pdf", "recent.pdf"] {
+    for name in [
+        "submitted.pdf",
+        "draft.pdf",
+        "old.pdf",
+        "recent.pdf",
+        "stale.pdf",
+    ] {
         let (status, body) = upload(
             &app,
             &hacker,
@@ -822,7 +828,7 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
         assert_eq!(status, StatusCode::CREATED, "{body}");
         ids.push(body["id"].as_str().unwrap().to_owned());
     }
-    let [submitted, draft, old, recent] = [&ids[0], &ids[1], &ids[2], &ids[3]];
+    let [submitted, draft, old, recent, stale] = [&ids[0], &ids[1], &ids[2], &ids[3], &ids[4]];
     for body in [
         json!({"data": {"resume": submitted}, "submit": true}),
         json!({"data": {"resume": draft.to_uppercase()}}),
@@ -833,25 +839,20 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
     }
     age_uploads(&app, hackathon_id, &[submitted, draft, old]).await?;
 
-    app.storage.fail.store(true, Ordering::SeqCst);
-    assert_eq!(
+    let remove = || async {
         remove_unused_uploads(&app.db, &app.bucket)
             .await
-            .map_err(|error| anyhow::anyhow!("{error:?}"))?,
-        0
-    );
+            .map_err(|error| anyhow::anyhow!("{error:?}"))
+    };
+    app.storage.fail.store(true, Ordering::SeqCst);
+    assert_eq!(remove().await?, 1);
     app.storage.fail.store(false, Ordering::SeqCst);
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 4);
+    assert_eq!(remove().await?, 0);
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 5);
 
-    for expected in [1, 0] {
-        assert_eq!(
-            remove_unused_uploads(&app.db, &app.bucket)
-                .await
-                .map_err(|error| anyhow::anyhow!("{error:?}"))?,
-            expected
-        );
-    }
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 3);
+    age_uploads(&app, hackathon_id, &[stale]).await?;
+    assert_eq!(remove().await?, 1);
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 4);
 
     let (status, body) = json_request(&app, &hacker, Method::GET, &application, None).await?;
     assert_eq!(status, StatusCode::OK);
@@ -880,7 +881,7 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
         .await?;
         assert_eq!(status, expected, "{body}");
     }
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 11);
+    assert_eq!(app.storage.objects.lock().unwrap().len(), 12);
 
     app.close().await
 }

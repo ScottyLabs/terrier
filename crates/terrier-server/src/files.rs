@@ -266,8 +266,15 @@ pub async fn remove_unused_uploads(
         let application_id: Uuid = row.try_get("", "id")?;
         let hackathon_id: Uuid = row.try_get("", "hackathon_id")?;
         let cutoff: DateTimeWithTimeZone = row.try_get("", "cutoff")?;
-        match remove_unused_from(db, storage, application_id, hackathon_id, cutoff).await {
-            Ok(count) => removed += count,
+        match remove_unused_from(db, application_id, hackathon_id, cutoff).await {
+            Ok(keys) => {
+                removed += keys.len();
+                for key in keys {
+                    if let Err(error) = storage.delete(&key).await {
+                        tracing::warn!(%key, ?error, "failed to delete unused upload");
+                    }
+                }
+            }
             Err(error) => {
                 tracing::error!(%application_id, ?error, "failed to remove unused uploads");
             }
@@ -278,12 +285,10 @@ pub async fn remove_unused_uploads(
 
 async fn remove_unused_from(
     db: &DatabaseConnection,
-    storage: &Storage,
     application_id: Uuid,
     hackathon_id: Uuid,
     cutoff: DateTimeWithTimeZone,
-) -> Result<usize, ApiError> {
-    let storage = storage.clone();
+) -> Result<Vec<String>, ApiError> {
     audited_automatic!(
         db,
         Scope::Hackathon(hackathon_id),
@@ -294,10 +299,10 @@ async fn remove_unused_from(
                 .one(db)
                 .await?
             else {
-                return Ok(0);
+                return Ok(Vec::new());
             };
             let mut kept = Vec::new();
-            let mut removed = 0;
+            let mut unused = Vec::new();
             for attachment in Attachment::list(&current)? {
                 let uploaded_at = DateTimeWithTimeZone::parse_from_rfc3339(&attachment.uploaded_at)
                     .context("stored upload time is invalid")
@@ -315,21 +320,17 @@ async fn remove_unused_from(
                 {
                     kept.push(attachment);
                 } else {
-                    storage
-                        .delete(&attachment.key)
-                        .await
-                        .map_err(ApiError::Internal)?;
-                    removed += 1;
+                    unused.push(attachment.key);
                 }
             }
-            if removed > 0 {
+            if !unused.is_empty() {
                 let mut application: application::ActiveModel = current.into();
                 application.attachments = Set(serde_json::to_value(&kept)
                     .context("serialize attachments")
                     .map_err(ApiError::Internal)?);
                 application.update(db).await?;
             }
-            Ok(removed)
+            Ok(unused)
         }
     )
     .await
