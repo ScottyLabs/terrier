@@ -30,7 +30,10 @@ use crate::{
     applications::{applications_in, ensure_editable, open_hackathon, statement},
     audit::{Audit, Scope},
     audited, audited_automatic,
-    auth::policy::{Applicant, ApplicationAccess, Auth, OwnApplication, ReadApplicationFile},
+    auth::{
+        policy::{Applicant, ApplicationAccess, Auth, OwnApplication, ReadApplicationFile},
+        session::lock::REQUEST_TIMEOUT,
+    },
     entities::{application, hackathon},
     error::{ApiError, ErrorResponse},
     pdf,
@@ -43,8 +46,9 @@ pub const MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;
 const DEFAULT_MAX_BYTES: u64 = 5 * 1024 * 1024;
 const ANY_TYPE: &str = "*/*";
 const MAX_UNSUBMITTED_UPLOADS: usize = 10;
-const UPLOAD_TIMEOUT: Duration = Duration::from_secs(120);
+const UPLOAD_TIMEOUT: Duration = REQUEST_TIMEOUT.saturating_sub(Duration::from_secs(10));
 static UPLOAD_SLOTS: Semaphore = Semaphore::const_new(8);
+
 /// Upload rules for one application file field.
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -420,15 +424,21 @@ async fn upload_file(
         .await?
         .ok_or_else(no_application)?;
     ensure_upload_room(&current)?;
-    let _slot = UPLOAD_SLOTS
-        .acquire()
-        .await
-        .context("upload slots closed")
-        .map_err(ApiError::Internal)?;
-    let (filename, body) =
-        tokio::time::timeout(UPLOAD_TIMEOUT, read_file(multipart, rule.max_bytes))
+    let (_slot, filename, body) = tokio::time::timeout(UPLOAD_TIMEOUT, async {
+        let slot = UPLOAD_SLOTS
+            .acquire()
             .await
-            .map_err(|_| ApiError::BadRequest("The upload took too long. Try again.".into()))??;
+            .context("upload slots closed")
+            .map_err(ApiError::Internal)?;
+        let (filename, body) = read_file(multipart, rule.max_bytes).await?;
+        Ok::<_, ApiError>((slot, filename, body))
+    })
+    .await
+    .map_err(|_| {
+        ApiError::BadRequest(
+            "The upload took too long. Try a smaller file or a faster connection.".into(),
+        )
+    })??;
     let content_type = detect_type(&rule, &body)?;
     if content_type == "application/pdf" {
         let pdf = body.clone();

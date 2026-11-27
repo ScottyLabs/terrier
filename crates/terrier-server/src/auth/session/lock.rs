@@ -15,7 +15,7 @@ use tower_sessions::{cookie::Cookie, session::Id};
 use crate::error::ApiError;
 
 const LEASE: Duration = Duration::from_secs(60);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const LOCK_WAIT: Duration = Duration::from_secs(5);
 
 pub trait SessionLockStore: Clone + Send + Sync + 'static {

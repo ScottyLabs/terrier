@@ -47,7 +47,7 @@ The server checks the file's contents, not its name, against the accepted types,
 
 | Status / code | Caller action |
 | -- | -- |
-| 400 / `bad_request` | Send `field` in the query and the file as `multipart/form-data`, or retry an upload that took over 2 minutes. |
+| 400 / `bad_request` | Send `field` in the query and the file as `multipart/form-data`, or retry an upload that took over 20 seconds with a smaller file or faster connection. |
 | 409 / `conflict` | Save the application first, or show `message`: the deadline passed, the application was decided or deactivated, or it already has 10 files not used by a submission. |
 | 422 / `validation_failed` | `fields.field`: the hackathon has no such file field. `fields.file`: the file is missing, empty, too large, not an accepted type, unreadable, or a PDF with scripts, forms or password protection. |
 
