@@ -17,8 +17,8 @@ use axum::{
     routing::{get, post},
 };
 use sea_orm::{
-    ColumnTrait, ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
-    QueryFilter, QuerySelect, prelude::DateTimeWithTimeZone,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DatabaseTransaction,
+    EntityTrait, QueryFilter, QuerySelect, Set, prelude::DateTimeWithTimeZone,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -323,14 +323,11 @@ async fn remove_unused_from(
                 }
             }
             if removed > 0 {
-                let kept = serde_json::to_value(&kept)
+                let mut application: application::ActiveModel = current.into();
+                application.attachments = Set(serde_json::to_value(&kept)
                     .context("serialize attachments")
-                    .map_err(ApiError::Internal)?;
-                db.execute_raw(statement(
-                    "UPDATE application SET attachments=$2 WHERE id=$1",
-                    [application_id.into(), kept.into()],
-                ))
-                .await?;
+                    .map_err(ApiError::Internal)?);
+                application.update(db).await?;
             }
             Ok(removed)
         }
