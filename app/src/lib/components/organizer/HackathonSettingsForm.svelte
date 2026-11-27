@@ -28,6 +28,9 @@
       const v = form[f].trim();
       if (!v || v.length > 255) e[f] = "Use 1 to 255 characters.";
     }
+    const email = form.contact_email.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      e.contact_email = "Enter a valid email address, like organizers@example.com.";
     if (mode === "create" && !/^[a-z0-9-]+$/.test(slug)) e.slug = "Use lowercase letters, numbers, and hyphens.";
     if (!Number.isInteger(form.max_participants) || form.max_participants <= 0)
       e.max_participants = "Use a whole number greater than 0.";
@@ -65,47 +68,68 @@
 <form onsubmit={submit} novalidate>
   <fieldset>
     <legend>Basics</legend>
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" bind:value={form.name} />
+      {#if errors.name}<p>{errors.name}</p>{/if}
+    </div>
+
     {#if mode === "create"}
-      <label for="slug">Slug</label>
-      <input id="slug" bind:value={slug} />
-      {#if errors.slug}<p>{errors.slug}</p>{/if}
+      <div class="field">
+        <label for="slug">Slug</label>
+        <input id="slug" bind:value={slug} />
+        {#if errors.slug}<p>{errors.slug}</p>{/if}
+      </div>
     {/if}
-    <label for="name">Name</label>
-    <input id="name" bind:value={form.name} />
-    {#if errors.name}<p>{errors.name}</p>{/if}
 
-    <label for="description">Description ({form.description.length}/255)</label>
-    <textarea id="description" bind:value={form.description} maxlength="255"></textarea>
-    {#if errors.description}<p>{errors.description}</p>{/if}
+    <div class="field wide">
+      <label for="description">Description ({form.description.length}/255)</label>
+      <textarea id="description" bind:value={form.description} maxlength="255"></textarea>
+      {#if errors.description}<p>{errors.description}</p>{/if}
+    </div>
 
-    <label for="location">Location</label>
-    <input id="location" bind:value={form.location} />
-    {#if errors.location}<p>{errors.location}</p>{/if}
+    <div class="field">
+      <label for="location">Location</label>
+      <input id="location" bind:value={form.location} />
+      {#if errors.location}<p>{errors.location}</p>{/if}
+    </div>
 
-    <label for="contact_email">Contact email</label>
-    <input id="contact_email" type="email" bind:value={form.contact_email} />
-    {#if errors.contact_email}<p>{errors.contact_email}</p>{/if}
+    <div class="field">
+      <label for="contact_email">Contact email</label>
+      <input id="contact_email" type="email" bind:value={form.contact_email} />
+      {#if errors.contact_email}<p>{errors.contact_email}</p>{/if}
+    </div>
   </fieldset>
 
   <fieldset>
     <legend>Limits</legend>
-    <label for="max_team_size">Max team size</label>
-    <input id="max_team_size" type="number" min="1" step="1" bind:value={form.max_team_size} />
-    {#if errors.max_team_size}<p>{errors.max_team_size}</p>{/if}
+    <div class="field">
+      <label for="max_team_size">Max team size</label>
+      <input id="max_team_size" type="number" min="1" step="1" bind:value={form.max_team_size} />
+      {#if errors.max_team_size}<p>{errors.max_team_size}</p>{/if}
+    </div>
 
-    <label for="max_participants">Max participants</label>
-    <input id="max_participants" type="number" min="1" step="1" bind:value={form.max_participants} />
-    {#if errors.max_participants}<p>{errors.max_participants}</p>{/if}
+    <div class="field">
+      <label for="max_participants">Max participants</label>
+      <input id="max_participants" type="number" min="1" step="1" bind:value={form.max_participants} />
+      {#if errors.max_participants}<p>{errors.max_participants}</p>{/if}
+    </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="three">
     <legend>Deadlines ({browserTimeZone})</legend>
-    <label for="application_deadline">Applications close</label>
-    <input id="application_deadline" type="datetime-local" bind:value={form.application_deadline} />
-    <label for="team_formation_deadline">Teams lock</label>
-    <input id="team_formation_deadline" type="datetime-local" bind:value={form.team_formation_deadline} />
-    <label for="submission_deadline">Submissions close</label>
-    <input id="submission_deadline" type="datetime-local" bind:value={form.submission_deadline} />
+    <div class="field">
+      <label for="application_deadline">Applications close</label>
+      <input id="application_deadline" type="datetime-local" bind:value={form.application_deadline} />
+    </div>
+    <div class="field">
+      <label for="team_formation_deadline">Teams lock</label>
+      <input id="team_formation_deadline" type="datetime-local" bind:value={form.team_formation_deadline} />
+    </div>
+    <div class="field">
+      <label for="submission_deadline">Submissions close</label>
+      <input id="submission_deadline" type="datetime-local" bind:value={form.submission_deadline} />
+    </div>
     {#if errors.deadlines || errors.application_deadline}<p>{errors.deadlines ?? errors.application_deadline}</p>{/if}
   </fieldset>
 

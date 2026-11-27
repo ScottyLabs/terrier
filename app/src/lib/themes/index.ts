@@ -14,7 +14,9 @@ export const scottylabsTheme: Theme = {
   ],
   vars: {
     "--bg": "#ffffff",
-    "--surface": "#f7f7f7",
+    "--surface": "#ffffff",
+    "--card": "#ededed",
+    "--radius-lg": "32px",
     "--text": "#000000",
     "--text-muted": "#595959",
     "--border": "#e3e3e3",
@@ -23,6 +25,7 @@ export const scottylabsTheme: Theme = {
     "--focus": "#1f4ce0",
     "--error": "#d92626",
     "--radius": "10px",
+    "--brand-gradient": "linear-gradient(90deg, #40d2fc, #1f4ce0, #fb1a32)",
     "--font-body": "Satoshi, system-ui, sans-serif",
     "--font-heading": "Satoshi, system-ui, sans-serif",
     "--font-mono": '"JetBrains Mono", ui-monospace, monospace',
