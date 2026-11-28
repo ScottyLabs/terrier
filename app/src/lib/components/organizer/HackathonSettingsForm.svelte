@@ -68,7 +68,7 @@
 <form onsubmit={submit} novalidate>
   <fieldset>
     <legend>Basics</legend>
-    <div class="field">
+    <div class="field" class:wide={mode === "edit"}>
       <label for="name">Name</label>
       <input id="name" bind:value={form.name} />
       {#if errors.name}<p>{errors.name}</p>{/if}

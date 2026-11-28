@@ -171,6 +171,7 @@
     box-sizing: border-box;
     display: block;
     width: 100%;
+    min-height: 2.75rem;
     margin-top: 0.25rem;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border);
@@ -217,6 +218,89 @@
 
   .organizer :global(#slug) {
     font-family: var(--font-mono);
+  }
+
+  /* Destructive actions: separated and outlined in red. */
+  .organizer :global(.danger-zone) {
+    margin-top: 3rem;
+    padding: 1.5rem 2rem 2rem;
+    border: 1px solid var(--error);
+    border-radius: var(--radius-lg);
+  }
+
+  .organizer :global(.danger-zone h2) {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  .organizer :global(.danger-zone p) {
+    margin: 0 0 1rem;
+    color: var(--text-muted);
+  }
+
+  .organizer :global(button.danger) {
+    border: 1px solid var(--error);
+    background: transparent;
+    color: var(--error);
+  }
+
+  /* Toast: short message pinned to the top of the screen. */
+  .organizer :global(.toast) {
+    position: fixed;
+    top: 1.5rem;
+    left: 50%;
+    z-index: 10;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  }
+
+  .organizer :global(.toast.error) {
+    background: var(--error);
+    color: #ffffff;
+  }
+
+  /* Centered pop-up with a dimmed background. */
+  .organizer :global(dialog.modal) {
+    max-width: 28rem;
+    padding: 2rem;
+    border: none;
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+  }
+
+  .organizer :global(dialog.modal::backdrop) {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  .organizer :global(dialog.modal h2) {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  .organizer :global(dialog.modal p) {
+    margin: 0 0 1.5rem;
+    color: var(--text-muted);
+  }
+
+  .organizer :global(.actions) {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  .organizer :global(button.secondary) {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
   }
 
   /* Phones: one column, smaller dog. */
