@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { afterNavigate, goto, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import { api } from "$lib/api/client";
   import type { components } from "$lib/api/schema";
   import HackathonSettingsForm from "$lib/components/organizer/HackathonSettingsForm.svelte";
   import type { PageProps } from "./$types";
+
   type Settings = components["schemas"]["Settings"];
 
   let { data }: PageProps = $props();
@@ -22,6 +24,14 @@
       toast = null;
     }, 4000);
   }
+
+  // Arriving from the create page: show a confirmation, then tidy the URL.
+  afterNavigate(() => {
+    if (page.url.searchParams.has("created")) {
+      showToast("Hackathon created.", "success");
+      replaceState(page.url.pathname, {});
+    }
+  });
 
   // Centered pop-up when the hackathon changed somewhere else.
   let conflictDialog: HTMLDialogElement | undefined = $state();
