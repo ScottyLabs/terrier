@@ -142,12 +142,12 @@ async fn list_applications(
     filter: Result<Query<ApplicationFilter>, QueryRejection>,
 ) -> Result<Json<ApplicationList>, ApiError> {
     let Query(filter) =
-        filter.map_err(|_| ApiError::BadRequest("Invalid application filter.".into()))?;
+        filter.map_err(|_error| ApiError::BadRequest("Invalid application filter.".into()))?;
     let (hackathon_id, access) = auth.data;
     let mut query = applications_in(hackathon_id, access);
     if let Some(status) = filter.status {
         let status = db_enum::ApplicationStatus::try_from_value(&status)
-            .map_err(|_| ApiError::BadRequest("Unknown application status.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Unknown application status.".into()))?;
         query = query.filter(application::Column::Status.eq(status));
     }
     let applications = query
@@ -200,7 +200,8 @@ async fn save_application(
     audit: Audit,
     input: Result<Json<SaveApplication>, JsonRejection>,
 ) -> Result<Json<Application>, ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
     if !input.data.is_object() {
         return Err(ApiError::Validation(BTreeMap::from([(
             "data".into(),

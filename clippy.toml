@@ -1,0 +1,2 @@
+# Test fixtures commonly unwrap values to stop at the first invalid assumption.
+allow-unwrap-in-tests = true

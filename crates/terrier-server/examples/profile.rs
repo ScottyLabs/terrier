@@ -28,11 +28,11 @@ impl Policy<()> for IsProfileOwner {
         let Extension(user) = Extension::<User>::from_request_parts(parts, state)
             .await
             // `map_err` turns a missing extension into 401; `?` returns that error early.
-            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+            .map_err(|_error| StatusCode::UNAUTHORIZED)?;
         // `Path::<u32>` parses `{user_id}` from the URL as an unsigned integer.
         let Path(user_id) = Path::<u32>::from_request_parts(parts, state)
             .await
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
+            .map_err(|_error| StatusCode::BAD_REQUEST)?;
         if user.id != user_id {
             return Err(StatusCode::FORBIDDEN);
         }

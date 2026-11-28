@@ -91,7 +91,10 @@ mod tests {
         let address = listener.local_addr().unwrap();
         drop(listener);
         let url = format!("redis://{address}");
-        assert!(connect(&url).await.is_err());
+        connect(&url)
+            .await
+            .map(|_| ())
+            .expect_err("disconnected Valkey should reject startup");
         let config = Config::from_url(&url).unwrap();
         let performance = fred::types::config::PerformanceConfig {
             default_command_timeout: Duration::from_millis(100),
@@ -99,7 +102,9 @@ mod tests {
         };
         let pool = Pool::new(config, Some(performance), None, None, 1).unwrap();
         pool.connect();
-        assert!(pool.wait_for_connect().await.is_err());
+        pool.wait_for_connect()
+            .await
+            .expect_err("Valkey is unavailable");
         let app = Router::new()
             .route(
                 "/",

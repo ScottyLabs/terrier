@@ -125,7 +125,7 @@ impl OidcClient {
             .config
             .app_url
             .join("api/auth/callback")
-            .map_err(|_| internal("invalid OIDC callback URL"))?;
+            .map_err(|_error| internal("invalid OIDC callback URL"))?;
         let random = CsrfToken::new_random();
         let state = if self.config.relay_url.is_some() {
             CsrfToken::new(
@@ -134,7 +134,7 @@ impl OidcClient {
                         return_to: callback.as_str(),
                         csrf: random.secret(),
                     })
-                    .map_err(|_| internal("failed to encode relay state"))?,
+                    .map_err(|_error| internal("failed to encode relay state"))?,
                 ),
             )
         } else {
@@ -205,7 +205,7 @@ impl OidcClient {
         let response = provider
             .client
             .exchange_code(AuthorizationCode::new(code.ok_or_else(invalid_callback)?))
-            .map_err(|_| internal("OIDC token endpoint is missing"))?
+            .map_err(|_error| internal("OIDC token endpoint is missing"))?
             .set_pkce_verifier(pending.verifier)
             .request_async(&self.http)
             .await
@@ -222,8 +222,9 @@ impl OidcClient {
             .ok_or_else(|| internal("OIDC ID token is missing"))?;
         let claims = id_token
             .claims(&provider.client.id_token_verifier(), &pending.nonce)
-            .map_err(|_| invalid_callback())?;
-        validate_token_response(&provider.client, &response).map_err(|_| invalid_callback())?;
+            .map_err(|_error| invalid_callback())?;
+        validate_token_response(&provider.client, &response)
+            .map_err(|_error| invalid_callback())?;
         session.cycle_id().await.map_err(session_error)?;
         session
             .insert(
@@ -271,7 +272,7 @@ impl OidcClient {
         let response = match provider
             .client
             .exchange_refresh_token(refresh_token)
-            .map_err(|_| internal("OIDC token endpoint is missing"))?
+            .map_err(|_error| internal("OIDC token endpoint is missing"))?
             .request_async(&self.http)
             .await
         {
@@ -293,7 +294,7 @@ impl OidcClient {
                 &provider.client.id_token_verifier(),
                 |nonce: Option<&Nonce>| verify_refresh_nonce(nonce, &credentials.nonce),
             )
-            .map_err(|_| internal("refreshed OIDC ID token validation failed"))?
+            .map_err(|_error| internal("refreshed OIDC ID token validation failed"))?
             .clone();
         if claims.subject() != &credentials.subject
             || claims.auth_time().map(|time| time.timestamp()) != credentials.auth_time
@@ -301,7 +302,7 @@ impl OidcClient {
             return Err(internal("OIDC refresh changed the authenticated identity"));
         }
         validate_token_response(&provider.client, &response)
-            .map_err(|_| internal("refreshed OIDC access token hash is invalid"))?;
+            .map_err(|_error| internal("refreshed OIDC access token hash is invalid"))?;
         credentials.id_token = id_token.clone();
         if let Some(refresh_token) = response.refresh_token() {
             credentials.refresh_token = Some(refresh_token.clone());
@@ -355,7 +356,7 @@ fn validate_token_response(
     let verifier = provider.id_token_verifier();
     let claims = token
         .claims(&verifier, |_: Option<&Nonce>| Ok(()))
-        .map_err(|_| ())?;
+        .map_err(|_error| ())?;
     if claims
         .authorized_party()
         .is_some_and(|party| party != provider.client_id())
@@ -365,10 +366,10 @@ fn validate_token_response(
     if let Some(expected) = claims.access_token_hash() {
         let actual = AccessTokenHash::from_token(
             response.access_token(),
-            token.signing_alg().map_err(|_| ())?,
-            token.signing_key(&verifier).map_err(|_| ())?,
+            token.signing_alg().map_err(|_error| ())?,
+            token.signing_key(&verifier).map_err(|_error| ())?,
         )
-        .map_err(|_| ())?;
+        .map_err(|_error| ())?;
         if actual != *expected {
             return Err(());
         }

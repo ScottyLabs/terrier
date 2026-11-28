@@ -187,7 +187,8 @@ async fn create(
     audit: Audit,
     input: Result<Json<CreateHackathon>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Hackathon>), ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
     if input.slug.len() > 80
         || input.slug.split('-').any(|segment| {
             segment.is_empty()
@@ -268,7 +269,8 @@ async fn update(
     audit: Audit,
     input: Result<Json<UpdateHackathon>, JsonRejection>,
 ) -> Result<Json<Hackathon>, ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
     if input.is_active == Some(true) || (input.is_active.is_none() && input.settings.is_none()) {
         return Err(ApiError::BadRequest(
             "Send settings or set is_active to false.".into(),

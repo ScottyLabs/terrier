@@ -45,9 +45,9 @@ pub(super) async fn authenticate(
 }
 
 pub async fn refresh_metadata(client: OidcClient) {
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
+    let period = std::time::Duration::from_secs(15 * 60);
+    let mut interval = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    interval.tick().await;
     loop {
         interval.tick().await;
         if let Err(error) = client.rediscover().await {
@@ -79,7 +79,7 @@ struct LoginQuery {
 pub fn local_return_path(path: &str) -> Result<&str, ApiError> {
     let uri: Uri = path
         .parse()
-        .map_err(|_| ApiError::BadRequest("Invalid return path.".into()))?;
+        .map_err(|_error| ApiError::BadRequest("Invalid return path.".into()))?;
     if !path.starts_with('/')
         || path.starts_with("//")
         || path.contains(['\\', '#'])
@@ -106,7 +106,8 @@ async fn finish_login(
     session: Session,
     query: Result<Query<LoginQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<Redirect, ApiError> {
-    let Query(query) = query.map_err(|_| ApiError::BadRequest("Invalid login query.".into()))?;
+    let Query(query) =
+        query.map_err(|_error| ApiError::BadRequest("Invalid login query.".into()))?;
     if let Some(path) = query.return_to {
         local_return_path(&path)?;
         session
@@ -148,7 +149,7 @@ async fn callback(
     uri: Uri,
 ) -> Result<Response, ApiError> {
     let Query(query) = Query::<CallbackQuery>::try_from_uri(&uri)
-        .map_err(|_| ApiError::BadRequest("Invalid OIDC callback.".into()))?;
+        .map_err(|_error| ApiError::BadRequest("Invalid OIDC callback.".into()))?;
     client
         .complete(&session, query.state, query.code, query.error, query.iss)
         .await?;

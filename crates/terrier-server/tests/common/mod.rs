@@ -36,10 +36,8 @@ pub struct TestApp {
     app: Router,
     provider: Arc<provider::Provider>,
     task: tokio::task::JoinHandle<()>,
-    #[allow(dead_code, reason = "only file tests inspect stored objects")]
-    pub storage: Arc<storage::FakeS3>,
-    #[allow(dead_code, reason = "only file tests use storage directly")]
-    pub bucket: Storage,
+    pub _storage: Arc<storage::FakeS3>,
+    pub _bucket: Storage,
     storage_task: tokio::task::JoinHandle<()>,
     admin: DatabaseConnection,
     schema: String,
@@ -121,8 +119,8 @@ impl TestApp {
             app,
             provider,
             task,
-            storage,
-            bucket,
+            _storage: storage,
+            _bucket: bucket,
             storage_task,
             admin,
             schema,

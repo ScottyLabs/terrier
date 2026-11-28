@@ -1,3 +1,9 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    reason = "Cargo compiles this integration test target only as a test"
+)]
+
+#[cfg(test)]
 mod common;
 
 use std::collections::BTreeSet;

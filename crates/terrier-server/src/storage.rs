@@ -122,12 +122,19 @@ mod tests {
             .put(&key, "%PDF-1.7 test".into(), "application/pdf")
             .await?;
         assert_eq!(storage.get(&key).await?, "%PDF-1.7 test");
-        assert!(storage.get("test/missing").await.is_err());
+        storage
+            .get("test/missing")
+            .await
+            .expect_err("missing object");
         storage.delete(&key).await?;
-        assert!(storage.get(&key).await.is_err());
+        storage.get(&key).await.expect_err("deleted object");
         storage.delete(&key).await?;
 
-        let largest = axum::body::Bytes::from(vec![b'a'; crate::files::MAX_FILE_BYTES as usize]);
+        let largest = axum::body::Bytes::from(vec![
+            b'a';
+            usize::try_from(crate::files::MAX_FILE_BYTES)
+                .expect("file cap fits usize")
+        ]);
         storage
             .put(&key, largest.clone(), "application/octet-stream")
             .await?;
@@ -145,7 +152,10 @@ mod tests {
             "wrong-secret".into(),
             std::env::var("S3_BUCKET")?,
         );
-        assert!(storage.check().await.is_err());
+        storage
+            .check()
+            .await
+            .expect_err("storage health check should fail");
         Ok(())
     }
 }

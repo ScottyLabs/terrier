@@ -1,10 +1,18 @@
 mod server;
 
+use anyhow::Context;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::dotenv();
+    if let Err(error) = dotenvy::dotenv()
+        && !error.not_found()
+    {
+        match error {
+            dotenvy::Error::Io(error) => return Err(error).context("read .env"),
+            _ => anyhow::bail!("invalid .env contents"),
+        }
+    }
 
     tracing_subscriber::registry()
         .with(

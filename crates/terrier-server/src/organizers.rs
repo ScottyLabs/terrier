@@ -96,10 +96,11 @@ async fn create_organizer(
     audit: Audit,
     input: Result<Json<CreateOrganizer>, JsonRejection>,
 ) -> Result<StatusCode, ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
 
     let user_id = Uuid::parse_str(&input.user_id)
-        .map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
+        .map_err(|_error| ApiError::BadRequest("Invalid user ID.".into()))?;
 
     let capabilities: Vec<Capability> = input.capabilities.into_iter().map(Into::into).collect();
 
@@ -217,7 +218,8 @@ async fn update_organizer(
     Path((_slug, user_id)): Path<(String, String)>,
     input: Result<Json<UpdateOrganizer>, JsonRejection>,
 ) -> Result<StatusCode, ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
 
     if input.is_active {
         return Err(ApiError::BadRequest(
@@ -225,8 +227,8 @@ async fn update_organizer(
         ));
     }
 
-    let user_id =
-        Uuid::parse_str(&user_id).map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
+    let user_id = Uuid::parse_str(&user_id)
+        .map_err(|_error| ApiError::BadRequest("Invalid user ID.".into()))?;
 
     let hackathon_id = auth.data.id;
     let actor_id = current_user.user().id;

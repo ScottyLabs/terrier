@@ -73,7 +73,8 @@ async fn update_profile(
     audit: Audit,
     input: Result<Json<UpdateProfile>, JsonRejection>,
 ) -> Result<Json<Profile>, ApiError> {
-    let Json(input) = input.map_err(|_| ApiError::BadRequest("Invalid JSON request.".into()))?;
+    let Json(input) =
+        input.map_err(|_error| ApiError::BadRequest("Invalid JSON request.".into()))?;
     let current = auth.data.user();
     let Some(name) = input.display_name else {
         return Ok(Json(current.into()));

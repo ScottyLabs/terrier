@@ -93,7 +93,7 @@ mod tests {
             "https://terrier.example?query=value",
             "https://terrier.example#fragment",
         ] {
-            assert!(endpoint(url, "test URL").is_err(), "{url}");
+            endpoint(url, "test URL").expect_err(url);
         }
         for url in [
             "https://terrier.example",

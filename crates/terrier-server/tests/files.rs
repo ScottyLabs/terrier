@@ -1,3 +1,9 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    reason = "Cargo compiles this integration test target only as a test"
+)]
+
+#[cfg(test)]
 mod common;
 
 use std::sync::atomic::Ordering;
@@ -170,7 +176,7 @@ async fn applicant_uploads_replaces_and_submits_a_resume() -> anyhow::Result<()>
         );
         assert!(body["fields"][error].is_string(), "{body}");
     }
-    assert!(app.storage.objects.lock().unwrap().is_empty());
+    assert!(app._storage.objects.lock().unwrap().is_empty());
 
     let (status, first) = upload(
         &app,
@@ -226,7 +232,7 @@ async fn applicant_uploads_replaces_and_submits_a_resume() -> anyhow::Result<()>
     assert_eq!(body["draft_data"]["resume"], second_id);
     assert_eq!(body["files"][0]["submitted"], true);
     assert_eq!(body["files"][1]["submitted"], false);
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 2);
+    assert_eq!(app._storage.objects.lock().unwrap().len(), 2);
 
     let snapshot: String = app
         .db
@@ -441,7 +447,7 @@ async fn uploads_respect_deadlines_and_storage_failures() -> anyhow::Result<()> 
     )
     .await?;
 
-    app.storage.fail.store(true, Ordering::SeqCst);
+    app._storage.fail.store(true, Ordering::SeqCst);
     let (status, _) = upload(
         &app,
         &hacker,
@@ -453,7 +459,7 @@ async fn uploads_respect_deadlines_and_storage_failures() -> anyhow::Result<()> 
     )
     .await?;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    app.storage.fail.store(false, Ordering::SeqCst);
+    app._storage.fail.store(false, Ordering::SeqCst);
     let (_, body) = json_request(&app, &hacker, Method::GET, &application, None).await?;
     assert!(file_ids(&body).is_empty());
 
@@ -474,7 +480,7 @@ async fn uploads_respect_deadlines_and_storage_failures() -> anyhow::Result<()> 
     )
     .await?;
     assert_eq!(status, StatusCode::CONFLICT);
-    assert!(app.storage.objects.lock().unwrap().is_empty());
+    assert!(app._storage.objects.lock().unwrap().is_empty());
 
     app.close().await
 }
@@ -643,7 +649,7 @@ async fn decided_or_deactivated_applications_reject_uploads() -> anyhow::Result<
         .await?;
         assert_eq!(status, StatusCode::CONFLICT, "{body}");
     }
-    assert!(app.storage.objects.lock().unwrap().is_empty());
+    assert!(app._storage.objects.lock().unwrap().is_empty());
 
     app.close().await
 }
@@ -702,10 +708,10 @@ async fn downloads_stay_in_their_hackathon_and_report_storage_failures() -> anyh
     let response = download(&app, &outsider, &other_path).await?;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    app.storage.fail.store(true, Ordering::SeqCst);
+    app._storage.fail.store(true, Ordering::SeqCst);
     let response = download(&app, &hacker, &path).await?;
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    app.storage.fail.store(false, Ordering::SeqCst);
+    app._storage.fail.store(false, Ordering::SeqCst);
     let response = download(&app, &hacker, &path).await?;
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -747,7 +753,7 @@ async fn uploads_stop_at_the_server_size_cap() -> anyhow::Result<()> {
             hacker.user_id,
             "portfolio",
             "large.bin",
-            &vec![b'a'; size as usize],
+            &vec![b'a'; usize::try_from(size).expect("test size fits usize")],
         )
         .await?;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{size}: {body}");
@@ -760,11 +766,11 @@ async fn uploads_stop_at_the_server_size_cap() -> anyhow::Result<()> {
         hacker.user_id,
         "portfolio",
         "exact.bin",
-        &vec![b'a'; cap as usize],
+        &vec![b'a'; usize::try_from(cap).expect("file cap fits usize")],
     )
     .await?;
     assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 1);
+    assert_eq!(app._storage.objects.lock().unwrap().len(), 1);
 
     app.close().await
 }
@@ -840,19 +846,19 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
     age_uploads(&app, hackathon_id, &[submitted, draft, old]).await?;
 
     let remove = || async {
-        remove_unused_uploads(&app.db, &app.bucket)
+        remove_unused_uploads(&app.db, &app._bucket)
             .await
             .map_err(|error| anyhow::anyhow!("{error:?}"))
     };
-    app.storage.fail.store(true, Ordering::SeqCst);
+    app._storage.fail.store(true, Ordering::SeqCst);
     assert_eq!(remove().await?, 1);
-    app.storage.fail.store(false, Ordering::SeqCst);
+    app._storage.fail.store(false, Ordering::SeqCst);
     assert_eq!(remove().await?, 0);
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 5);
+    assert_eq!(app._storage.objects.lock().unwrap().len(), 5);
 
     age_uploads(&app, hackathon_id, &[stale]).await?;
     assert_eq!(remove().await?, 1);
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 4);
+    assert_eq!(app._storage.objects.lock().unwrap().len(), 4);
 
     let (status, body) = json_request(&app, &hacker, Method::GET, &application, None).await?;
     assert_eq!(status, StatusCode::OK);
@@ -881,7 +887,7 @@ async fn cleanup_removes_only_old_unused_uploads() -> anyhow::Result<()> {
         .await?;
         assert_eq!(status, expected, "{body}");
     }
-    assert_eq!(app.storage.objects.lock().unwrap().len(), 12);
+    assert_eq!(app._storage.objects.lock().unwrap().len(), 12);
 
     app.close().await
 }

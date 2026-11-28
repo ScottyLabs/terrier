@@ -14,7 +14,7 @@ use tower_sessions::{cookie::Cookie, session::Id};
 
 use crate::error::ApiError;
 
-const LEASE: Duration = Duration::from_secs(60);
+const LEASE_SECONDS: i64 = 60;
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const LOCK_WAIT: Duration = Duration::from_secs(5);
 
@@ -33,12 +33,16 @@ impl SessionLockStore for Pool {
             .set(
                 key,
                 owner,
-                Some(Expiration::EX(LEASE.as_secs() as i64)),
+                Some(Expiration::EX(LEASE_SECONDS)),
                 Some(SetOptions::NX),
                 false,
             )
             .await
-            .map_err(|_| internal("failed to acquire session lock"))?;
+            .map_err(|error| {
+                ApiError::Internal(
+                    anyhow::Error::new(error).context("failed to acquire session lock"),
+                )
+            })?;
         Ok(result.is_some())
     }
 
@@ -46,7 +50,7 @@ impl SessionLockStore for Pool {
         let removed: i64 = self.eval(
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
             vec![key], vec![owner],
-        ).await.map_err(|_| internal("failed to release session lock"))?;
+        ).await.map_err(|error| ApiError::Internal(anyhow::Error::new(error).context("failed to release session lock")))?;
         if removed != 1 {
             return Err(internal(
                 "session lock expired before the request completed",
@@ -83,12 +87,12 @@ pub async fn serialize<S: SessionLockStore>(
         Ok::<_, ApiError>(())
     })
     .await
-    .map_err(|_| internal("session is busy; retry the request"))??;
+    .map_err(|_error| internal("session is busy; retry the request"))??;
 
     // The request deadline precedes the lease expiry so another replica cannot load stale credentials while this request is still saving the session.
     let response = tokio::time::timeout(REQUEST_TIMEOUT, next.run(request))
         .await
-        .map_err(|_| internal("session request timed out"));
+        .map_err(|_error| internal("session request timed out"));
     let released = store.release(&key, &owner).await;
     match response {
         Ok(response) => {
@@ -131,12 +135,7 @@ mod tests {
         let store = MemoryLocks::default();
         let id = Id::default();
         let app = Router::new()
-            .route(
-                "/",
-                get(|| async {
-                    tokio::time::sleep(REQUEST_TIMEOUT + Duration::from_secs(1)).await;
-                }),
-            )
+            .route("/", get(std::future::pending::<()>))
             .layer(middleware::from_fn_with_state(
                 store.clone(),
                 serialize::<MemoryLocks>,
@@ -201,11 +200,14 @@ mod tests {
                 .await
                 .unwrap()
         );
-        assert!(second.release(&key, "second").await.is_err());
+        second
+            .release(&key, "second")
+            .await
+            .expect_err("a different owner cannot release the lock");
         first
             .release(&key, "first")
             .await
-            .map_err(|_| anyhow::anyhow!("release failed"))?;
+            .map_err(|error| anyhow::anyhow!("release failed: {error:?}"))?;
         assert!(
             SessionLockStore::acquire(&second, &key, "second")
                 .await
@@ -214,7 +216,7 @@ mod tests {
         second
             .release(&key, "second")
             .await
-            .map_err(|_| anyhow::anyhow!("release failed"))?;
+            .map_err(|error| anyhow::anyhow!("release failed: {error:?}"))?;
         Ok(())
     }
 }

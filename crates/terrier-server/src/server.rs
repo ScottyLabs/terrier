@@ -151,7 +151,7 @@ mod tests {
             fixtures.join("missing"),
             Path::new("").into(),
         ] {
-            assert!(super::static_assets(Some(invalid.into_os_string())).is_err());
+            super::static_assets(Some(invalid.into_os_string())).expect_err("invalid asset path");
         }
     }
 

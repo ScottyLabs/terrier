@@ -348,7 +348,9 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
             "/hackathons/{slug}/applications/{user_id}/files",
-            post(upload_file).layer(DefaultBodyLimit::max(MAX_FILE_BYTES as usize + 64 * 1024)),
+            post(upload_file).layer(DefaultBodyLimit::max(
+                usize::try_from(MAX_FILE_BYTES).expect("file cap fits usize") + 64 * 1024,
+            )),
         )
         .route(
             "/hackathons/{slug}/applications/{user_id}/files/{file_id}",
@@ -365,7 +367,10 @@ struct UploadTarget {
 
 /// A multipart form with one `file` part.
 #[derive(ToSchema)]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "used only to generate the multipart OpenAPI schema"
+)]
 struct Upload {
     #[schema(value_type = String, format = Binary)]
     file: Vec<u8>,
@@ -394,9 +399,10 @@ async fn upload_file(
     target: Result<Query<UploadTarget>, QueryRejection>,
     multipart: Result<Multipart, MultipartRejection>,
 ) -> Result<(StatusCode, Json<FileInfo>), ApiError> {
-    let Query(target) = target.map_err(|_| ApiError::BadRequest("Choose a file field.".into()))?;
+    let Query(target) =
+        target.map_err(|_error| ApiError::BadRequest("Choose a file field.".into()))?;
     let multipart = multipart
-        .map_err(|_| ApiError::BadRequest("Send the file as multipart form data.".into()))?;
+        .map_err(|_error| ApiError::BadRequest("Send the file as multipart form data.".into()))?;
     let Applicant {
         user_id,
         hackathon_id,
@@ -417,6 +423,9 @@ async fn upload_file(
                 "This hackathon does not accept files for this field.",
             )
         })?;
+    let max_bytes = u32::try_from(rule.max_bytes)
+        .context("stored upload limit exceeds u32")
+        .map_err(ApiError::Internal)?;
     let current = application::Entity::find()
         .filter(application::Column::UserId.eq(user_id))
         .filter(application::Column::HackathonId.eq(hackathon_id))
@@ -430,11 +439,11 @@ async fn upload_file(
             .await
             .context("upload slots closed")
             .map_err(ApiError::Internal)?;
-        let (filename, body) = read_file(multipart, rule.max_bytes).await?;
+        let (filename, body) = read_file(multipart, max_bytes).await?;
         Ok::<_, ApiError>((slot, filename, body))
     })
     .await
-    .map_err(|_| {
+    .map_err(|_error| {
         ApiError::BadRequest(
             "The upload took too long. Try a smaller file or a faster connection.".into(),
         )
@@ -570,24 +579,27 @@ fn field_error(field: &str, message: &str) -> ApiError {
     ApiError::Validation(BTreeMap::from([(field.into(), message.into())]))
 }
 
-fn too_large(max_bytes: u64) -> ApiError {
+fn too_large(max_bytes: u32) -> ApiError {
     field_error(
         "file",
         &format!(
             "Choose a file no larger than {:.1} MB.",
-            max_bytes as f64 / 1_048_576.0
+            f64::from(max_bytes) / 1_048_576.0
         ),
     )
 }
 
-fn upload_error(error: MultipartError, max_bytes: u64) -> ApiError {
+fn upload_error(error: MultipartError, max_bytes: u32) -> ApiError {
     if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
         return too_large(max_bytes);
     }
     ApiError::BadRequest("The file upload was incomplete or malformed.".into())
 }
 
-async fn read_file(mut multipart: Multipart, max_bytes: u64) -> Result<(String, Bytes), ApiError> {
+async fn read_file(mut multipart: Multipart, max_bytes: u32) -> Result<(String, Bytes), ApiError> {
+    let max_bytes_usize = usize::try_from(max_bytes)
+        .context("stored upload limit exceeds usize")
+        .map_err(ApiError::Internal)?;
     while let Some(mut part) = multipart
         .next_field()
         .await
@@ -603,7 +615,7 @@ async fn read_file(mut multipart: Multipart, max_bytes: u64) -> Result<(String, 
             .await
             .map_err(|error| upload_error(error, max_bytes))?
         {
-            if (body.len() + chunk.len()) as u64 > max_bytes {
+            if body.len().saturating_add(chunk.len()) > max_bytes_usize {
                 return Err(too_large(max_bytes));
             }
             body.extend_from_slice(&chunk);
@@ -740,8 +752,8 @@ mod tests {
             max_bytes: DEFAULT_MAX_BYTES,
         };
         assert_eq!(detect_type(&rule, pdf).unwrap(), "application/pdf");
-        assert!(detect_type(&rule, png).is_err());
-        assert!(detect_type(&rule, b"plain text").is_err());
+        detect_type(&rule, png).expect_err("PNG is outside the PDF-only rule");
+        detect_type(&rule, b"plain text").expect_err("plain text is outside the PDF-only rule");
 
         let any = FileField {
             types: vec![ANY_TYPE.into()],

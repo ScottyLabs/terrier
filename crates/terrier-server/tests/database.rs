@@ -1,3 +1,8 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    reason = "Cargo compiles this integration test target only as a test"
+)]
+
 use std::collections::BTreeSet;
 
 use anyhow::{Context, ensure};

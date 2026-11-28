@@ -32,7 +32,7 @@ impl Policy<AppState> for OwnProfile {
         let user = CurrentUser::from_request_parts(parts, state).await?;
         let Path(id) = Path::<Uuid>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid user ID.".into()))?;
         if user.user().id != id {
             return Err(ApiError::Forbidden);
         }
@@ -114,7 +114,7 @@ impl Policy<AppState> for OwnApplication {
         let user = CurrentUser::from_request_parts(parts, state).await?;
         let Path((slug, user_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid user ID.".into()))?;
         if user.user().id != user_id {
             return Err(ApiError::Forbidden);
         }
@@ -145,7 +145,7 @@ impl Policy<AppState> for ReadApplication {
     async fn check(parts: &mut Parts, state: &AppState) -> Result<Self::Output, Self::Error> {
         let Path((slug, applicant_id)) = Path::<(String, Uuid)>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid user ID.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid user ID.".into()))?;
         application_target(parts, state, &slug, applicant_id).await
     }
 }
@@ -161,7 +161,7 @@ impl Policy<AppState> for ReadApplicationFile {
         let Path((slug, applicant_id, file_id)) =
             Path::<(String, Uuid, Uuid)>::from_request_parts(parts, state)
                 .await
-                .map_err(|_| ApiError::BadRequest("Invalid user or file ID.".into()))?;
+                .map_err(|_error| ApiError::BadRequest("Invalid user or file ID.".into()))?;
         Ok((
             application_target(parts, state, &slug, applicant_id).await?,
             file_id,
@@ -201,7 +201,7 @@ impl Policy<AppState> for ListApplications {
         let user = CurrentUser::from_request_parts(parts, state).await?;
         let Path(slug) = Path::<String>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid hackathon.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid hackathon.".into()))?;
         let hackathon = active_hackathon(&state.db, &slug).await?;
         let access = organizer_access(&state.db, user.user().id, hackathon.id)
             .await?
@@ -221,7 +221,7 @@ impl Policy<AppState> for BrowseDirectory {
         let user = CurrentUser::from_request_parts(parts, state).await?;
         let Path(slug) = Path::<String>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid hackathon.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid hackathon.".into()))?;
         let hackathon = active_hackathon(&state.db, &slug).await?;
         if organizer_access(&state.db, user.user().id, hackathon.id)
             .await?
@@ -258,7 +258,7 @@ impl Policy<AppState> for ManageOrganizers {
 
         let Path(HackathonPath { slug }) = Path::<HackathonPath>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::BadRequest("Invalid hackathon slug.".into()))?;
+            .map_err(|_error| ApiError::BadRequest("Invalid hackathon slug.".into()))?;
 
         let hackathon = active_hackathon(&state.db, &slug).await?;
         ensure_manager(&state.db, user.user().id, hackathon.id).await?;
@@ -276,7 +276,7 @@ impl Policy<AppState> for InstanceAdmin {
         let user = CurrentUser::from_request_parts(parts, state).await?;
         let Extension(config) = Extension::<Arc<AuthConfig>>::from_request_parts(parts, state)
             .await
-            .map_err(|_| ApiError::Internal(anyhow::anyhow!("Missing auth configuration")))?;
+            .map_err(|_error| ApiError::Internal(anyhow::anyhow!("Missing auth configuration")))?;
         if !config
             .instance_admin_subjects
             .contains(&user.user().oidc_subject)

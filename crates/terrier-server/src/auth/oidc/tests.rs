@@ -227,17 +227,22 @@ async fn provider_metadata_is_refreshed_after_the_cache_interval() {
     let fixture = Fixture::new().await;
     fixture.provider.discovered.notified().await;
     tokio::time::pause();
-    let refresh = tokio::spawn(refresh_metadata(fixture.client.clone()));
-    tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+    let mut refresh = std::pin::pin!(refresh_metadata(fixture.client.clone()));
+    // Poll the refresh loop so its interval starts before advancing time.
+    tokio::select! {
+        biased;
+        () = &mut refresh => panic!("metadata refresh loop exited"),
+        () = std::future::ready(()) => {}
+    }
     tokio::time::advance(std::time::Duration::from_secs(15 * 60)).await;
     tokio::time::resume();
-    tokio::time::timeout(
-        std::time::Duration::from_secs(2),
-        fixture.provider.discovered.notified(),
-    )
-    .await
-    .unwrap();
-    refresh.abort();
+    tokio::select! {
+        () = &mut refresh => panic!("metadata refresh loop exited"),
+        discovery = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            fixture.provider.discovered.notified(),
+        ) => discovery.expect("provider metadata should refresh after one interval"),
+    }
 }
 
 #[test]
@@ -461,7 +466,7 @@ fn rejects_external_and_ambiguous_return_paths() {
         "/#fragment",
         "/\r\nLocation:evil",
     ] {
-        assert!(local_return_path(path).is_err(), "{path:?}");
+        local_return_path(path).expect_err(path);
     }
     assert_eq!(
         local_return_path("/dashboard?tab=profile").unwrap(),
