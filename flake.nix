@@ -2,9 +2,9 @@
   description = "Terrier";
 
   nixConfig = {
-    extra-substituters = [ "https://scottylabs.cachix.org" ];
+    extra-substituters = [ "https://cache.scottylabs.org" ];
     extra-trusted-public-keys = [
-      "scottylabs.cachix.org-1:hajjEX5SLi/Y7yYloiXTt2IOr3towcTGRhMh1vu6Tjg="
+      "deploy-01.scottylabs.org-1:TtFRYjsx76lUXkCDvobNkTFZGOeLZFKTzdKX9oyiCcY="
     ];
   };
 
@@ -66,10 +66,6 @@
                 fd
                 jq
 
-                # OpenSSL for sqlx's native-tls
-                pkg-config
-                openssl
-
                 # Database tooling
                 sea-orm-cli
 
@@ -105,8 +101,6 @@
               src = ./.;
               pname = "terrier-server";
               extraSources = [ "crates/terrier-server/tests/fixtures" ];
-              nativeBuildInputs = [ pkgs.pkg-config ];
-              buildInputs = [ pkgs.openssl ];
               buildArgs = {
                 cargoExtraArgs = "--locked -p terrier-server";
                 meta.mainProgram = "terrier";
@@ -129,8 +123,6 @@
           packages.migrator = helpers.buildRustService {
             src = ./.;
             pname = "migration";
-            nativeBuildInputs = [ pkgs.pkg-config ];
-            buildInputs = [ pkgs.openssl ];
             buildArgs.cargoExtraArgs = "--locked -p migration";
           };
         };

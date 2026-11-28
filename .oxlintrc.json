@@ -1,4 +1,5 @@
 {
+  "extends": ["./.scottylabs/oxlint/oxlintrc.json"],
   "env": {
     "browser": true
   },

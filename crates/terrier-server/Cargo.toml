@@ -24,7 +24,7 @@ openidconnect = { version = "4.1.0", default-features = false, features = [
 ] }
 sea-orm = { version = "2.0.4", default-features = false, features = [
   "macros",
-  "runtime-tokio-native-tls",
+  "runtime-tokio-rustls",
   "sqlx-postgres",
   "with-uuid",
   "with-json",
