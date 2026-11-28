@@ -14,9 +14,9 @@
   const slug = $derived(page.params.slug);
   const base = $derived(`/organizer/hackathons/${slug}`);
   const tabs = $derived([
-    { label: "Overview", href: base, exact: true },
-    { label: "Settings", href: `${base}/settings`, exact: false },
-    { label: "Application form", href: `${base}/form`, exact: false },
+    { label: "Overview", href: `${base}/`, exact: true },
+    { label: "Settings", href: `${base}/settings/`, exact: false },
+    { label: "Application form", href: `${base}/form/`, exact: false },
   ]);
 
   function isActive(href: string, exact: boolean): boolean {

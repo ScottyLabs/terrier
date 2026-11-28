@@ -23,7 +23,7 @@
       body: { slug, settings },
     });
     if (data) {
-      await goto(`/organizer/hackathons/${data.slug}/settings`);
+      await goto(`/organizer/hackathons/${data.slug}/settings/`);
       return null;
     }
     if (response.status === 422) return stripPrefix(err?.fields);

@@ -4,7 +4,7 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 /** @type {import("@sveltejs/kit").Config} */
 export default {
   kit: {
-    adapter: adapter({ assets: "dist", pages: "dist" }),
+    adapter: adapter({ assets: "dist", pages: "dist", fallback: "index.html" }),
   },
   preprocess: vitePreprocess(),
 };
